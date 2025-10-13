@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Main app theme -->
+    <style name="Theme.Seoulhankukobook" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Splash Screen theme - sử dụng SplashScreen API tương thích Android 12+ -->
+    <style name="Theme.Seoulhankukobook.Splash" parent="Theme.SplashScreen">
+        <!-- Màu nền xanh lá cây cho splash screen -->
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <!-- Logo hiển thị giữa màn hình - sử dụng mipmap để tránh nháy -->
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/duolingo_logo_icon</item>
+        <!-- Thời gian hiển thị splash screen (2 giây) -->
+        <item name="windowSplashScreenAnimationDuration">2000</item>
+        <!-- Màu nền cho icon -->
+        <item name="windowSplashScreenIconBackgroundColor">@color/splash_background</item>
+        <!-- Màu cho status bar -->
+        <item name="android:statusBarColor">@color/splash_background</item>
+        <!-- Màu cho navigation bar -->
+        <item name="android:navigationBarColor">@color/splash_background</item>
+        <!-- Full screen -->
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:windowTranslucentStatus">false</item>
+        <item name="android:windowTranslucentNavigation">false</item>
+        <!-- Đảm bảo splash hiển thị ngay lập tức -->
+        <item name="android:windowBackground">@color/splash_background</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowIsTranslucent">false</item>
+        <item name="android:windowDisablePreview">true</item>
+    </style>
+</resources>

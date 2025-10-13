@@ -1,0 +1,137 @@
+<resources>
+    <!-- App Info -->
+    <string name="app_name">Seoul Hankuko Book</string>
+    
+    <!-- Home Screen -->
+    <string name="home_hero_title">🇰🇷\nSeoul\nHankuko\nBook</string>
+    <string name="home_subtitle">Learn, practice, and master Korean with Seoul Hankuko Book.</string>
+    <string name="get_started">Get Started</string>
+    <string name="already_have_account">I already have an account</string>
+    <string name="continue_learning">Continue Learning</string>
+    <string name="sign_out">Sign Out</string>
+    
+    <!-- Splash Screen -->
+    <string name="splash_title">Seoul Hankuko Book</string>
+    <string name="splash_subtitle">Learn Korean with Fun!</string>
+    <string name="duolingo_logo_description">Duolingo Logo</string>
+    
+    <!-- Login Screen -->
+    <string name="welcome_back">Welcome Back!</string>
+    <string name="sign_in_subtitle">Sign in to continue your Korean learning journey</string>
+    <string name="email_label">Email</string>
+    <string name="password_label">Password</string>
+    <string name="sign_in_button">Sign In</string>
+    <string name="demo_credentials">Demo Credentials</string>
+    <string name="demo_credentials_text">Email: demo@example.com\nPassword: password123</string>
+    <string name="validation_empty_fields">Please fill in all fields</string>
+    <string name="login_error">Invalid email or password</string>
+    
+    <!-- Google Sign In -->
+    <string name="or_text">Hoặc</string>
+    
+    <!-- Learn Screen -->
+    <string name="learn_course_title">🎓 Learn Course %d</string>
+    <string name="select_lesson">Select a lesson to start:</string>
+    <string name="lesson_title">Lesson %d</string>
+    <string name="lesson_description">Learn Korean vocabulary and grammar</string>
+    <string name="arrow_right">→</string>
+    
+    <!-- Lesson Screen -->
+    <string name="lesson_header">📖 Lesson %d</string>
+    <string name="quiz_challenge">🎯 Quiz Challenge</string>
+    <string name="sample_question">What does 안녕하세요 mean?</string>
+    <string name="sample_answer_hello">Hello</string>
+    <string name="sample_answer_goodbye">Goodbye</string>
+    <string name="sample_answer_thanks">Thank you</string>
+    <string name="sample_answer_please">Please</string>
+    <string name="next_question">Next Question</string>
+    <string name="progress_question">Progress: Question %d/10</string>
+    
+    <!-- Courses Screen -->
+    <string name="courses_title">📚 Courses</string>
+    <string name="course_title">Course %d</string>
+    <string name="course_description">Korean Language Course %d</string>
+    <string name="click_to_start">Click to start learning!</string>
+    
+    <!-- Shop Screen -->
+    <string name="shop_title">🛒 Shop</string>
+    <string name="your_points">💎 Your Points:</string>
+    <string name="points_amount">1,250</string>
+    <string name="buy_hearts">Buy Hearts:</string>
+    <string name="heart_emoji">❤️ %d</string>
+    <string name="cost">Cost: %d</string>
+    <string name="buy_button">Buy</string>
+    
+    <!-- Quests Screen -->
+    <string name="quests_title">🎯 Quests</string>
+    <string name="daily_quests">📅 Daily Quests</string>
+    <string name="weekly_quests">📆 Weekly Quests</string>
+    <string name="progress">Progress: %s</string>
+    <string name="claim_button">Claim</string>
+    
+    <!-- Daily Quest Names -->
+    <string name="daily_quest_lessons">Complete 5 lessons</string>
+    <string name="daily_quest_xp">Earn 100 XP</string>
+    <string name="daily_quest_practice">Practice for 10 minutes</string>
+    
+    <!-- Weekly Quest Names -->
+    <string name="weekly_quest_lessons">Complete 50 lessons</string>
+    <string name="weekly_quest_streak">Maintain 7-day streak</string>
+    <string name="weekly_quest_xp">Earn 1000 XP</string>
+    
+    <!-- Quest Icons -->
+    <string name="quest_icon_target">🎯</string>
+    <string name="quest_icon_star">⭐</string>
+    <string name="quest_icon_timer">⏰</string>
+    <string name="quest_icon_trophy">🏆</string>
+    <string name="quest_icon_fire">🔥</string>
+    <string name="quest_icon_diamond">💎</string>
+    
+    <!-- Leaderboard Screen -->
+    <string name="leaderboard_title">🏆 Leaderboard</string>
+    <string name="your_rank">Your Rank:</string>
+    <string name="rank_number">#15</string>
+    <string name="top_players">Top Players:</string>
+    
+    <!-- Leaderboard Players -->
+    <string name="player_gold">🥇</string>
+    <string name="player_silver">🥈</string>
+    <string name="player_bronze">🥉</string>
+    <string name="player_4th">4️⃣</string>
+    <string name="player_5th">5️⃣</string>
+    <string name="player_6th">6️⃣</string>
+    <string name="player_7th">7️⃣</string>
+    <string name="player_8th">8️⃣</string>
+    <string name="player_9th">9️⃣</string>
+    <string name="player_10th">🔟</string>
+    
+    <!-- Player Names -->
+    <string name="player_korean_master">KoreanMaster123</string>
+    <string name="player_seoul_learner">SeoulLearner</string>
+    <string name="player_hangul_hero">HangulHero</string>
+    <string name="player_kpop_fan">KPopFan2024</string>
+    <string name="player_bts_army">BTSArmy</string>
+    <string name="player_kimchi_lover">KimchiLover</string>
+    <string name="player_gangnam_style">GangnamStyle</string>
+    <string name="player_kdrama_queen">KdramaQueen</string>
+    <string name="player_korean_foodie">KoreanFoodie</string>
+    <string name="player_seoul_explorer">SeoulExplorer</string>
+    
+    <!-- XP Values -->
+    <string name="xp_2450">2,450 XP</string>
+    <string name="xp_2320">2,320 XP</string>
+    <string name="xp_2180">2,180 XP</string>
+    <string name="xp_2050">2,050 XP</string>
+    <string name="xp_1980">1,980 XP</string>
+    <string name="xp_1920">1,920 XP</string>
+    <string name="xp_1850">1,850 XP</string>
+    <string name="xp_1780">1,780 XP</string>
+    <string name="xp_1720">1,720 XP</string>
+    <string name="xp_1650">1,650 XP</string>
+    
+    <!-- Common -->
+    <string name="back">← Back</string>
+    <string name="loading">Loading</string>
+    <string name="signed_out">SignedOut</string>
+    <string name="signed_in">SignedIn (ID: %s)</string>
+</resources>

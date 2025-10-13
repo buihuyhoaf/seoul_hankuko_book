@@ -1,0 +1,38 @@
+{
+  "project_info": {
+    "project_number": "461063240681",
+    "project_id": "korean-learning-474814",
+    "storage_bucket": "korean-learning-474814.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:461063240681:android:4540fc87d4d0a8593e2978",
+        "android_client_info": {
+          "package_name": "com.seoulhankuko.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "461063240681-n6ffjuabhskh1q0udhotlldol4k7mdga.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.seoulhankuko.app",
+            "certificate_hash": "3227d81a35b7c87c0df72ff345c71e0299ea39a0"
+          }
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDjqsSA_-7UnTnfSvIAB3bWXDPXlmIJ1tQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
