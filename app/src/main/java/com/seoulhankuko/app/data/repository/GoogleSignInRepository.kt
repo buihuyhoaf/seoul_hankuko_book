@@ -1,5 +1,6 @@
 package com.seoulhankuko.app.data.repository
 
+import android.util.Log
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
@@ -35,7 +36,7 @@ class GoogleSignInRepository @Inject constructor(
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
             .requestProfile()
-            .requestIdToken("461063240681-n6ffjuabhskh1q0udhotlldol4k7mdga.apps.googleusercontent.com") // Cần để lấy ID token
+            .requestIdToken("461063240681-81vk4ofnni0lru1vdmnmtvlrbd0k9hpt.apps.googleusercontent.com") // Web client ID đúng
             .build()
         
         return GoogleSignIn.getClient(context, gso)
@@ -66,31 +67,43 @@ class GoogleSignInRepository @Inject constructor(
             
             // Gửi request đến backend để xác minh token
             val request = GoogleSignInRequest(token = idToken)
+            Logger.GoogleSignIn.signInAttempt("Sending request to backend: ${request.token.take(50)}...")
             val response = apiService.signInWithGoogle(request)
             
             if (response.isSuccessful) {
                 val responseBody = response.body()
                 if (responseBody != null) {
-                    // Lưu JWT token từ backend vào local storage
-                    userPreferencesManager.saveUserData(
-                        userId = account.id ?: "",
-                        email = account.email ?: "",
-                        name = account.displayName ?: "",
-                        avatarUrl = account.photoUrl?.toString(),
-                        accessToken = responseBody.token, // JWT token thật từ backend
-                        refreshToken = "", // Backend không trả về refresh token
-                        isPremium = false
-                    )
+                    // Handle both response types (GoogleSignInResponse and Map<String, String>)
+                    val token = when (responseBody) {
+                        is GoogleSignInResponse -> responseBody.token
+                        is Map<*, *> -> responseBody["token"] as? String
+                        else -> null
+                    }
                     
-                    val userInfo = UserInfo(
-                        email = account.email ?: "",
-                        name = account.displayName ?: "",
-                        avatarUrl = account.photoUrl?.toString(),
-                        id = account.id ?: ""
-                    )
-                    
-                    Logger.GoogleSignIn.signInSuccess(userInfo.email)
-                    emit(GoogleSignInResult.Success(userInfo))
+                    if (token != null) {
+                        // Lưu JWT token từ backend vào local storage
+                        userPreferencesManager.saveUserData(
+                            userId = account.id ?: "",
+                            email = account.email ?: "",
+                            name = account.displayName ?: "",
+                            avatarUrl = account.photoUrl?.toString(),
+                            accessToken = token, // JWT token thật từ backend
+                            refreshToken = "", // Backend không trả về refresh token
+                            isPremium = false
+                        )
+                        
+                        val userInfo = UserInfo(
+                            email = account.email ?: "",
+                            name = account.displayName ?: "",
+                            avatarUrl = account.photoUrl?.toString(),
+                            id = account.id ?: ""
+                        )
+                        
+                        Logger.GoogleSignIn.signInSuccess(userInfo.email)
+                        emit(GoogleSignInResult.Success(userInfo))
+                    } else {
+                        emit(GoogleSignInResult.Error("Backend authentication failed: No token in response"))
+                    }
                 } else {
                     emit(GoogleSignInResult.Error("Backend authentication failed: Empty response"))
                 }
