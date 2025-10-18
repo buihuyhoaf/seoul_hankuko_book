@@ -129,6 +129,26 @@ class GoogleSignInRepository @Inject constructor(
      */
     suspend fun signOut(googleSignInClient: GoogleSignInClient) {
         try {
+            // Get current access token before clearing data
+            val currentToken = userPreferencesManager.getCurrentAccessToken()
+            
+            // Call logout API to update backend status before clearing local data
+            currentToken?.let { token ->
+                try {
+                    Logger.GoogleSignIn.logoutApiCallStarted()
+                    val response = apiService.logout("Bearer $token")
+                    
+                    if (response.isSuccessful) {
+                        Logger.GoogleSignIn.logoutApiCallSuccess()
+                    } else {
+                        Logger.GoogleSignIn.logoutApiCallError("API logout failed: ${response.code()}")
+                    }
+                } catch (apiException: Exception) {
+                    Logger.GoogleSignIn.logoutApiCallError("API logout error: ${apiException.message}")
+                    // Continue with local logout even if API call fails
+                }
+            }
+            
             // Sign out from Google
             googleSignInClient.signOut()
             

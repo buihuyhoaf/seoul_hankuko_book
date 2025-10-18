@@ -13,8 +13,8 @@ import androidx.compose.ui.res.stringResource
 import com.seoulhankuko.app.R
 
 @Composable
-fun LearnScreen(
-    courseId: Int,
+fun UnitScreen(
+    unitId: Int,
     onNavigateToLesson: (lessonId: Int) -> Unit,
     onNavigateBack: () -> Unit
 ) {
@@ -33,7 +33,7 @@ fun LearnScreen(
             }
             
             Text(
-                text = stringResource(R.string.learn_course_title, courseId),
+                text = "Unit $unitId",
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold
             )
@@ -44,7 +44,7 @@ fun LearnScreen(
         Spacer(modifier = Modifier.height(32.dp))
         
         Text(
-            text = stringResource(R.string.select_lesson),
+            text = "Select a lesson to start:",
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.padding(bottom = 16.dp)
         )
@@ -52,7 +52,7 @@ fun LearnScreen(
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(listOf(1, 2, 3, 4, 5, 6, 7, 8)) { lessonId ->
+            items(listOf(1, 2, 3, 4, 5, 6)) { lessonId ->
                 Card(
                     onClick = { onNavigateToLesson(lessonId) },
                     modifier = Modifier.fillMaxWidth()
@@ -66,18 +66,24 @@ fun LearnScreen(
                     ) {
                         Column {
                             Text(
-                                text = stringResource(R.string.lesson_title, lessonId),
+                                text = "Lesson $lessonId",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = stringResource(R.string.lesson_description),
+                                text = "Korean Language Lesson $lessonId",
                                 style = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Click to start learning!",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
                             )
                         }
                         
                         Text(
-                            text = stringResource(R.string.arrow_right),
+                            text = "→",
                             style = MaterialTheme.typography.titleLarge,
                             color = MaterialTheme.colorScheme.primary
                         )

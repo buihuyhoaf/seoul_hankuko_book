@@ -5,10 +5,15 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -29,13 +34,18 @@ class MainActivity : ComponentActivity() {
         
         Logger.MainActivity.setContentView()
         
+        // Lấy thông tin đăng nhập từ Intent (từ SplashActivity)
+        val isLoggedInFromSplash = intent.getBooleanExtra("isLoggedIn", false)
+        
         setContent {
             SeoulhankukobookTheme {
                 Surface(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .windowInsetsPadding(WindowInsets.safeDrawing),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    AppNavigationWithAutoLogin()
+                    AppNavigationWithAutoLogin(initialLoginState = isLoggedInFromSplash)
                 }
             }
         }
@@ -48,15 +58,41 @@ class MainActivity : ComponentActivity() {
  */
 @Composable
 fun AppNavigationWithAutoLogin(
+    initialLoginState: Boolean = false,
     viewModel: GoogleSignInViewModel = hiltViewModel()
 ) {
-    val isLoggedIn by viewModel.isLoggedIn.collectAsStateWithLifecycle()
+    val userData by viewModel.userData.collectAsStateWithLifecycle()
     
-    LaunchedEffect(isLoggedIn) {
-        // Logic auto login sẽ được xử lý trong AppNavigation
+    // State để track initial destination
+    var initialDestination by remember { mutableStateOf<String?>(null) }
+    
+    // Effect để xác định initial destination
+    LaunchedEffect(initialLoginState) {
+        if (initialDestination == null) {
+            if (initialLoginState) {
+                // Nếu SplashActivity đã xác nhận user đã đăng nhập, đi thẳng đến courses
+                initialDestination = "courses"
+            } else {
+                // Đợi userData được load hoặc timeout sau 2 giây
+                var attempts = 0
+                while (userData == null && attempts < 40) {
+                    delay(50)
+                    attempts++
+                }
+                
+                initialDestination = if (userData?.isLoggedIn == true && !userData?.accessToken.isNullOrEmpty()) {
+                    "courses"
+                } else {
+                    "home"
+                }
+            }
+        }
     }
     
-    AppNavigation(
-        initialDestination = if (isLoggedIn) "courses" else "home"
-    )
+    // Render AppNavigation khi đã xác định destination
+    initialDestination?.let { destination ->
+        AppNavigation(
+            initialDestination = destination
+        )
+    }
 }

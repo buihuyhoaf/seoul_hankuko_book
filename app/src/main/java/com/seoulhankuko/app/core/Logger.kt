@@ -566,5 +566,17 @@ object Logger {
         fun userDataCleared() {
             Timber.tag(TAG).d("User data cleared from local storage")
         }
+        
+        fun logoutApiCallStarted() {
+            Timber.tag(TAG).d("Calling backend logout API")
+        }
+        
+        fun logoutApiCallSuccess() {
+            Timber.tag(TAG).d("Backend logout API call successful")
+        }
+        
+        fun logoutApiCallError(error: String) {
+            Timber.tag(TAG).e("Backend logout API call failed: $error")
+        }
     }
 }

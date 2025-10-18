@@ -10,6 +10,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -55,12 +58,14 @@ class SplashActivity : ComponentActivity() {
         setContent {
             SeoulhankukobookTheme {
                 Surface(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .windowInsetsPadding(WindowInsets.safeDrawing),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     SplashScreenWithAutoLogin(
-                        onNavigateToMain = {
-                            navigateToMainActivity()
+                        onNavigateToMain = { isLoggedIn ->
+                            navigateToMainActivity(isLoggedIn)
                         }
                     )
                 }
@@ -71,8 +76,9 @@ class SplashActivity : ComponentActivity() {
     /**
      * Điều hướng đến MainActivity
      */
-    private fun navigateToMainActivity() {
+    private fun navigateToMainActivity(isLoggedIn: Boolean) {
         val intent = Intent(this, MainActivity::class.java)
+        intent.putExtra("isLoggedIn", isLoggedIn)
         startActivity(intent)
         finish() // Đóng SplashActivity để không thể quay lại
     }
@@ -84,7 +90,7 @@ class SplashActivity : ComponentActivity() {
  */
 @Composable
 fun SplashScreenWithAutoLogin(
-    onNavigateToMain: () -> Unit,
+    onNavigateToMain: (Boolean) -> Unit,
     viewModel: GoogleSignInViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -128,14 +134,10 @@ fun SplashScreenWithAutoLogin(
         // Đợi animations hoàn thành (1.5 giây)
         delay(1500)
         
-        if (userData?.isLoggedIn == true && !userData?.accessToken.isNullOrEmpty()) {
-            // Người dùng đã đăng nhập và có JWT token, điều hướng trực tiếp đến MainActivity
-            // MainActivity sẽ tự động điều hướng đến CoursesScreen nếu đã đăng nhập
-            onNavigateToMain()
-        } else {
-            // Chưa đăng nhập hoặc không có JWT token, điều hướng đến MainActivity (sẽ hiển thị HomeScreen)
-            onNavigateToMain()
-        }
+        // Kiểm tra trạng thái đăng nhập và truyền thông tin qua Intent
+        val isLoggedIn = userData?.isLoggedIn == true && !userData?.accessToken.isNullOrEmpty()
+        
+        onNavigateToMain(isLoggedIn)
     }
     
     Box(

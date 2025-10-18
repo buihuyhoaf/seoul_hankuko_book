@@ -6,14 +6,19 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.seoulhankuko.app.core.Logger
-import com.seoulhankuko.app.presentation.screens.HomeScreen
+import com.seoulhankuko.app.presentation.screens.FirstScreen
 import com.seoulhankuko.app.presentation.screens.LoginScreen
-import com.seoulhankuko.app.presentation.screens.CoursesScreen
-import com.seoulhankuko.app.presentation.screens.LearnScreen
+import com.seoulhankuko.app.presentation.screens.HomeScreen
+import com.seoulhankuko.app.presentation.screens.CourseScreen
+import com.seoulhankuko.app.presentation.screens.UnitScreen
 import com.seoulhankuko.app.presentation.screens.LessonScreen
+import com.seoulhankuko.app.presentation.screens.QuizScreen
 import com.seoulhankuko.app.presentation.screens.ShopScreen
 import com.seoulhankuko.app.presentation.screens.QuestsScreen
 import com.seoulhankuko.app.presentation.screens.LeaderboardScreen
+import com.seoulhankuko.app.presentation.screens.ChallengeScreen
+import com.seoulhankuko.app.presentation.screens.NotificationScreen
+import com.seoulhankuko.app.presentation.screens.ProfileScreen
 
 @Composable
 fun AppNavigation(
@@ -27,10 +32,10 @@ fun AppNavigation(
         navController = navController,
         startDestination = initialDestination
     ) {
-        // Home/Landing Screen
+        // First/Landing Screen
         composable("home") {
             Logger.Navigation.navigateToHome()
-            HomeScreen(
+            FirstScreen(
                 onNavigateToLogin = { 
                     Logger.Navigation.navigateToLogin()
                     navController.navigate("login") 
@@ -40,9 +45,9 @@ fun AppNavigation(
                     Logger.Navigation.navigateToLogin()
                     navController.navigate("login") 
                 },
-                onNavigateToLearn = { courseId ->
+                onNavigateToLearn = { courseId: Int ->
                     Logger.Navigation.navigateToLearn(courseId)
-                    navController.navigate("learn/$courseId")
+                    navController.navigate("course/$courseId")
                 }
             )
         }
@@ -55,9 +60,9 @@ fun AppNavigation(
                     Logger.Navigation.backFromScreen("Login")
                     navController.popBackStack() 
                 },
-                onNavigateToLearn = { courseId ->
+                onNavigateToLearn = { courseId: Int ->
                     Logger.Navigation.navigateToLearn(courseId)
-                    navController.navigate("learn/$courseId") {
+                    navController.navigate("course/$courseId") {
                         popUpTo("home") { inclusive = false }
                     }
                 }
@@ -65,28 +70,104 @@ fun AppNavigation(
         }
         
         
-        // Courses Screen
+        // Home Screen (formerly Courses)
         composable("courses") {
-            CoursesScreen(
-                onCourseSelected = { courseId ->
-                    navController.navigate("learn/$courseId")
+            HomeScreen(
+                onCourseSelected = { courseId: Int ->
+                    navController.navigate("course/$courseId")
                 },
                 onNavigateBack = { navController.popBackStack() },
                 onLogout = { 
                     navController.navigate("login") {
                         popUpTo("home") { inclusive = false }
                     }
+                },
+                onNavigateToChallenge = {
+                    navController.navigate("challenge")
+                },
+                onNavigateToNotification = {
+                    navController.navigate("notification")
+                },
+                onNavigateToProfile = {
+                    navController.navigate("profile")
                 }
             )
         }
         
-        // Learn Screen
-        composable("learn/{courseId}") { backStackEntry ->
+        // Challenge Screen
+        composable("challenge") {
+            ChallengeScreen(
+                onNavigateToHome = {
+                    navController.navigate("courses")
+                },
+                onNavigateToChallenge = { /* Current screen */ },
+                onNavigateToNotification = {
+                    navController.navigate("notification")
+                },
+                onNavigateToProfile = {
+                    navController.navigate("profile")
+                }
+            )
+        }
+        
+        // Notification Screen
+        composable("notification") {
+            NotificationScreen(
+                onNavigateToHome = {
+                    navController.navigate("courses")
+                },
+                onNavigateToChallenge = {
+                    navController.navigate("challenge")
+                },
+                onNavigateToNotification = { /* Current screen */ },
+                onNavigateToProfile = {
+                    navController.navigate("profile")
+                }
+            )
+        }
+        
+        // Profile Screen
+        composable("profile") {
+            ProfileScreen(
+                onLogout = {
+                    navController.navigate("login") {
+                        popUpTo("home") { inclusive = false }
+                    }
+                },
+                onNavigateToHome = {
+                    navController.navigate("courses")
+                },
+                onNavigateToChallenge = {
+                    navController.navigate("challenge")
+                },
+                onNavigateToNotification = {
+                    navController.navigate("notification")
+                },
+                onNavigateToProfile = { /* Current screen */ }
+            )
+        }
+        
+        // Course Screen
+        composable("course/{courseId}") { backStackEntry ->
             val courseId = backStackEntry.arguments?.getString("courseId")?.toIntOrNull()
             courseId?.let { id ->
-                LearnScreen(
+                CourseScreen(
                     courseId = id,
-                    onNavigateToLesson = { lessonId ->
+                    onNavigateToUnit = { unitId: Int ->
+                        navController.navigate("unit/$unitId")
+                    },
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+        }
+        
+        // Unit Screen
+        composable("unit/{unitId}") { backStackEntry ->
+            val unitId = backStackEntry.arguments?.getString("unitId")?.toIntOrNull()
+            unitId?.let { id ->
+                UnitScreen(
+                    unitId = id,
+                    onNavigateToLesson = { lessonId: Int ->
                         navController.navigate("lesson/$lessonId")
                     },
                     onNavigateBack = { navController.popBackStack() }
@@ -100,6 +181,20 @@ fun AppNavigation(
             lessonId?.let { id ->
                 LessonScreen(
                     lessonId = id,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToQuiz = { quizId: Int ->
+                        navController.navigate("quiz/$quizId")
+                    }
+                )
+            }
+        }
+        
+        // Quiz Screen
+        composable("quiz/{quizId}") { backStackEntry ->
+            val quizId = backStackEntry.arguments?.getString("quizId")?.toIntOrNull()
+            quizId?.let { id ->
+                QuizScreen(
+                    quizId = id,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -145,6 +146,13 @@ class UserPreferencesManager @Inject constructor(
             isLoggedIn = preferences[IS_LOGGED_IN_KEY] ?: false,
             isPremium = preferences[IS_PREMIUM_KEY] ?: false
         )
+    }
+    
+    /**
+     * Get current access token synchronously
+     */
+    suspend fun getCurrentAccessToken(): String? {
+        return context.dataStore.data.first()[ACCESS_TOKEN_KEY]
     }
 }
 

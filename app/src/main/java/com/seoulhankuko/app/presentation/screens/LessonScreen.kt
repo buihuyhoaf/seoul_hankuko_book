@@ -11,12 +11,9 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun LessonScreen(
     lessonId: Int,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToQuiz: (quizId: Int) -> Unit
 ) {
-    var currentQuestion by remember { mutableStateOf(1) }
-    var selectedAnswer by remember { mutableStateOf<String?>(null) }
-    var showResult by remember { mutableStateOf(false) }
-    var isCorrect by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -42,6 +39,7 @@ fun LessonScreen(
         
         Spacer(modifier = Modifier.height(32.dp))
         
+        // Lesson Content
         Card(
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -50,7 +48,7 @@ fun LessonScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "🎯 Quiz Challenge",
+                    text = "📚 Lesson Content",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -58,84 +56,46 @@ fun LessonScreen(
                 Spacer(modifier = Modifier.height(24.dp))
                 
                 Text(
-                    text = "What does 안녕하세요 mean?",
+                    text = "Korean Greetings",
                     style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(bottom = 24.dp)
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                
+                Text(
+                    text = "In this lesson, you will learn basic Korean greetings and how to use them in different situations.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(bottom = 16.dp)
                 )
                 
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    val answers = listOf("Hello", "Goodbye", "Thank you", "Please")
+                    Text(
+                        text = "Key Vocabulary:",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
                     
-                    answers.forEach { answer ->
-                        Button(
-                            onClick = { 
-                                selectedAnswer = answer
-                                isCorrect = answer == "Hello"
-                                showResult = true
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = when {
-                                    showResult && answer == selectedAnswer -> 
-                                        if (isCorrect) MaterialTheme.colorScheme.primary 
-                                        else MaterialTheme.colorScheme.error
-                                    showResult && answer == "Hello" -> 
-                                        MaterialTheme.colorScheme.primary
-                                    else -> MaterialTheme.colorScheme.surface
-                                }
-                            )
-                        ) {
-                            Text(
-                                answer,
-                                color = when {
-                                    showResult && answer == selectedAnswer -> 
-                                        if (isCorrect) MaterialTheme.colorScheme.onPrimary 
-                                        else MaterialTheme.colorScheme.onError
-                                    showResult && answer == "Hello" -> 
-                                        MaterialTheme.colorScheme.onPrimary
-                                    else -> MaterialTheme.colorScheme.onSurface
-                                }
-                            )
-                        }
-                    }
-                    
-                    if (showResult) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        Text(
-                            text = if (isCorrect) "✅ Correct!" else "❌ Wrong! The answer is 'Hello'",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = if (isCorrect) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
-                        )
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        Button(
-                            onClick = { 
-                                currentQuestion++
-                                selectedAnswer = null
-                                showResult = false
-                                isCorrect = false
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Next Question")
-                        }
-                    }
+                    Text("• 안녕하세요 (annyeonghaseyo) - Hello")
+                    Text("• 안녕히 가세요 (annyeonghi gaseyo) - Goodbye (when someone is leaving)")
+                    Text("• 감사합니다 (gamsahamnida) - Thank you")
+                    Text("• 죄송합니다 (joesonghamnida) - Sorry")
+                }
+                
+                Spacer(modifier = Modifier.height(32.dp))
+                
+                Button(
+                    onClick = { onNavigateToQuiz(lessonId) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Start Quiz →",
+                        style = MaterialTheme.typography.titleMedium
+                    )
                 }
             }
         }
-        
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        Text(
-            text = "Progress: Question $currentQuestion/10",
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        )
     }
 }
