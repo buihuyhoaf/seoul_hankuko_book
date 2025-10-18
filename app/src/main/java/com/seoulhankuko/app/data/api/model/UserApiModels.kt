@@ -73,22 +73,21 @@ data class UserTierUpdateRequest(
 // User read response
 data class UserReadResponse(
     val id: Int,
-    val name: String,
     val username: String,
     val email: String,
-    @SerializedName("profile_image_url")
-    val profileImageUrl: String,
-    val uuid: String,
+    val picture: String?,
+    val role: String,
+    val exp: Int,
+    @SerializedName("streak_days")
+    val streakDays: Int,
     @SerializedName("created_at")
-    val createdAt: Date,
-    @SerializedName("updated_at")
-    val updatedAt: Date?,
-    @SerializedName("deleted_at")
-    val deletedAt: Date?,
-    @SerializedName("is_deleted")
-    val isDeleted: Boolean,
-    @SerializedName("is_superuser")
-    val isSuperuser: Boolean,
+    val createdAt: String, // Changed to String to match backend timestamp format
     @SerializedName("tier_id")
-    val tierId: Int?
+    val tierId: Int?,
+    @SerializedName("has_completed_entry_test")
+    val hasCompletedEntryTest: Boolean,
+    @SerializedName("current_course_id")
+    val currentCourseId: Int?,
+    @SerializedName("entry_test_score")
+    val entryTestScore: Int?
 )

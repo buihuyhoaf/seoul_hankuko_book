@@ -19,6 +19,8 @@ import com.seoulhankuko.app.presentation.screens.LeaderboardScreen
 import com.seoulhankuko.app.presentation.screens.ChallengeScreen
 import com.seoulhankuko.app.presentation.screens.NotificationScreen
 import com.seoulhankuko.app.presentation.screens.ProfileScreen
+import com.seoulhankuko.app.presentation.screens.EntryTestScreen
+import com.seoulhankuko.app.presentation.screens.EntryTestResultScreen
 
 @Composable
 fun AppNavigation(
@@ -48,6 +50,10 @@ fun AppNavigation(
                 onNavigateToLearn = { courseId: Int ->
                     Logger.Navigation.navigateToLearn(courseId)
                     navController.navigate("course/$courseId")
+                },
+                onNavigateToEntryTest = {
+                    // Flow A: New user - navigate to entry test
+                    navController.navigate("entry-test")
                 }
             )
         }
@@ -62,7 +68,7 @@ fun AppNavigation(
                 },
                 onNavigateToLearn = { courseId: Int ->
                     Logger.Navigation.navigateToLearn(courseId)
-                    navController.navigate("course/$courseId") {
+                    navController.navigate("courses") {
                         popUpTo("home") { inclusive = false }
                     }
                 }
@@ -90,6 +96,10 @@ fun AppNavigation(
                 },
                 onNavigateToProfile = {
                     navController.navigate("profile")
+                },
+                onNavigateToEntryTest = {
+                    // Flow B: Navigate to entry test when user clicks "Start Entry Test" in popup
+                    navController.navigate("entry-test")
                 }
             )
         }
@@ -218,6 +228,46 @@ fun AppNavigation(
         composable("leaderboard") {
             LeaderboardScreen(
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        
+        // Entry Test Screen
+        composable("entry-test") {
+            EntryTestScreen(
+                onNavigateToResult = { score, courseId, courseName ->
+                    // Store data in current back stack entry and navigate
+                    navController.currentBackStackEntry?.savedStateHandle?.set("entryTestScore", score)
+                    navController.currentBackStackEntry?.savedStateHandle?.set("entryTestCourseId", courseId)
+                    navController.currentBackStackEntry?.savedStateHandle?.set("entryTestCourseName", courseName)
+                    navController.navigate("entry-test-result")
+                },
+                onNavigateToLogin = {
+                    // Navigate to login screen
+                    navController.navigate("login") {
+                        popUpTo("home") { inclusive = false }
+                    }
+                },
+                onNavigateBack = { navController.popBackStack() },
+                allowOfflineMode = true // Allow offline entry test
+            )
+        }
+        
+        // Entry Test Result Screen
+        composable("entry-test-result") { backStackEntry ->
+            // Get data from saved state handle, fallback to defaults if not found
+            val score = backStackEntry.savedStateHandle.get<Float>("entryTestScore") ?: 0f
+            val courseId = backStackEntry.savedStateHandle.get<Int>("entryTestCourseId") ?: 1
+            val courseName = backStackEntry.savedStateHandle.get<String>("entryTestCourseName") ?: "Course"
+            
+            EntryTestResultScreen(
+                score = score,
+                courseId = courseId,
+                courseName = courseName,
+                onContinue = {
+                    navController.navigate("courses") {
+                        popUpTo("home") { inclusive = false }
+                    }
+                }
             )
         }
     }

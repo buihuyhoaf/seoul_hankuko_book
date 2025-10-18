@@ -23,7 +23,8 @@ import javax.inject.Singleton
 @Singleton
 class GoogleSignInRepository @Inject constructor(
     private val apiService: ApiService,
-    private val userPreferencesManager: UserPreferencesManager
+    private val userPreferencesManager: UserPreferencesManager,
+    private val entryTestRepository: EntryTestRepository
 ) {
     
     /**
@@ -91,6 +92,35 @@ class GoogleSignInRepository @Inject constructor(
                             refreshToken = "", // Backend không trả về refresh token
                             isPremium = false
                         )
+                        
+                        // Sync user data from backend including entry test status
+                        try {
+                            val userResponse = apiService.getCurrentUser("Bearer $token")
+                            if (userResponse.isSuccessful && userResponse.body() != null) {
+                                val userData = userResponse.body()!!
+                                userPreferencesManager.saveEntryTestResult(
+                                    hasCompletedEntryTest = userData.hasCompletedEntryTest,
+                                    currentCourseId = userData.currentCourseId,
+                                    currentCourseName = null, // Will be fetched separately if needed
+                                    entryTestScore = userData.entryTestScore
+                                )
+                                Logger.GoogleSignIn.signInSuccess("User data synced from backend")
+                            }
+                        } catch (e: Exception) {
+                            Logger.GoogleSignIn.signInError("Failed to sync user data: ${e.message}")
+                            // Continue with login even if sync fails
+                        }
+                        
+                        // Sync offline entry test result if any
+                        try {
+                            val syncSuccess = entryTestRepository.syncOfflineEntryTestToServer()
+                            if (syncSuccess) {
+                                Logger.GoogleSignIn.signInSuccess("Offline entry test synced to server")
+                            }
+                        } catch (e: Exception) {
+                            Logger.GoogleSignIn.signInError("Failed to sync offline entry test: ${e.message}")
+                            // Continue with login even if sync fails
+                        }
                         
                         val userInfo = UserInfo(
                             email = account.email ?: "",

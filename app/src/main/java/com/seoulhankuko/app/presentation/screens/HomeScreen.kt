@@ -16,9 +16,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import com.seoulhankuko.app.presentation.viewmodel.GoogleSignInViewModel
+import com.seoulhankuko.app.presentation.viewmodel.EntryTestFlowViewModel
 import com.seoulhankuko.app.presentation.components.BottomNavigationBar
 import com.seoulhankuko.app.presentation.components.BottomNavigationRoute
+import com.seoulhankuko.app.presentation.components.EntryTestReminderDialog
 
 @Composable
 fun HomeScreen(
@@ -28,9 +34,30 @@ fun HomeScreen(
     onNavigateToChallenge: () -> Unit = {},
     onNavigateToNotification: () -> Unit = {},
     onNavigateToProfile: () -> Unit = {},
-    viewModel: GoogleSignInViewModel = hiltViewModel()
+    onNavigateToEntryTest: () -> Unit = {}, // New callback for entry test navigation
+    viewModel: GoogleSignInViewModel = hiltViewModel(),
+    entryTestFlowViewModel: EntryTestFlowViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+    val userData by viewModel.userData.collectAsStateWithLifecycle()
+    val coroutineScope = rememberCoroutineScope()
+    
+    // State for entry test reminder popup
+    var showEntryTestReminder by remember { mutableStateOf(false) }
+    
+    // Check if user is logged in and should show entry test popup
+    // Use Unit as key to ensure this runs every time the screen is composed
+    LaunchedEffect(Unit) {
+        val isLoggedIn = userData?.isLoggedIn == true && !userData?.accessToken.isNullOrEmpty()
+        if (isLoggedIn) {
+            // Add a small delay to ensure MainActivity's reset logic has completed
+            delay(500)
+            val shouldShowPopup = entryTestFlowViewModel.shouldShowEntryTestPopup()
+            showEntryTestReminder = shouldShowPopup
+        } else {
+            showEntryTestReminder = false
+        }
+    }
     
     Column(
         modifier = Modifier
@@ -117,4 +144,19 @@ fun HomeScreen(
             onNavigateToProfile = onNavigateToProfile
         )
     }
+    
+    // Entry Test Reminder Dialog
+    EntryTestReminderDialog(
+        show = showEntryTestReminder,
+        onStartEntryTest = {
+            showEntryTestReminder = false
+            onNavigateToEntryTest()
+        },
+        onCancel = {
+            showEntryTestReminder = false
+            coroutineScope.launch {
+                entryTestFlowViewModel.dismissEntryTestPopup()
+            }
+        }
+    )
 }

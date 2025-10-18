@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -33,6 +34,22 @@ class UserPreferencesManager @Inject constructor(
         private val REFRESH_TOKEN_KEY = stringPreferencesKey("refresh_token")
         private val IS_LOGGED_IN_KEY = booleanPreferencesKey("is_logged_in")
         private val IS_PREMIUM_KEY = booleanPreferencesKey("is_premium")
+        
+        // Entry test related keys
+        private val HAS_COMPLETED_ENTRY_TEST_KEY = booleanPreferencesKey("has_completed_entry_test")
+        private val CURRENT_COURSE_ID_KEY = intPreferencesKey("current_course_id")
+        private val CURRENT_COURSE_NAME_KEY = stringPreferencesKey("current_course_name")
+        private val ENTRY_TEST_SCORE_KEY = intPreferencesKey("entry_test_score")
+        
+        // Offline entry test tracking
+        private val HAS_COMPLETED_ENTRY_TEST_OFFLINE_KEY = booleanPreferencesKey("has_completed_entry_test_offline")
+        private val ENTRY_TEST_SCORE_OFFLINE_KEY = intPreferencesKey("entry_test_score_offline")
+        private val CURRENT_COURSE_ID_OFFLINE_KEY = intPreferencesKey("current_course_id_offline")
+        private val CURRENT_COURSE_NAME_OFFLINE_KEY = stringPreferencesKey("current_course_name_offline")
+        private val ENTRY_TEST_NEEDS_SYNC_KEY = booleanPreferencesKey("entry_test_needs_sync")
+        
+        // Entry test popup tracking for logged-in users
+        private val ENTRY_TEST_POPUP_DISMISSED_KEY = booleanPreferencesKey("entry_test_popup_dismissed")
     }
 
     /**
@@ -71,6 +88,11 @@ class UserPreferencesManager @Inject constructor(
             preferences.remove(USER_AVATAR_URL_KEY)
             preferences.remove(ACCESS_TOKEN_KEY)
             preferences.remove(REFRESH_TOKEN_KEY)
+            preferences.remove(HAS_COMPLETED_ENTRY_TEST_KEY)
+            preferences.remove(CURRENT_COURSE_ID_KEY)
+            preferences.remove(CURRENT_COURSE_NAME_KEY)
+            preferences.remove(ENTRY_TEST_SCORE_KEY)
+            preferences.remove(ENTRY_TEST_POPUP_DISMISSED_KEY) // Reset popup dismissal on logout
             preferences[IS_LOGGED_IN_KEY] = false
             preferences[IS_PREMIUM_KEY] = false
         }
@@ -153,6 +175,170 @@ class UserPreferencesManager @Inject constructor(
      */
     suspend fun getCurrentAccessToken(): String? {
         return context.dataStore.data.first()[ACCESS_TOKEN_KEY]
+    }
+    
+    /**
+     * Save entry test completion data
+     */
+    suspend fun saveEntryTestResult(
+        hasCompletedEntryTest: Boolean,
+        currentCourseId: Int?,
+        currentCourseName: String?,
+        entryTestScore: Int?
+    ) {
+        context.dataStore.edit { preferences ->
+            preferences[HAS_COMPLETED_ENTRY_TEST_KEY] = hasCompletedEntryTest
+            currentCourseId?.let { preferences[CURRENT_COURSE_ID_KEY] = it }
+            currentCourseName?.let { preferences[CURRENT_COURSE_NAME_KEY] = it }
+            entryTestScore?.let { preferences[ENTRY_TEST_SCORE_KEY] = it }
+        }
+    }
+    
+    /**
+     * Check if user has completed entry test
+     */
+    suspend fun hasCompletedEntryTest(): Boolean {
+        return context.dataStore.data.first()[HAS_COMPLETED_ENTRY_TEST_KEY] ?: false
+    }
+    
+    /**
+     * Get current course ID
+     */
+    suspend fun getCurrentCourseId(): Int? {
+        return context.dataStore.data.first()[CURRENT_COURSE_ID_KEY]
+    }
+    
+    /**
+     * Get current course name
+     */
+    suspend fun getCurrentCourseName(): String? {
+        return context.dataStore.data.first()[CURRENT_COURSE_NAME_KEY]
+    }
+    
+    /**
+     * Get entry test score
+     */
+    suspend fun getEntryTestScore(): Int? {
+        return context.dataStore.data.first()[ENTRY_TEST_SCORE_KEY]
+    }
+    
+    /**
+     * Flow for has completed entry test
+     */
+    val hasCompletedEntryTestFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[HAS_COMPLETED_ENTRY_TEST_KEY] ?: false
+    }
+    
+    /**
+     * Flow for current course ID
+     */
+    val currentCourseIdFlow: Flow<Int?> = context.dataStore.data.map { preferences ->
+        preferences[CURRENT_COURSE_ID_KEY]
+    }
+    
+    // ========== OFFLINE ENTRY TEST METHODS ==========
+    
+    /**
+     * Save entry test result offline (before user logs in)
+     */
+    suspend fun saveEntryTestResultOffline(
+        score: Int,
+        courseId: Int?,
+        courseName: String?
+    ) {
+        context.dataStore.edit { preferences ->
+            preferences[HAS_COMPLETED_ENTRY_TEST_OFFLINE_KEY] = true
+            preferences[ENTRY_TEST_SCORE_OFFLINE_KEY] = score
+            preferences[ENTRY_TEST_NEEDS_SYNC_KEY] = true
+            courseId?.let { preferences[CURRENT_COURSE_ID_OFFLINE_KEY] = it }
+            courseName?.let { preferences[CURRENT_COURSE_NAME_OFFLINE_KEY] = it }
+        }
+    }
+    
+    /**
+     * Check if user has completed entry test offline
+     */
+    suspend fun hasCompletedEntryTestOffline(): Boolean {
+        return context.dataStore.data.first()[HAS_COMPLETED_ENTRY_TEST_OFFLINE_KEY] ?: false
+    }
+    
+    /**
+     * Check if entry test result needs to be synced to server
+     */
+    suspend fun entryTestNeedsSync(): Boolean {
+        return context.dataStore.data.first()[ENTRY_TEST_NEEDS_SYNC_KEY] ?: false
+    }
+    
+    /**
+     * Get offline entry test data
+     */
+    suspend fun getOfflineEntryTestData(): Triple<Int, Int?, String?> {
+        val prefs = context.dataStore.data.first()
+        return Triple(
+            prefs[ENTRY_TEST_SCORE_OFFLINE_KEY] ?: 0,
+            prefs[CURRENT_COURSE_ID_OFFLINE_KEY],
+            prefs[CURRENT_COURSE_NAME_OFFLINE_KEY]
+        )
+    }
+    
+    /**
+     * Mark entry test as synced (clear offline flags after successful server sync)
+     */
+    suspend fun markEntryTestSynced() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(HAS_COMPLETED_ENTRY_TEST_OFFLINE_KEY)
+            preferences.remove(ENTRY_TEST_SCORE_OFFLINE_KEY)
+            preferences.remove(CURRENT_COURSE_ID_OFFLINE_KEY)
+            preferences.remove(CURRENT_COURSE_NAME_OFFLINE_KEY)
+            preferences[ENTRY_TEST_NEEDS_SYNC_KEY] = false
+        }
+    }
+    
+    /**
+     * Check if user needs to see entry test (either online or offline completion)
+     */
+    suspend fun needsEntryTest(): Boolean {
+        val prefs = context.dataStore.data.first()
+        val hasCompletedOnline = prefs[HAS_COMPLETED_ENTRY_TEST_KEY] ?: false
+        val hasCompletedOffline = prefs[HAS_COMPLETED_ENTRY_TEST_OFFLINE_KEY] ?: false
+        return !hasCompletedOnline && !hasCompletedOffline
+    }
+    
+    // ========== ENTRY TEST POPUP TRACKING ==========
+    
+    /**
+     * Mark entry test popup as dismissed
+     */
+    suspend fun dismissEntryTestPopup() {
+        context.dataStore.edit { preferences ->
+            preferences[ENTRY_TEST_POPUP_DISMISSED_KEY] = true
+        }
+    }
+    
+    /**
+     * Check if entry test popup was dismissed
+     */
+    suspend fun hasDismissedEntryTestPopup(): Boolean {
+        return context.dataStore.data.first()[ENTRY_TEST_POPUP_DISMISSED_KEY] ?: false
+    }
+    
+    /**
+     * Reset popup dismissal flag (when user completes entry test)
+     */
+    suspend fun resetEntryTestPopupDismissal() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(ENTRY_TEST_POPUP_DISMISSED_KEY)
+        }
+    }
+    
+    /**
+     * Check if should show entry test popup for logged-in user
+     */
+    suspend fun shouldShowEntryTestPopup(): Boolean {
+        val prefs = context.dataStore.data.first()
+        val hasCompleted = prefs[HAS_COMPLETED_ENTRY_TEST_KEY] ?: false
+        val hasDismissed = prefs[ENTRY_TEST_POPUP_DISMISSED_KEY] ?: false
+        return !hasCompleted && !hasDismissed
     }
 }
 

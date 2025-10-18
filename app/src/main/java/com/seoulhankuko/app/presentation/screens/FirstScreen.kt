@@ -29,6 +29,7 @@ fun FirstScreen(
     onNavigateToLogin: () -> Unit,
     onNavigateToRegister: () -> Unit,
     onNavigateToLearn: (courseId: Int) -> Unit,
+    onNavigateToEntryTest: () -> Unit = {}, // New callback for entry test
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val authState by viewModel.authState.collectAsStateWithLifecycle()
@@ -101,7 +102,7 @@ fun FirstScreen(
                             Button(
                                 onClick = {
                                     Logger.HomeScreen.navigateToRegisterClicked()
-                                    onNavigateToRegister()
+                                    onNavigateToEntryTest() // Navigate to entry test for new users
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()

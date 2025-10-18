@@ -384,3 +384,71 @@ data class FriendResponse(
     @SerializedName("created_at")
     val createdAt: String
 )
+
+// Entry Test Models
+data class EntryTestQuestionOptionResponse(
+    val id: Int,
+    @SerializedName("option_text")
+    val optionText: String,
+    @SerializedName("is_correct")
+    val isCorrect: Boolean
+)
+
+data class EntryTestQuestionResponse(
+    val id: Int,
+    val content: String,
+    @SerializedName("audio_url")
+    val audioUrl: String?,
+    @SerializedName("image_url")
+    val imageUrl: String?,
+    @SerializedName("correct_answer")
+    val correctAnswer: String,
+    val explanation: String?,
+    @SerializedName("order_index")
+    val orderIndex: Int,
+    val options: List<EntryTestQuestionOptionResponse>
+)
+
+data class EntryTestResponse(
+    val id: Int,
+    val name: String,
+    val description: String,
+    @SerializedName("related_course_id")
+    val relatedCourseId: Int,
+    @SerializedName("created_at")
+    val createdAt: String,
+    val questions: List<EntryTestQuestionResponse>
+)
+
+data class EntryTestAnswerRequest(
+    @SerializedName("question_id")
+    val questionId: Int,
+    @SerializedName("selected_option_id")
+    val selectedOptionId: Int
+)
+
+data class EntryTestSubmissionRequest(
+    val answers: List<EntryTestAnswerRequest>
+)
+
+data class EntryTestSubmissionResponse(
+    val score: Float,
+    @SerializedName("recommended_course_id")
+    val recommendedCourseId: Int,
+    @SerializedName("recommended_course_title")
+    val recommendedCourseTitle: String,
+    val message: String
+)
+
+data class EntryTestResultResponse(
+    val id: Int,
+    @SerializedName("user_id")
+    val userId: Int,
+    @SerializedName("entry_test_id")
+    val entryTestId: Int,
+    val score: Float,
+    @SerializedName("recommended_course_id")
+    val recommendedCourseId: Int,
+    @SerializedName("completed_at")
+    val completedAt: String
+)
