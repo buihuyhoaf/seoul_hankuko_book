@@ -30,6 +30,7 @@ fun FirstScreen(
     onNavigateToRegister: () -> Unit,
     onNavigateToLearn: (courseId: Int) -> Unit,
     onNavigateToEntryTest: () -> Unit = {}, // New callback for entry test
+    onNavigateToGuestMode: () -> Unit = {}, // New callback for guest mode
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val authState by viewModel.authState.collectAsStateWithLifecycle()
@@ -39,6 +40,7 @@ fun FirstScreen(
         when (val currentAuthState = authState) {
             is AuthState.Loading -> Logger.HomeScreen.authStateChanged("Loading")
             is AuthState.SignedOut -> Logger.HomeScreen.authStateChanged("SignedOut")
+            is AuthState.Guest -> Logger.HomeScreen.authStateChanged("Guest")
             is AuthState.SignedIn -> Logger.HomeScreen.authStateChanged("SignedIn (ID: ${currentAuthState.userId})")
         }
     }
@@ -102,7 +104,8 @@ fun FirstScreen(
                             Button(
                                 onClick = {
                                     Logger.HomeScreen.navigateToRegisterClicked()
-                                    onNavigateToEntryTest() // Navigate to entry test for new users
+                                    viewModel.enterGuestMode()
+                                    onNavigateToGuestMode() // Navigate to guest mode (skip entry test)
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -114,10 +117,8 @@ fun FirstScreen(
                             ) {
                                 Text(
                                     stringResource(id = R.string.get_started),
-                                    style = MaterialTheme.typography.titleLarge, // Larger text
-                                    fontWeight = FontWeight.Bold, // Đậm hơn
                                     color = Color(0xFFFFFFFF),
-                                    modifier = Modifier.padding(vertical = 8.dp) // Extra padding
+                                    modifier = Modifier.padding(vertical = 8.dp)
                                 )
                             }
                             
@@ -137,10 +138,8 @@ fun FirstScreen(
                             ) {
                                 Text(
                                     stringResource(id = R.string.already_have_account),
-                                    style = MaterialTheme.typography.titleLarge, // Larger text
-                                    fontWeight = FontWeight.Bold, // Đậm hơn
                                     color = Color(0xFF1CB0F6),
-                                    modifier = Modifier.padding(vertical = 8.dp) // Extra padding
+                                    modifier = Modifier.padding(vertical = 8.dp)
                                 )
                             }
                         }
@@ -170,6 +169,36 @@ fun FirstScreen(
                             ) {
                                 Text(
                                     "Sign Out",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                            }
+                        }
+                        is AuthState.Guest -> {
+                            Button(
+                                onClick = { 
+                                    Logger.HomeScreen.continueLearningClicked()
+                                    onNavigateToLearn(1) 
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF1B5E20)
+                                )
+                            ) {
+                                Text(
+                                    "Continue Learning (Guest)",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                            }
+                            
+                            OutlinedButton(
+                                onClick = { 
+                                    Logger.HomeScreen.navigateToLoginClicked()
+                                    onNavigateToLogin()
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    "Sign In to Save Progress",
                                     style = MaterialTheme.typography.titleMedium
                                 )
                             }

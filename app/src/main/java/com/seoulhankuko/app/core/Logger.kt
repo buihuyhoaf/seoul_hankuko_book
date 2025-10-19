@@ -320,6 +320,18 @@ object Logger {
         fun exceptionOccurred(operation: String, exception: Throwable) {
             Timber.tag(TAG).e(exception, "Exception occurred during $operation: ${exception.message}")
         }
+        
+        fun enterGuestMode() {
+            Timber.tag(TAG).d("User entered guest mode")
+        }
+        
+        fun exitGuestMode() {
+            Timber.tag(TAG).d("User exited guest mode")
+        }
+        
+        fun enteredGuestMode() {
+            Timber.tag(TAG).d("User is in guest mode")
+        }
     }
 
     // ==================== API USE CASE ====================

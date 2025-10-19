@@ -12,11 +12,16 @@ val Green40 = Color(0xFF2E7D32) // Material Green 800 - Đậm hơn
 val GreenGrey40 = Color(0xFF388E3C) // Material Green 700
 val GreenAccent40 = Color(0xFF1B5E20) // Material Green 900 - Đậm nhất
 
-// Legacy colors kept for compatibility
-val Purple80 = Color(0xFF66BB6A) // Chuyển thành xanh lá
-val PurpleGrey80 = Color(0xFF4CAF50) // Chuyển thành xanh lá
-val Pink80 = Color(0xFF43A047) // Chuyển thành xanh lá
+// White background theme colors for better readability
+val WhiteBackground = Color(0xFFFFFFFF) // Pure white
+val LightGrayBackground = Color(0xFFF8F9FA) // Very light gray
+val CardBackground = Color(0xFFFAFAFA) // Light gray for cards
 
-val Purple40 = Color(0xFF2E7D32) // Chuyển thành xanh lá
-val PurpleGrey40 = Color(0xFF388E3C) // Chuyển thành xanh lá
-val Pink40 = Color(0xFF1B5E20) // Chuyển thành xanh lá
+// Legacy colors kept for compatibility
+val Purple80 = Color(0xFF66BB6A) // Green
+val PurpleGrey80 = Color(0xFF4CAF50) // Green
+val Pink80 = Color(0xFF43A047) // Green
+
+val Purple40 = Color(0xFF2E7D32) // Green
+val PurpleGrey40 = Color(0xFF388E3C) // Green
+val Pink40 = Color(0xFF1B5E20) // Green

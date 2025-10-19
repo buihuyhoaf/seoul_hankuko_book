@@ -2,9 +2,13 @@ package com.seoulhankuko.app.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import com.seoulhankuko.app.core.Logger
 import com.seoulhankuko.app.presentation.screens.FirstScreen
 import com.seoulhankuko.app.presentation.screens.LoginScreen
@@ -21,6 +25,8 @@ import com.seoulhankuko.app.presentation.screens.NotificationScreen
 import com.seoulhankuko.app.presentation.screens.ProfileScreen
 import com.seoulhankuko.app.presentation.screens.EntryTestScreen
 import com.seoulhankuko.app.presentation.screens.EntryTestResultScreen
+import com.seoulhankuko.app.presentation.screens.LoggedAccountsScreen
+import com.seoulhankuko.app.domain.model.LoggedAccount
 
 @Composable
 fun AppNavigation(
@@ -54,14 +60,30 @@ fun AppNavigation(
                 onNavigateToEntryTest = {
                     // Flow A: New user - navigate to entry test
                     navController.navigate("entry-test")
+                },
+                onNavigateToGuestMode = {
+                    // Flow C: Guest mode - navigate directly to courses (skip entry test)
+                    navController.navigate("courses") {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
             )
         }
         
-        // Login Screen
-        composable("login") {
+        // Login Screen with email parameter
+        composable(
+            route = "login/{email}",
+            arguments = listOf(
+                navArgument("email") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) { backStackEntry ->
+            val email = backStackEntry.arguments?.getString("email") ?: ""
             Logger.Navigation.navigateToLogin()
             LoginScreen(
+                initialEmail = email,
                 onNavigateBack = { 
                     Logger.Navigation.backFromScreen("Login")
                     navController.popBackStack() 
@@ -69,8 +91,54 @@ fun AppNavigation(
                 onNavigateToLearn = { courseId: Int ->
                     Logger.Navigation.navigateToLearn(courseId)
                     navController.navigate("courses") {
-                        popUpTo("home") { inclusive = false }
+                        popUpTo(0) { inclusive = true }
                     }
+                }
+            )
+        }
+        
+        // Login Screen without email parameter
+        composable("login") {
+            Logger.Navigation.navigateToLogin()
+            LoginScreen(
+                initialEmail = "",
+                onNavigateBack = { 
+                    Logger.Navigation.backFromScreen("Login")
+                    navController.popBackStack() 
+                },
+                onNavigateToLearn = { courseId: Int ->
+                    Logger.Navigation.navigateToLearn(courseId)
+                    navController.navigate("courses") {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            )
+        }
+        
+        // Logged Accounts Screen
+        composable("logged-accounts") {
+            LoggedAccountsScreen(
+                onAccountSelected = { account ->
+                    // Navigate to login with pre-filled email when auto-login fails
+                    val encodedEmail = URLEncoder.encode(account.email, StandardCharsets.UTF_8.toString())
+                    navController.navigate("login/$encodedEmail") {
+                        popUpTo("logged-accounts") { inclusive = false }
+                    }
+                },
+                onSuccessfulAutoLogin = {
+                    // Navigate to courses when auto-login succeeds
+                    navController.navigate("courses") {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                onAddAccountClick = {
+                    navController.navigate("login") {
+                        popUpTo("logged-accounts") { inclusive = false }
+                    }
+                },
+                onBackClick = {
+                    // Prevent back navigation from LoggedAccountsScreen since it's the entry point
+                    // when user has saved accounts but no valid session
                 }
             )
         }
@@ -84,8 +152,8 @@ fun AppNavigation(
                 },
                 onNavigateBack = { navController.popBackStack() },
                 onLogout = { 
-                    navController.navigate("login") {
-                        popUpTo("home") { inclusive = false }
+                    navController.navigate("logged-accounts") {
+                        popUpTo(0) { inclusive = true }
                     }
                 },
                 onNavigateToChallenge = {
@@ -100,6 +168,10 @@ fun AppNavigation(
                 onNavigateToEntryTest = {
                     // Flow B: Navigate to entry test when user clicks "Start Entry Test" in popup
                     navController.navigate("entry-test")
+                },
+                onNavigateToLogin = {
+                    // Navigate to login screen from guest login prompt
+                    navController.navigate("login")
                 }
             )
         }
@@ -140,8 +212,8 @@ fun AppNavigation(
         composable("profile") {
             ProfileScreen(
                 onLogout = {
-                    navController.navigate("login") {
-                        popUpTo("home") { inclusive = false }
+                    navController.navigate("logged-accounts") {
+                        popUpTo(0) { inclusive = true }
                     }
                 },
                 onNavigateToHome = {

@@ -30,14 +30,18 @@ private val LightColorScheme = lightColorScheme(
     primary = Green40,
     secondary = GreenGrey40,
     tertiary = GreenAccent40,
-    background = Color(0xFFE8F5E8), // Xanh lá nhạt cho background
-    surface = Color(0xFFF1F8E9), // Xanh lá nhạt cho surface
-    surfaceVariant = Color(0xFFDCEDC8), // Xanh lá nhạt cho surface variant
+    background = WhiteBackground, // White background
+    surface = CardBackground, // Light gray for cards and surfaces
+    surfaceVariant = LightGrayBackground, // Very light gray for surface variants
     onPrimary = Color.White,
     onSecondary = Color.White,
     onTertiary = Color.White,
-    onBackground = Color(0xFF1B5E20), // Xanh lá đậm cho text
-    onSurface = Color(0xFF1B5E20) // Xanh lá đậm cho text
+    onBackground = Color(0xFF1B5E20), // Dark green for text on white background
+    onSurface = Color(0xFF2E7D32), // Medium green for text on surfaces
+    onSurfaceVariant = Color(0xFF388E3C), // Green for variant text
+    error = Color(0xFFD32F2F), // Red for errors
+    onError = Color.White, // White text on error background
+    outline = Color(0xFFE0E0E0) // Light gray for outlines
 )
 
 @Composable

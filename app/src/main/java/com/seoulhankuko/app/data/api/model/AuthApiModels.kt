@@ -12,16 +12,32 @@ data class LoginRequest(
 data class LoginResponse(
     @SerializedName("access_token")
     val accessToken: String,
+    @SerializedName("refresh_token")
+    val refreshToken: String,
     @SerializedName("token_type")
     val tokenType: String
+)
+
+// Refresh token request
+data class RefreshTokenRequest(
+    @SerializedName("refresh_token")
+    val refreshToken: String
 )
 
 // Refresh token response
 data class RefreshTokenResponse(
     @SerializedName("access_token")
     val accessToken: String,
+    @SerializedName("refresh_token")
+    val refreshToken: String,
     @SerializedName("token_type")
     val tokenType: String
+)
+
+// Logout request
+data class LogoutRequest(
+    @SerializedName("refresh_token")
+    val refreshToken: String? = null
 )
 
 // Token data

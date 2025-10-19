@@ -50,6 +50,10 @@ class UserPreferencesManager @Inject constructor(
         
         // Entry test popup tracking for logged-in users
         private val ENTRY_TEST_POPUP_DISMISSED_KEY = booleanPreferencesKey("entry_test_popup_dismissed")
+        
+        // Guest mode tracking
+        private val IS_GUEST_MODE_KEY = booleanPreferencesKey("is_guest_mode")
+        private val GUEST_LESSONS_COMPLETED_KEY = intPreferencesKey("guest_lessons_completed")
     }
 
     /**
@@ -73,6 +77,16 @@ class UserPreferencesManager @Inject constructor(
             preferences[IS_PREMIUM_KEY] = isPremium
             
             avatarUrl?.let { preferences[USER_AVATAR_URL_KEY] = it }
+            refreshToken?.let { preferences[REFRESH_TOKEN_KEY] = it }
+        }
+    }
+
+    /**
+     * Update tokens only (for refresh)
+     */
+    suspend fun updateTokens(accessToken: String, refreshToken: String?) {
+        context.dataStore.edit { preferences ->
+            preferences[ACCESS_TOKEN_KEY] = accessToken
             refreshToken?.let { preferences[REFRESH_TOKEN_KEY] = it }
         }
     }
@@ -339,6 +353,60 @@ class UserPreferencesManager @Inject constructor(
         val hasCompleted = prefs[HAS_COMPLETED_ENTRY_TEST_KEY] ?: false
         val hasDismissed = prefs[ENTRY_TEST_POPUP_DISMISSED_KEY] ?: false
         return !hasCompleted && !hasDismissed
+    }
+    
+    // ========== GUEST MODE METHODS ==========
+    
+    /**
+     * Enter guest mode
+     */
+    suspend fun enterGuestMode() {
+        context.dataStore.edit { preferences ->
+            preferences[IS_GUEST_MODE_KEY] = true
+            preferences[GUEST_LESSONS_COMPLETED_KEY] = 0
+        }
+    }
+    
+    /**
+     * Check if user is in guest mode
+     */
+    val isGuestMode: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[IS_GUEST_MODE_KEY] ?: false
+    }
+    
+    suspend fun isGuestModeSync(): Boolean {
+        return context.dataStore.data.first()[IS_GUEST_MODE_KEY] ?: false
+    }
+    
+    /**
+     * Get number of lessons completed in guest mode
+     */
+    val guestLessonsCompleted: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[GUEST_LESSONS_COMPLETED_KEY] ?: 0
+    }
+    
+    suspend fun getGuestLessonsCompleted(): Int {
+        return context.dataStore.data.first()[GUEST_LESSONS_COMPLETED_KEY] ?: 0
+    }
+    
+    /**
+     * Increment guest lessons completed
+     */
+    suspend fun incrementGuestLessonsCompleted() {
+        context.dataStore.edit { preferences ->
+            val current = preferences[GUEST_LESSONS_COMPLETED_KEY] ?: 0
+            preferences[GUEST_LESSONS_COMPLETED_KEY] = current + 1
+        }
+    }
+    
+    /**
+     * Exit guest mode (when user logs in)
+     */
+    suspend fun exitGuestMode() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(IS_GUEST_MODE_KEY)
+            preferences.remove(GUEST_LESSONS_COMPLETED_KEY)
+        }
     }
 }
 

@@ -20,6 +20,8 @@ data class GoogleSignInRequest(
 data class GoogleSignInResponse(
     @SerializedName("token")
     val token: String,
+    @SerializedName("refresh_token")
+    val refreshToken: String? = null,
     @SerializedName("token_type")
     val tokenType: String = "bearer"
 )

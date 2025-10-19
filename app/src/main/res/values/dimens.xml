@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Login Screen -->
+    <dimen name="login_screen_padding">24dp</dimen>
+    <dimen name="login_screen_spacing">16dp</dimen>
+    <dimen name="login_screen_large_spacing">24dp</dimen>
+    <dimen name="login_field_spacing">16dp</dimen>
+    <dimen name="login_button_height">56dp</dimen>
+    <dimen name="login_button_corner_radius">12dp</dimen>
+    <dimen name="login_card_corner_radius">16dp</dimen>
+    <dimen name="login_card_padding">16dp</dimen>
+    <dimen name="login_divider_padding">16dp</dimen>
+    <dimen name="login_progress_indicator_size">20dp</dimen>
+    
+    <!-- Common spacing -->
+    <dimen name="spacing_small">8dp</dimen>
+    <dimen name="spacing_medium">16dp</dimen>
+    <dimen name="spacing_large">24dp</dimen>
+    <dimen name="spacing_xlarge">32dp</dimen>
+    
+    <!-- Button dimensions -->
+    <dimen name="button_height">56dp</dimen>
+    <dimen name="button_corner_radius">12dp</dimen>
+</resources>
+

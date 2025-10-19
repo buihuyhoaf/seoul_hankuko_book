@@ -25,9 +25,13 @@
     <string name="demo_credentials_text">Email: demo@example.com\nPassword: password123</string>
     <string name="validation_empty_fields">Please fill in all fields</string>
     <string name="login_error">Invalid email or password</string>
+    <string name="back_to_home">← Back to Home</string>
+    <string name="or_continue_with">or continue with</string>
+    <string name="dont_have_account">Don\'t have an account?</string>
+    <string name="sign_up">Sign up</string>
     
     <!-- Google Sign In -->
-    <string name="or_text">Hoặc</string>
+    <string name="or_text">Or</string>
     
     <!-- Learn Screen -->
     <string name="learn_course_title">🎓 Learn Course %d</string>
@@ -48,9 +52,8 @@
     <string name="progress_question">Progress: Question %d/10</string>
     
     <!-- Courses Screen -->
-    <string name="courses_title">📚 Courses</string>
     <string name="course_title">Course %d</string>
-    <string name="course_description">Korean Language Course %d</string>
+    <string name="course_description">Korean Language</string>
     <string name="click_to_start">Click to start learning!</string>
     
     <!-- Shop Screen -->
@@ -128,6 +131,12 @@
     <string name="xp_1780">1,780 XP</string>
     <string name="xp_1720">1,720 XP</string>
     <string name="xp_1650">1,650 XP</string>
+    
+    <!-- Course Screen -->
+    <string name="courses_title">My Courses</string>
+    <string name="lessons_count">%d lessons</string>
+    <string name="course_new">NEW</string>
+    <string name="course_featured">⭐</string>
     
     <!-- Common -->
     <string name="back">← Back</string>

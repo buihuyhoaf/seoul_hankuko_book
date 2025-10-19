@@ -21,6 +21,9 @@ import com.seoulhankuko.app.navigation.AppNavigation
 import com.seoulhankuko.app.presentation.ui.theme.SeoulhankukobookTheme
 import com.seoulhankuko.app.presentation.viewmodel.GoogleSignInViewModel
 import com.seoulhankuko.app.presentation.viewmodel.EntryTestFlowViewModel
+import com.seoulhankuko.app.presentation.viewmodel.LoggedAccountsViewModel
+import com.seoulhankuko.app.presentation.viewmodel.AuthViewModel
+import com.seoulhankuko.app.domain.model.AuthState
 import dagger.hilt.android.AndroidEntryPoint
 import com.seoulhankuko.app.core.Logger
 
@@ -35,9 +38,6 @@ class MainActivity : ComponentActivity() {
         
         Logger.MainActivity.setContentView()
         
-        // Lấy thông tin đăng nhập từ Intent (từ SplashActivity)
-        val isLoggedInFromSplash = intent.getBooleanExtra("isLoggedIn", false)
-        
         setContent {
             SeoulhankukobookTheme {
                 Surface(
@@ -46,7 +46,7 @@ class MainActivity : ComponentActivity() {
                         .windowInsetsPadding(WindowInsets.safeDrawing),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    AppNavigationWithAutoLogin(initialLoginState = isLoggedInFromSplash)
+                    AppNavigationWithAutoLogin()
                 }
             }
         }
@@ -59,30 +59,25 @@ class MainActivity : ComponentActivity() {
  */
 @Composable
 fun AppNavigationWithAutoLogin(
-    initialLoginState: Boolean = false,
     viewModel: GoogleSignInViewModel = hiltViewModel(),
-    entryTestViewModel: EntryTestFlowViewModel = hiltViewModel()
+    entryTestViewModel: EntryTestFlowViewModel = hiltViewModel(),
+    loggedAccountsViewModel: LoggedAccountsViewModel = hiltViewModel(),
+    authViewModel: AuthViewModel = hiltViewModel()
 ) {
-    val userData by viewModel.userData.collectAsStateWithLifecycle()
+    val loggedAccounts by authViewModel.loggedAccounts.collectAsStateWithLifecycle()
+    val authState by authViewModel.authState.collectAsStateWithLifecycle()
     
     // State để track initial destination
     var initialDestination by remember { mutableStateOf<String?>(null) }
     
     // Effect để xác định initial destination
-    LaunchedEffect(initialLoginState, userData) {
+    LaunchedEffect(authState, loggedAccounts) {
         if (initialDestination == null) {
-            val isLoggedIn = if (initialLoginState) {
-                // Nếu SplashActivity đã xác nhận user đã đăng nhập
-                true
-            } else {
-                // Đợi userData được load hoặc timeout sau 2 giây
-                var attempts = 0
-                while (userData == null && attempts < 40) {
-                    delay(50)
-                    attempts++
-                }
-                userData?.isLoggedIn == true && !userData?.accessToken.isNullOrEmpty()
-            }
+            // Đợi một chút để đảm bảo AuthRepository đã được khởi tạo
+            delay(100)
+            
+            // Kiểm tra trạng thái đăng nhập từ AuthRepository thay vì dựa vào SplashActivity
+            val isLoggedIn = authViewModel.hasValidToken()
             
             if (isLoggedIn) {
                 // Logged-in user flow (Flow B & C from requirements)
@@ -119,19 +114,12 @@ fun AppNavigationWithAutoLogin(
                     initialDestination = "courses"
                 }
             } else {
-                // New user flow (Flow A from requirements)
-                // Check if user needs entry test (either online or offline completion)
-                try {
-                    val needsEntryTest = entryTestViewModel.needsEntryTest()
-                    if (needsEntryTest) {
-                        // Flow A: New user, go to courses first, then show entry test popup
-                        initialDestination = "courses"
-                    } else {
-                        // User has already completed entry test offline or online
-                        initialDestination = "courses"
-                    }
-                } catch (e: Exception) {
-                    // Default to home screen if there's any error
+                // Not logged in - check if we have saved accounts
+                if (loggedAccounts.isNotEmpty()) {
+                    // User has logged accounts but no valid token - go to LoggedAccountsScreen
+                    initialDestination = "logged-accounts"
+                } else {
+                    // No logged accounts - go to LoginScreen (new user flow)
                     initialDestination = "home"
                 }
             }

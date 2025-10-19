@@ -30,4 +30,13 @@ class HomeViewModel @Inject constructor(
             authRepository.signOut()
         }
     }
+    
+    /**
+     * Enter guest mode
+     */
+    fun enterGuestMode() {
+        viewModelScope.launch {
+            authRepository.enterGuestMode()
+        }
+    }
 }

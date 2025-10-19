@@ -7,11 +7,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.seoulhankuko.app.presentation.viewmodel.AuthViewModel
+import com.seoulhankuko.app.domain.model.AuthState
 
 @Composable
 fun QuizScreen(
     quizId: Int,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    authViewModel: AuthViewModel = hiltViewModel()
 ) {
     var currentQuestion by remember { mutableStateOf(1) }
     var selectedAnswer by remember { mutableStateOf<String?>(null) }
@@ -19,6 +24,7 @@ fun QuizScreen(
     var isCorrect by remember { mutableStateOf(false) }
     var quizCompleted by remember { mutableStateOf(false) }
     
+    val authState by authViewModel.authState.collectAsStateWithLifecycle()
     val totalQuestions = 5 // Mock total questions
     
     Column(
@@ -145,6 +151,10 @@ fun QuizScreen(
                                         isCorrect = false
                                     } else {
                                         quizCompleted = true
+                                        // Increment guest lessons completed if in guest mode
+                                        if (authState is AuthState.Guest) {
+                                            authViewModel.incrementGuestLessonsCompleted()
+                                        }
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth()
@@ -197,3 +207,5 @@ fun QuizScreen(
         Spacer(modifier = Modifier.height(32.dp))
     }
 }
+
+

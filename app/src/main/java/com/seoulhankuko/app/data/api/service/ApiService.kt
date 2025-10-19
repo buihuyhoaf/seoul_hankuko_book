@@ -11,10 +11,13 @@ interface ApiService {
     suspend fun login(@Body loginRequest: LoginRequest): Response<LoginResponse>
     
     @POST("v1/refresh")
-    suspend fun refreshToken(): Response<RefreshTokenResponse>
+    suspend fun refreshToken(@Body refreshTokenRequest: RefreshTokenRequest): Response<RefreshTokenResponse>
     
     @POST("v1/logout")
-    suspend fun logout(@Header("Authorization") token: String): Response<Unit>
+    suspend fun logout(
+        @Header("Authorization") token: String,
+        @Body logoutRequest: LogoutRequest? = null
+    ): Response<Unit>
     
     @POST("v1/auth/google")
     suspend fun signInWithGoogle(@Body googleSignInRequest: GoogleSignInRequest): Response<GoogleSignInResponse>

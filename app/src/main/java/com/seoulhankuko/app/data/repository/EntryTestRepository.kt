@@ -21,7 +21,11 @@ class EntryTestRepository @Inject constructor(
      */
     suspend fun getEntryTestQuestions(): Response<EntryTestResponse> {
         val token = userPreferencesManager.getCurrentAccessToken()
-        return apiService.getEntryTestQuestions("Bearer $token")
+        return if (token != null) {
+            apiService.getEntryTestQuestions("Bearer $token")
+        } else {
+            throw IllegalStateException("No access token available")
+        }
     }
     
     /**
@@ -29,7 +33,11 @@ class EntryTestRepository @Inject constructor(
      */
     suspend fun submitEntryTest(submissionRequest: EntryTestSubmissionRequest): Response<EntryTestSubmissionResponse> {
         val token = userPreferencesManager.getCurrentAccessToken()
-        return apiService.submitEntryTest("Bearer $token", submissionRequest)
+        return if (token != null) {
+            apiService.submitEntryTest("Bearer $token", submissionRequest)
+        } else {
+            throw IllegalStateException("No access token available")
+        }
     }
     
     /**
@@ -37,7 +45,11 @@ class EntryTestRepository @Inject constructor(
      */
     suspend fun getEntryTestResult(): Response<EntryTestResultResponse> {
         val token = userPreferencesManager.getCurrentAccessToken()
-        return apiService.getEntryTestResult("Bearer $token")
+        return if (token != null) {
+            apiService.getEntryTestResult("Bearer $token")
+        } else {
+            throw IllegalStateException("No access token available")
+        }
     }
     
     /**
