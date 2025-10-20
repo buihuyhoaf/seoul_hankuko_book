@@ -22,3 +22,4 @@ data class LoggedAccountEntity(
     val isActive: Boolean = false
 )
 
+

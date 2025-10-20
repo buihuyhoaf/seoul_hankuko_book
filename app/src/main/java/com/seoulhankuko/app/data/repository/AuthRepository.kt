@@ -107,6 +107,7 @@ class AuthRepository @Inject constructor(
                     val fullToken = "Bearer $rawToken"
                     Logger.AuthenticationUseCase.tokenReceived()
                     storeToken(rawToken)  // Store raw token only
+                    storeRefreshToken(loginResponse.refreshToken) // Store refresh token for interceptor
                     currentToken = rawToken
                     
                     // Get user info
@@ -221,6 +222,14 @@ class AuthRepository @Inject constructor(
             .apply()
     }
     
+    private fun storeRefreshToken(refreshToken: String) {
+        Logger.AuthenticationUseCase.storingToken()
+        sharedPreferences.edit()
+            .putString("refresh_token", refreshToken)
+            .putString("active_refresh_token", refreshToken)
+            .apply()
+    }
+    
     private fun getStoredToken(): String? {
         return sharedPreferences.getString("auth_token", null)
     }
@@ -240,6 +249,8 @@ class AuthRepository @Inject constructor(
         Logger.AuthenticationUseCase.clearingStoredAuth()
         sharedPreferences.edit()
             .remove("auth_token")
+            .remove("refresh_token")
+            .remove("active_refresh_token")
             .remove("user_id")
             .apply()
     }
@@ -333,6 +344,7 @@ class AuthRepository @Inject constructor(
                     // Store new tokens - only raw JWT token, no Bearer prefix
                     val rawToken = tokenResponse.accessToken
                     storeToken(rawToken)
+                    storeRefreshToken(tokenResponse.refreshToken) // Store refresh token for interceptor
                     currentToken = rawToken
                     storeUserId(freshAccount.userId.toString())
                     
@@ -437,6 +449,7 @@ class AuthRepository @Inject constructor(
                     // Update stored tokens - only raw JWT token, no Bearer prefix
                     val rawToken = tokenResponse.accessToken
                     storeToken(rawToken)
+                    storeRefreshToken(tokenResponse.refreshToken) // Store refresh token for interceptor
                     currentToken = rawToken
                     storeUserId(currentAccount.userId.toString())
                     

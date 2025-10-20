@@ -1,5 +1,6 @@
 package com.seoulhankuko.app.data.api
 
+import android.content.Context
 import com.seoulhankuko.app.BuildConfig
 import com.seoulhankuko.app.data.api.service.ApiService
 import com.google.gson.Gson
@@ -7,6 +8,7 @@ import com.google.gson.GsonBuilder
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -31,12 +33,13 @@ object NetworkModule {
     
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient {
+    fun provideOkHttpClient(authInterceptor: AuthInterceptor): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
         
         return OkHttpClient.Builder()
+            .addInterceptor(authInterceptor) // Add auth interceptor before logging
             .addInterceptor(loggingInterceptor)
             .connectTimeout(BuildConfig.TIMEOUT_SECONDS.toLong(), TimeUnit.SECONDS)
             .readTimeout(BuildConfig.TIMEOUT_SECONDS.toLong(), TimeUnit.SECONDS)

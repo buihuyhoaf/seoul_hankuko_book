@@ -61,6 +61,9 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     
+    // Pull to refresh
+    implementation("androidx.compose.material:material:1.2.1")
+    
     // Navigation
     implementation(libs.androidx.navigation.compose)
     

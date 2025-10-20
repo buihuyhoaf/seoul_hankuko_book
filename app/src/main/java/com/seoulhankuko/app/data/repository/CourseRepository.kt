@@ -7,6 +7,7 @@ import com.seoulhankuko.app.domain.exception.AppException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -28,7 +29,8 @@ class CourseRepository @Inject constructor(
     
     suspend fun getCourses(page: Int = 1, itemsPerPage: Int = 10, token: String? = null): Result<PaginatedResponse<CourseResponse>> {
         return try {
-            val response = apiService.getCourses(page, itemsPerPage, token)
+            val formattedToken = token?.let { "Bearer $it" }
+            val response = apiService.getCourses(page, itemsPerPage, formattedToken)
             
             if (response.isSuccessful) {
                 val coursesResponse = response.body()
@@ -50,7 +52,14 @@ class CourseRepository @Inject constructor(
     
     suspend fun getCourse(courseId: Int, token: String? = null): Result<CourseDetailResponse> {
         return try {
-            val response = apiService.getCourse(courseId, token)
+            // Note: Token is now handled by AuthInterceptor automatically
+            // We only pass token manually if it's provided for backward compatibility
+            val response = if (token != null) {
+                apiService.getCourse(courseId, "Bearer $token")
+            } else {
+                // Let the AuthInterceptor handle adding the token automatically
+                apiService.getCourse(courseId, null)
+            }
             
             if (response.isSuccessful) {
                 val courseResponse = response.body()
@@ -62,7 +71,16 @@ class CourseRepository @Inject constructor(
                 }
             } else {
                 val errorMessage = response.errorBody()?.string() ?: "Failed to get course"
-                Result.failure(Exception(errorMessage))
+                val httpCode = response.code()
+                when (httpCode) {
+                    401 -> {
+                        Timber.w("Authentication failed for course $courseId - token may need refresh")
+                        Result.failure(AppException.AuthException.TokenExpired())
+                    }
+                    403 -> Result.failure(AppException.UnexpectedError("Access denied: You don't have permission to access this course"))
+                    404 -> Result.failure(AppException.DataException.DataNotFound())
+                    else -> Result.failure(AppException.UnexpectedError("Failed to get course (HTTP $httpCode): $errorMessage"))
+                }
             }
         } catch (e: Throwable) {
             val appException = ExceptionMapper.mapToAppException(e)
@@ -72,7 +90,8 @@ class CourseRepository @Inject constructor(
     
     suspend fun getUnit(unitId: Int, token: String? = null): Result<UnitDetailResponse> {
         return try {
-            val response = apiService.getUnit(unitId, token)
+            val formattedToken = token?.let { "Bearer $it" }
+            val response = apiService.getUnit(unitId, formattedToken)
             
             if (response.isSuccessful) {
                 val unitResponse = response.body()
@@ -94,7 +113,8 @@ class CourseRepository @Inject constructor(
     
     suspend fun getLesson(lessonId: Int, token: String? = null): Result<LessonDetailResponse> {
         return try {
-            val response = apiService.getLesson(lessonId, token)
+            val formattedToken = token?.let { "Bearer $it" }
+            val response = apiService.getLesson(lessonId, formattedToken)
             
             if (response.isSuccessful) {
                 val lessonResponse = response.body()
