@@ -3,16 +3,21 @@ package com.seoulhankuko.app.data.repository
 import com.seoulhankuko.app.data.api.model.*
 import com.seoulhankuko.app.data.api.service.ApiService
 import com.seoulhankuko.app.data.api.util.ExceptionMapper
+import com.seoulhankuko.app.data.database.daos.UserProgressDao
+import com.seoulhankuko.app.data.database.entities.UserProgress
 import com.seoulhankuko.app.domain.exception.AppException
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class UserProgressRepository @Inject constructor(
-    private val apiService: ApiService
+    private val apiService: ApiService,
+    private val userProgressDao: UserProgressDao
 ) {
     private val _userProgress = MutableStateFlow<UserProgressResponse?>(null)
     val userProgress: StateFlow<UserProgressResponse?> = _userProgress.asStateFlow()
@@ -184,5 +189,43 @@ class UserProgressRepository @Inject constructor(
     
     fun clearDailyGoals() {
         _dailyGoals.value = null
+    }
+    
+    // Local database methods for offline support
+    fun getUserProgress(userId: String): Flow<UserProgress?> {
+        return userProgressDao.getUserProgress(userId)
+    }
+    
+    suspend fun updatePoints(userId: String, points: Int) {
+        userProgressDao.updatePoints(userId, points)
+    }
+    
+    suspend fun reduceHearts(userId: String): Boolean {
+        val userProgress = userProgressDao.getUserProgress(userId).first()
+        return if (userProgress != null && userProgress.hearts > 0) {
+            val newHearts = userProgress.hearts - 1
+            userProgressDao.updateHearts(userId, newHearts)
+            true
+        } else {
+            false
+        }
+    }
+    
+    suspend fun insertOrUpdateUserProgress(userProgress: UserProgress) {
+        userProgressDao.insertUserProgress(userProgress)
+    }
+    
+    suspend fun initializeUserProgressIfNeeded(userId: String) {
+        val existing = userProgressDao.getUserProgress(userId).first()
+        if (existing == null) {
+            userProgressDao.insertUserProgress(
+                UserProgress(
+                    userId = userId,
+                    userName = "User",
+                    hearts = 5,
+                    points = 0
+                )
+            )
+        }
     }
 }

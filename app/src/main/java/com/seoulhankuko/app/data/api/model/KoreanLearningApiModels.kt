@@ -195,19 +195,18 @@ data class QuestionOptionResponse(
 )
 
 data class QuizAttemptResponse(
-    @SerializedName("quiz_attempt_id")
-    val quizAttemptId: Int,
+    val id: Int,
+    @SerializedName("quiz_id")
+    val quizId: Int,
+    @SerializedName("quiz_title")
+    val quizTitle: String?,
     val score: Double,
-    @SerializedName("correct_answers")
-    val correctAnswers: Int,
-    @SerializedName("total_questions")
-    val totalQuestions: Int,
     @SerializedName("exp_earned")
     val expEarned: Int,
+    @SerializedName("started_at")
+    val startedAt: String,
     @SerializedName("completed_at")
-    val completedAt: String,
-    @SerializedName("question_results")
-    val questionResults: List<QuestionResultResponse>
+    val completedAt: String?
 )
 
 data class QuestionResultResponse(

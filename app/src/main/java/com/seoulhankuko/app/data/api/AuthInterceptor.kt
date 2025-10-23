@@ -10,6 +10,7 @@ import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.ResponseBody.Companion.toResponseBody
 import okhttp3.Response
 import timber.log.Timber
 import javax.inject.Inject
@@ -87,7 +88,17 @@ class AuthInterceptor @Inject constructor(
                 
                 isRefreshing = true
                 try {
-                    refreshTokenAndRetry(chain, originalRequest)
+                    val refreshResult = refreshTokenAndRetry(chain, originalRequest)
+                    // If refresh returned 401, it means refresh failed
+                    if (refreshResult.code == 401) {
+                        Timber.w("Token refresh failed, returning 401 response")
+                        return@withLock refreshResult
+                    }
+                    return@withLock refreshResult
+                } catch (e: Exception) {
+                    Timber.e(e, "Exception during token refresh")
+                    // Return 401 response instead of throwing exception
+                    return@withLock createUnauthorizedResponse(originalRequest, "Token refresh failed: ${e.message}")
                 } finally {
                     isRefreshing = false
                 }
@@ -103,7 +114,8 @@ class AuthInterceptor @Inject constructor(
             val refreshToken = getRefreshToken()
             if (refreshToken.isNullOrBlank()) {
                 Timber.w("No refresh token available")
-                throw Exception("No refresh token available")
+                // Return 401 response instead of throwing exception
+                return createUnauthorizedResponse(originalRequest, "No refresh token available")
             }
 
             // Attempt to refresh the token synchronously
@@ -123,18 +135,23 @@ class AuthInterceptor @Inject constructor(
                 
                 chain.proceed(retryRequest)
             } else {
-                // Refresh failed, clear tokens and force re-login
+                // Refresh failed, clear tokens and return 401 response
+                Timber.w("Token refresh failed, clearing tokens")
                 clearTokens()
-                throw Exception("Token refresh failed")
+                return createUnauthorizedResponse(originalRequest, "Token refresh failed")
             }
         } catch (e: Exception) {
             Timber.e(e, "Token refresh failed: ${e.message}")
-            throw e
+            // Clear tokens and return 401 response instead of throwing exception
+            clearTokens()
+            return createUnauthorizedResponse(originalRequest, "Token refresh failed: ${e.message}")
         }
     }
 
     private fun attemptTokenRefresh(refreshToken: String): RefreshTokenResponse? {
         return try {
+            Timber.d("Attempting token refresh with refresh token: ${refreshToken.take(20)}...")
+            
             // Create a simple OkHttpClient for the refresh call (without this interceptor to avoid loops)
             val client = OkHttpClient.Builder()
                 .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
@@ -152,14 +169,20 @@ class AuthInterceptor @Inject constructor(
                 .addHeader("Content-Type", "application/json")
                 .build()
             
+            Timber.d("Making refresh token request to: ${refreshRequest.url}")
+            
             // Execute refresh request
             val response = client.newCall(refreshRequest).execute()
+            
+            Timber.d("Refresh token response - Code: ${response.code}, Success: ${response.isSuccessful}")
             
             if (response.isSuccessful) {
                 val responseBody = response.body?.string()
                 if (responseBody != null) {
+                    Timber.d("Refresh token response body: ${responseBody.take(100)}...")
                     gson.fromJson(responseBody, RefreshTokenResponse::class.java)
                 } else {
+                    Timber.w("Refresh token response body is null")
                     null
                 }
             } else {
@@ -169,7 +192,7 @@ class AuthInterceptor @Inject constructor(
                 null
             }
         } catch (e: Exception) {
-            Timber.e(e, "Exception during token refresh")
+            Timber.e(e, "Exception during token refresh: ${e.message}")
             null
         }
     }
@@ -217,6 +240,18 @@ class AuthInterceptor @Inject constructor(
             .remove("refresh_token")
             .remove("active_refresh_token")
             .apply()
+    }
+
+    private fun createUnauthorizedResponse(originalRequest: okhttp3.Request, message: String): Response {
+        return Response.Builder()
+            .request(originalRequest)
+            .protocol(okhttp3.Protocol.HTTP_1_1)
+            .code(401)
+            .message("Unauthorized")
+            .body(
+                """{"error": "$message", "code": 401}""".toResponseBody("application/json".toMediaType())
+            )
+            .build()
     }
 
     private fun shouldSkipAuth(path: String): Boolean {
