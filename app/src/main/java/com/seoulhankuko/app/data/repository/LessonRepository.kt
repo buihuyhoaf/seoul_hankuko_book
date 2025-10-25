@@ -80,6 +80,14 @@ class LessonRepository @Inject constructor(
             order = lessonDetail.orderIndex
         )
         
+        // Insert lesson first to ensure foreign key constraint is satisfied
+        try {
+            lessonDao.insertLesson(lesson)
+            Timber.d("Successfully inserted lesson ${lesson.id}")
+        } catch (e: Exception) {
+            Timber.w(e, "Lesson ${lesson.id} might already exist, continuing...")
+        }
+        
         // Get user's quiz attempts to check completion status
         val completedQuizIds = getUserCompletedQuizIds(userId)
         Timber.d("User has completed ${completedQuizIds.size} quizzes")
@@ -108,13 +116,69 @@ class LessonRepository @Inject constructor(
                         
                         // Convert each question to a challenge
                         for (question in quizDetail.questions) {
+                            // Debug logging for question type mapping
+                            Timber.d("Question ${question.id}: questionType.name = '${question.questionType.name}'")
+                            Timber.d("Question ${question.id}: questionType.id = ${question.questionType.id}")
+                            Timber.d("Question ${question.id}: options count = ${question.options.size}")
+                            question.options.forEachIndexed { index, option ->
+                                Timber.d("Question ${question.id} Option $index: id=${option.id}, text='${option.optionText}', correct=${option.isCorrect}")
+                            }
+                            
+                            // Determine challenge type based on question type ID and name
+                            val challengeType = when {
+                                question.questionType.id == 1 || question.questionType.name.lowercase().contains("multiple") -> {
+                                    Timber.d("Question ${question.id}: Mapped to MULTIPLE_CHOICE (name: '${question.questionType.name}', id: ${question.questionType.id})")
+                                    ChallengeType.MULTIPLE_CHOICE
+                                }
+                                question.questionType.id == 2 || question.questionType.name.lowercase().contains("fill") -> {
+                                    Timber.d("Question ${question.id}: Mapped to FILL_IN_BLANK (name: '${question.questionType.name}', id: ${question.questionType.id})")
+                                    ChallengeType.FILL_IN_BLANK
+                                }
+                                question.questionType.id == 3 || question.questionType.name.lowercase().contains("true") -> {
+                                    Timber.d("Question ${question.id}: Mapped to TRUE_FALSE (name: '${question.questionType.name}', id: ${question.questionType.id})")
+                                    ChallengeType.TRUE_FALSE
+                                }
+                                question.questionType.id == 4 || question.questionType.name.lowercase().contains("audio") -> {
+                                    Timber.d("Question ${question.id}: Mapped to AUDIO_COMPREHENSION (name: '${question.questionType.name}', id: ${question.questionType.id})")
+                                    ChallengeType.AUDIO_COMPREHENSION
+                                }
+                                question.questionType.id == 5 || question.questionType.name.lowercase().contains("writing") -> {
+                                    Timber.d("Question ${question.id}: Mapped to WRITING_PRACTICE (name: '${question.questionType.name}', id: ${question.questionType.id})")
+                                    ChallengeType.WRITING_PRACTICE
+                                }
+                                question.questionType.id == 6 || question.questionType.name.lowercase().contains("reading") -> {
+                                    Timber.d("Question ${question.id}: Mapped to READING_COMPREHENSION (name: '${question.questionType.name}', id: ${question.questionType.id})")
+                                    ChallengeType.READING_COMPREHENSION
+                                }
+                                question.questionType.id == 7 || question.questionType.name.lowercase().contains("matching") -> {
+                                    Timber.d("Question ${question.id}: Mapped to MATCHING (name: '${question.questionType.name}', id: ${question.questionType.id})")
+                                    ChallengeType.MATCHING
+                                }
+                                question.questionType.id == 8 || question.questionType.name.lowercase().contains("pronunciation") -> {
+                                    Timber.d("Question ${question.id}: Mapped to PRONUNCIATION (name: '${question.questionType.name}', id: ${question.questionType.id})")
+                                    ChallengeType.PRONUNCIATION
+                                }
+                                else -> {
+                                    Timber.w("Question ${question.id}: Unknown question type '${question.questionType.name}' (id: ${question.questionType.id}), defaulting to MULTIPLE_CHOICE")
+                                    ChallengeType.MULTIPLE_CHOICE // Default fallback
+                                }
+                            }
+                            
                             val challenge = Challenge(
                                 id = question.id,
                                 lessonId = lessonDetail.id,
                                 question = question.content,
-                                type = ChallengeType.SELECT, // Default to SELECT type
+                                type = challengeType,
                                 order = question.orderIndex
                             )
+                            
+                            // Insert challenge into database (with conflict resolution)
+                            try {
+                                challengeDao.insertChallenge(challenge)
+                                Timber.d("Successfully inserted challenge ${challenge.id}")
+                            } catch (e: Exception) {
+                                Timber.w(e, "Challenge ${challenge.id} might already exist, continuing...")
+                            }
                             
                             // Convert question options to challenge options
                             val options = question.options.map { option ->
@@ -127,7 +191,16 @@ class LessonRepository @Inject constructor(
                                 )
                             }
                             
-                            Timber.d("Created challenge ${challenge.id} with ${options.size} options")
+                            // Insert challenge options into database (with conflict resolution)
+                            options.forEach { option ->
+                                try {
+                                    challengeOptionDao.insertOption(option)
+                                } catch (e: Exception) {
+                                    Timber.w(e, "Challenge option ${option.id} might already exist, continuing...")
+                                }
+                            }
+                            
+                            Timber.d("Created and inserted challenge ${challenge.id} with ${options.size} options")
                             
                             // Check if challenge is completed based on quiz attempts
                             val completed = completedQuizIds.contains(quiz.id)
@@ -155,9 +228,17 @@ class LessonRepository @Inject constructor(
                     id = quiz.id,
                     lessonId = lessonDetail.id,
                     question = quiz.title,
-                    type = ChallengeType.SELECT,
+                    type = ChallengeType.MULTIPLE_CHOICE,
                     order = quiz.orderIndex
                 )
+                
+                // Insert challenge into database (with conflict resolution)
+                try {
+                    challengeDao.insertChallenge(challenge)
+                    Timber.d("Successfully inserted fallback challenge ${challenge.id}")
+                } catch (e: Exception) {
+                    Timber.w(e, "Fallback challenge ${challenge.id} might already exist, continuing...")
+                }
                 
                 val options = listOf(
                     ChallengeOption(
@@ -176,7 +257,16 @@ class LessonRepository @Inject constructor(
                     )
                 )
                 
-                Timber.d("Created fallback challenge ${challenge.id} with ${options.size} options")
+                // Insert challenge options into database (with conflict resolution)
+                options.forEach { option ->
+                    try {
+                        challengeOptionDao.insertOption(option)
+                    } catch (e: Exception) {
+                        Timber.w(e, "Fallback challenge option ${option.id} might already exist, continuing...")
+                    }
+                }
+                
+                Timber.d("Created and inserted fallback challenge ${challenge.id} with ${options.size} options")
                 
                 // Check if challenge is completed based on quiz attempts
                 val completed = completedQuizIds.contains(quiz.id)
@@ -211,7 +301,7 @@ class LessonRepository @Inject constructor(
             if (response.isSuccessful) {
                 val quizAttempts = response.body()
                 if (quizAttempts != null) {
-                    val completedQuizIds = quizAttempts.items
+                    val completedQuizIds = (quizAttempts.data ?: emptyList())  // ← Thay đổi từ items thành data
                         .filter { it.score > 0.0 } // Consider quizzes with score > 0 as completed
                         .map { it.quizId }
                         .toSet()
@@ -258,11 +348,50 @@ class LessonRepository @Inject constructor(
     }
     
     suspend fun completeChallenge(userId: String, challengeId: Int) {
-        val progress = ChallengeProgress(
-            userId = userId,
-            challengeId = challengeId,
-            completed = true
-        )
-        challengeProgressDao.insertChallengeProgress(progress)
+        try {
+            // First, verify that the challenge exists in the database
+            val challenge = challengeDao.getChallengeById(challengeId)
+            if (challenge == null) {
+                Timber.w("Challenge with ID $challengeId not found in database, cannot create progress")
+                return
+            }
+            
+            val progress = ChallengeProgress(
+                userId = userId,
+                challengeId = challengeId,
+                completed = true
+            )
+            challengeProgressDao.insertChallengeProgress(progress)
+            Timber.d("Successfully completed challenge $challengeId for user $userId")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to complete challenge $challengeId for user $userId")
+            throw e
+        }
+    }
+    
+    /**
+     * Updates lesson progress when a quiz or exercise is completed
+     * This method calls the backend API to update progress
+     */
+    suspend fun updateLessonProgress(lessonId: Int, userId: String, token: String? = null): Boolean {
+        return try {
+            Timber.d("Updating lesson progress for lesson $lessonId, user $userId")
+            
+            // Call API to update lesson progress
+            val authToken = if (token != null && token.isNotBlank()) "Bearer $token" else null
+            val response = apiService.updateLessonProgress(lessonId, authToken)
+            
+            if (response.isSuccessful) {
+                Timber.d("Successfully updated lesson progress for lesson $lessonId")
+                true
+            } else {
+                val errorBody = response.errorBody()?.string()
+                Timber.e("Failed to update lesson progress - Code: ${response.code()}, Error: $errorBody")
+                false
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Exception while updating lesson progress for lesson $lessonId")
+            false
+        }
     }
 }

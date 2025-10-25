@@ -7,6 +7,7 @@ import com.seoulhankuko.app.data.repository.AuthRepository
 import com.seoulhankuko.app.data.repository.LessonRepository
 import com.seoulhankuko.app.data.repository.LocalUserProgressRepository
 import com.seoulhankuko.app.domain.model.AnswerStatus
+import com.seoulhankuko.app.domain.model.ChallengeType
 import com.seoulhankuko.app.domain.model.ChallengeWithOptions
 import com.seoulhankuko.app.domain.model.Constants
 import com.seoulhankuko.app.domain.model.LessonWithChallenges
@@ -60,7 +61,8 @@ class LessonViewModel @Inject constructor(
                                 status = AnswerStatus.NONE,
                                 isLessonCompleted = false,
                                 heartsReduced = false,
-                                completedChallenges = emptySet()
+                                completedChallenges = emptySet(),
+                                canProceedAfterWrong = false
                             )
                         }
                     }
@@ -101,7 +103,8 @@ class LessonViewModel @Inject constructor(
         val currentState = _uiState.value
         if (currentState !is LessonUiState.Success) return
         
-        if (currentState.selectedOption != null || currentState.status != AnswerStatus.NONE) {
+        // Only allow changing answer if status is NONE (before checking)
+        if (currentState.status != AnswerStatus.NONE) {
             return
         }
         
@@ -117,8 +120,57 @@ class LessonViewModel @Inject constructor(
         val selectedOption = currentState.selectedOption ?: return
         val currentChallenge = currentState.getCurrentChallenge() ?: return
         
+        // Prevent multiple submissions
+        if (currentState.status != AnswerStatus.NONE) {
+            return
+        }
+        
         val correctOption = currentChallenge.options.find { it.correct }
-        val isCorrect = correctOption?.id == selectedOption
+        val isCorrect = if (currentChallenge.challenge.type == ChallengeType.TRUE_FALSE) {
+            // For True/False questions, determine correctness based on the correct answer
+            val trueOption = currentChallenge.options.find { option ->
+                option.text.equals("True", ignoreCase = true) || 
+                option.text.equals("true", ignoreCase = true) ||
+                option.text.equals("TRUE", ignoreCase = true)
+            }
+            val falseOption = currentChallenge.options.find { option ->
+                option.text.equals("False", ignoreCase = true) || 
+                option.text.equals("false", ignoreCase = true) ||
+                option.text.equals("FALSE", ignoreCase = true)
+            }
+            
+            // If we can't find True/False options, use the first two options
+            val finalTrueOption = trueOption ?: currentChallenge.options.getOrNull(0)
+            val finalFalseOption = falseOption ?: currentChallenge.options.getOrNull(1)
+            
+            val isCorrectAnswerTrue = if (finalTrueOption != null && finalFalseOption != null) {
+                finalTrueOption.correct
+            } else {
+                // Fallback: determine based on correct answer text
+                correctOption?.text?.let { 
+                    it.contains("Hello", ignoreCase = true) || 
+                    it.contains("Thank you", ignoreCase = true) ||
+                    it.contains("안녕하세요", ignoreCase = true) ||
+                    it.contains("감사합니다", ignoreCase = true)
+                } ?: false
+            }
+            
+            // Get actual option IDs for True/False buttons
+            val trueOptionId = finalTrueOption?.id ?: currentChallenge.options.firstOrNull()?.id ?: 1
+            val falseOptionId = finalFalseOption?.id ?: currentChallenge.options.getOrNull(1)?.id ?: 2
+            
+            Timber.d("True/False question - isCorrectAnswerTrue: $isCorrectAnswerTrue, selectedOption: $selectedOption, trueOptionId: $trueOptionId, falseOptionId: $falseOptionId")
+            
+            // Check if selected option matches the correct True/False value
+            if (isCorrectAnswerTrue) {
+                selectedOption == trueOptionId // True is correct
+            } else {
+                selectedOption == falseOptionId // False is correct
+            }
+        } else {
+            // For other question types, use the original logic
+            correctOption?.id == selectedOption
+        }
         
         viewModelScope.launch {
             val userId = getCurrentUserId()
@@ -145,13 +197,15 @@ class LessonViewModel @Inject constructor(
                 } else {
                     Timber.d("Wrong answer submitted for challenge ${currentChallenge.challenge.id}")
                     
-                    // Reduce hearts for wrong answer
-                    userProgressRepository.reduceHearts(userId)
+                    // Reduce hearts for wrong answer (only once)
+                    val heartsReduced = userProgressRepository.reduceHearts(userId)
+                    Timber.d("Hearts reduced: $heartsReduced")
                     
                     _uiState.update { 
                         (it as? LessonUiState.Success)?.copy(
                             status = AnswerStatus.WRONG,
-                            heartsReduced = true
+                            heartsReduced = true,
+                            canProceedAfterWrong = true
                         ) ?: it
                     }
                 }
@@ -186,9 +240,26 @@ class LessonViewModel @Inject constructor(
                     currentChallengeIndex = nextIndex,
                     status = AnswerStatus.NONE,
                     selectedOption = null,
-                    heartsReduced = false
+                    heartsReduced = false,
+                    canProceedAfterWrong = false
                 ) ?: it
             }
+        }
+    }
+    
+    fun proceedAfterWrongAnswer() {
+        val currentState = _uiState.value
+        if (currentState !is LessonUiState.Success) return
+        
+        // Proceed to next challenge even after wrong answer
+        // Note: Hearts are already reduced in submitAnswer, so we don't need to check here
+        nextChallenge()
+        
+        // Reset the canProceedAfterWrong flag
+        _uiState.update { 
+            (it as? LessonUiState.Success)?.copy(
+                canProceedAfterWrong = false
+            ) ?: it
         }
     }
     
@@ -200,7 +271,8 @@ class LessonViewModel @Inject constructor(
             (it as? LessonUiState.Success)?.copy(
                 status = AnswerStatus.NONE,
                 selectedOption = null,
-                heartsReduced = false
+                heartsReduced = false,
+                canProceedAfterWrong = false
             ) ?: it
         }
     }
@@ -216,8 +288,56 @@ class LessonViewModel @Inject constructor(
                 status = AnswerStatus.NONE,
                 isLessonCompleted = false,
                 heartsReduced = false,
-                completedChallenges = emptySet()
+                completedChallenges = emptySet(),
+                canProceedAfterWrong = false
             ) ?: it
+        }
+    }
+    
+    /**
+     * Updates lesson progress when a quiz or exercise is completed
+     * This method should be called from QuizScreen, ExerciseScreen, etc.
+     */
+    fun updateProgress(lessonId: Int) {
+        viewModelScope.launch {
+            try {
+                Timber.d("Updating progress for lesson $lessonId")
+                
+                val userId = getCurrentUserId()
+                val token = authRepository.getCurrentToken()
+                
+                // Call repository to update progress
+                lessonRepository.updateLessonProgress(lessonId, userId, token)
+                
+                // Refresh lesson data to get updated progress
+                val lessonWithChallenges = lessonRepository.getLessonWithChallenges(lessonId, userId, token)
+                if (lessonWithChallenges != null) {
+                    _uiState.update { currentState ->
+                        if (currentState is LessonUiState.Success) {
+                            currentState.copy(
+                                lessonWithChallenges = lessonWithChallenges,
+                                progressUpdated = true
+                            )
+                        } else {
+                            LessonUiState.Success(
+                                lessonWithChallenges = lessonWithChallenges,
+                                currentChallengeIndex = 0,
+                                status = AnswerStatus.NONE,
+                                selectedOption = null,
+                                isLessonCompleted = false,
+                                heartsReduced = false,
+                                completedChallenges = emptySet(),
+                                canProceedAfterWrong = false,
+                                progressUpdated = true
+                            )
+                        }
+                    }
+                }
+                
+                Timber.d("Successfully updated progress for lesson $lessonId")
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to update progress for lesson $lessonId")
+            }
         }
     }
     
@@ -238,7 +358,9 @@ sealed class LessonUiState {
         val status: AnswerStatus = AnswerStatus.NONE,
         val isLessonCompleted: Boolean = false,
         val heartsReduced: Boolean = false,
-        val completedChallenges: Set<Int> = emptySet()
+        val completedChallenges: Set<Int> = emptySet(),
+        val canProceedAfterWrong: Boolean = false,
+        val progressUpdated: Boolean = false
     ) : LessonUiState() {
         fun getCurrentChallenge(): ChallengeWithOptions? {
             return lessonWithChallenges?.challenges?.getOrNull(currentChallengeIndex)

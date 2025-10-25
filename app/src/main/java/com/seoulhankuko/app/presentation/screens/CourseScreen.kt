@@ -1,28 +1,44 @@
 package com.seoulhankuko.app.presentation.screens
 
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.seoulhankuko.app.R
+import com.seoulhankuko.app.data.api.model.UnitResponse
 import com.seoulhankuko.app.presentation.viewmodel.CourseUiState
 import com.seoulhankuko.app.presentation.viewmodel.CourseViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-@OptIn(ExperimentalMaterialApi::class)
+@OptIn(ExperimentalMaterialApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun CourseScreen(
     courseId: Int,
@@ -46,47 +62,52 @@ fun CourseScreen(
         viewModel.loadCourse(courseId)
     }
     
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .pullRefresh(pullRefreshState)
-    ) {
-        Column(
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = when (val currentState = uiState) {
+                            is CourseUiState.Success -> currentState.course.title
+                            else -> "Course"
+                        },
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.back),
+                            tint = SoftIndigo
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White,
+                    titleContentColor = TextPrimary,
+                    navigationIconContentColor = SoftIndigo
+                ),
+                modifier = Modifier.shadow(elevation = 4.dp, shape = RoundedCornerShape(0.dp))
+            )
+        },
+        containerColor = BackgroundLight
+    ) { paddingValues ->
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp)
+                .padding(paddingValues)
+                .background(BackgroundLight)
+                .pullRefresh(pullRefreshState)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextButton(onClick = onNavigateBack) {
-                    Text(stringResource(R.string.back))
-                }
-                
-                Text(
-                    text = when (val currentState = uiState) {
-                        is CourseUiState.Success -> currentState.course.title
-                        else -> "Course $courseId"
-                    },
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                
-                Spacer(modifier = Modifier.width(80.dp))
-            }
-            
-            Spacer(modifier = Modifier.height(32.dp))
-            
             when (val currentState = uiState) {
                 is CourseUiState.Loading -> {
                     LoadingContent()
                 }
                 is CourseUiState.Success -> {
                     SuccessContent(
-                        course = currentState.course,
                         units = currentState.units,
                         onNavigateToUnit = onNavigateToUnit
                     )
@@ -98,14 +119,14 @@ fun CourseScreen(
                     )
                 }
             }
+            
+            // Pull-to-refresh indicator
+            PullRefreshIndicator(
+                refreshing = isRefreshing,
+                state = pullRefreshState,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
         }
-        
-        // Pull-to-refresh indicator
-        PullRefreshIndicator(
-            refreshing = isRefreshing,
-            state = pullRefreshState,
-            modifier = Modifier.align(Alignment.TopCenter)
-        )
     }
 }
 
@@ -116,14 +137,17 @@ private fun LoadingContent() {
         contentAlignment = Alignment.Center
     ) {
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            CircularProgressIndicator()
-            Spacer(modifier = Modifier.height(16.dp))
+            CircularProgressIndicator(
+                modifier = Modifier.size(48.dp),
+                color = SoftIndigo
+            )
             Text(
                 text = "Loading course...",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onBackground
+                style = MaterialTheme.typography.bodyLarge,
+                color = TextSecondary
             )
         }
     }
@@ -131,46 +155,44 @@ private fun LoadingContent() {
 
 @Composable
 private fun SuccessContent(
-    course: com.seoulhankuko.app.data.api.model.CourseDetailResponse,
-    units: List<com.seoulhankuko.app.data.api.model.UnitResponse>,
-    onNavigateToUnit: (unitId: Int) -> Unit
+    units: List<UnitResponse>,
+    onNavigateToUnit: (Int) -> Unit
 ) {
-    Column {
-        // Course description
-        course.description?.let { description ->
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-        }
-        
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        // Welcome text
         Text(
-            text = "Select a unit to start learning:",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(bottom = 16.dp)
+            text = "Select a unit to start",
+            style = MaterialTheme.typography.titleMedium,
+            color = TextSecondary,
+            modifier = Modifier.padding(start = 8.dp, top = 8.dp, bottom = 16.dp)
         )
         
         if (units.isEmpty()) {
             Box(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No units available for this course",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "No units available",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = TextSecondary
                 )
             }
         } else {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize()
             ) {
-                items(units) { unit ->
+                itemsIndexed(units) { index, unit ->
                     UnitCard(
                         unit = unit,
+                        index = index,
                         onClick = { onNavigateToUnit(unit.id) }
                     )
                 }
@@ -190,21 +212,25 @@ private fun ErrorContent(
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.padding(16.dp)
         ) {
             Text(
-                text = "Something went wrong",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(bottom = 8.dp)
+                text = "Failed to load course",
+                style = MaterialTheme.typography.titleMedium,
+                color = TextPrimary
             )
             Text(
                 text = errorMessage,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(bottom = 16.dp)
+                color = TextSecondary
             )
-            Button(onClick = onRetry) {
+            Button(
+                onClick = onRetry,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = SoftIndigo
+                )
+            ) {
                 Text("Retry")
             }
         }
@@ -213,74 +239,180 @@ private fun ErrorContent(
 
 @Composable
 private fun UnitCard(
-    unit: com.seoulhankuko.app.data.api.model.UnitResponse,
+    unit: UnitResponse,
+    index: Int,
     onClick: () -> Unit
 ) {
+    var isPressed by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    
+    // Scale animation
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.95f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "scale_animation"
+    )
+    
+    // Fade-in animation with staggered delay
+    val alpha by animateFloatAsState(
+        targetValue = 1f,
+        animationSpec = tween(
+            durationMillis = 600,
+            delayMillis = index * 100,
+            easing = FastOutSlowInEasing
+        ),
+        label = "alpha_animation"
+    )
+    
+    LaunchedEffect(interactionSource) {
+        interactionSource.interactions.collect { interaction ->
+            when (interaction) {
+                is PressInteraction.Press -> {
+                    isPressed = true
+                }
+                is PressInteraction.Release -> {
+                    isPressed = false
+                }
+                is PressInteraction.Cancel -> {
+                    isPressed = false
+                }
+                else -> {}
+            }
+        }
+    }
+
     Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .fillMaxHeight()
+            .scale(scale)
+            .shadow(
+                elevation = if (isPressed) 2.dp else 8.dp,
+                shape = RoundedCornerShape(16.dp),
+                ambientColor = SoftIndigo.copy(alpha = 0.1f),
+                spotColor = SoftIndigo.copy(alpha = 0.3f)
+            )
+            .clickable(
+                onClick = onClick,
+                indication = null,
+                interactionSource = interactionSource
+            ),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        )
     ) {
-        Row(
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxSize()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(Lavender, LightGray)
+                    )
+                )
+                .padding(16.dp)
         ) {
             Column(
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = unit.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                unit.description?.let { description ->
-                    Text(
-                        text = description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
-                
-                // Show progress if available
-                unit.progress?.let { progress ->
-                    Row(
-                        modifier = Modifier.padding(top = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                // Unit title and completion status
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f)
                     ) {
                         Text(
-                            text = "Progress: ${progress.progressPercent}%",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
+                            text = unit.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
                         )
-                        if (progress.isCompleted) {
-                            Spacer(modifier = Modifier.width(8.dp))
+                        unit.description?.let { description ->
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "✓",
+                                text = description,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary
+                                color = TextSecondary,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    
+                    // Completion indicator
+                    unit.progress?.let { progress ->
+                        if (progress.isCompleted) {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                tint = WarmOrange,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
                 }
-                
-                // Show lessons count
-                Text(
-                    text = "${unit.lessonsCount} lessons",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Progress indicator
+                unit.progress?.let { progress ->
+                    Column {
+                        LinearProgressIndicator(
+                            progress = { progress.progressPercent / 100f },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = SoftIndigo,
+                            trackColor = SoftIndigo.copy(alpha = 0.2f)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Progress: ${progress.progressPercent}%",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = SoftIndigo,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Footer with lessons count and CTA
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "📘",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "${unit.lessonsCount} lessons",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
+                        )
+                    }
+                    
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        tint = WarmOrange,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
-            
-            Text(
-                text = "→",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.primary
-            )
         }
     }
 }

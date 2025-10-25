@@ -34,7 +34,7 @@ class GamificationRepository @Inject constructor(
             if (response.isSuccessful) {
                 val badgesResponse = response.body()
                 if (badgesResponse != null) {
-                    _badges.value = badgesResponse.items
+                    _badges.value = badgesResponse.data ?: emptyList()  // ← Thay đổi từ items thành data
                     Result.success(badgesResponse)
                 } else {
                     Result.failure(Exception("Badges response is null"))
@@ -61,7 +61,7 @@ class GamificationRepository @Inject constructor(
             if (response.isSuccessful) {
                 val leaderboardResponse = response.body()
                 if (leaderboardResponse != null) {
-                    _leaderboard.value = leaderboardResponse.items
+                    _leaderboard.value = leaderboardResponse.data ?: emptyList()  // ← Thay đổi từ items thành data
                     Result.success(leaderboardResponse)
                 } else {
                     Result.failure(Exception("Leaderboard response is null"))
@@ -89,7 +89,7 @@ class GamificationRepository @Inject constructor(
             if (response.isSuccessful) {
                 val friendsResponse = response.body()
                 if (friendsResponse != null) {
-                    _friends.value = friendsResponse.items
+                    _friends.value = friendsResponse.data ?: emptyList()  // ← Thay đổi từ items thành data
                     Result.success(friendsResponse)
                 } else {
                     Result.failure(Exception("Friends response is null"))

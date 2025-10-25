@@ -83,7 +83,7 @@ class QuizRepository @Inject constructor(
             if (response.isSuccessful) {
                 val attemptsResponse = response.body()
                 if (attemptsResponse != null) {
-                    _quizAttempts.value = attemptsResponse.items
+                    _quizAttempts.value = attemptsResponse.data ?: emptyList()  // ← Thay đổi từ items thành data
                     Result.success(attemptsResponse)
                 } else {
                     Result.failure(Exception("Quiz attempts response is null"))

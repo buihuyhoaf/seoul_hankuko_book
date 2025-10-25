@@ -5,7 +5,9 @@ import android.content.SharedPreferences
 import com.seoulhankuko.app.BuildConfig
 import com.seoulhankuko.app.data.api.model.RefreshTokenRequest
 import com.seoulhankuko.app.data.api.model.RefreshTokenResponse
+import com.seoulhankuko.app.data.repository.AccountRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -21,7 +23,8 @@ import kotlin.concurrent.withLock
 
 @Singleton
 class AuthInterceptor @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val accountRepository: AccountRepository
 ) : Interceptor {
 
     private val sharedPreferences: SharedPreferences by lazy {
@@ -113,10 +116,14 @@ class AuthInterceptor @Inject constructor(
             // Get refresh token
             val refreshToken = getRefreshToken()
             if (refreshToken.isNullOrBlank()) {
-                Timber.w("No refresh token available")
+                Timber.w("No refresh token available - cannot refresh access token")
+                Timber.w("Available refresh_token key exists: ${sharedPreferences.contains("refresh_token")}")
+                Timber.w("Available active_refresh_token key exists: ${sharedPreferences.contains("active_refresh_token")}")
                 // Return 401 response instead of throwing exception
                 return createUnauthorizedResponse(originalRequest, "No refresh token available")
             }
+            
+            Timber.d("Refresh token retrieved successfully (length: ${refreshToken.length})")
 
             // Attempt to refresh the token synchronously
             val refreshResponse = attemptTokenRefresh(refreshToken)
@@ -200,38 +207,64 @@ class AuthInterceptor @Inject constructor(
     private fun getRefreshToken(): String? {
         // Try to get refresh token from multiple sources
         return try {
-            // First try from shared preferences (legacy storage)
+            Timber.d("Getting refresh token from storage...")
+            
+            // First try from Room database (active account)
+            val activeAccount = runBlocking {
+                accountRepository.getActiveAccount()
+            }
+            if (activeAccount != null && !activeAccount.refreshToken.isNullOrBlank()) {
+                Timber.d("Got refresh token from Room database (length: ${activeAccount.refreshToken?.length})")
+                return activeAccount.refreshToken
+            }
+            
+            // Fallback to active_refresh_token in SharedPreferences
+            val activeToken = sharedPreferences.getString("active_refresh_token", null)
+            if (!activeToken.isNullOrBlank()) {
+                Timber.d("Got refresh token from active_refresh_token (length: ${activeToken.length})")
+                return activeToken
+            }
+            
+            // Last fallback to refresh_token in SharedPreferences
             val tokenFromPrefs = sharedPreferences.getString("refresh_token", null)
             if (!tokenFromPrefs.isNullOrBlank()) {
+                Timber.d("Got refresh token from refresh_token (length: ${tokenFromPrefs.length})")
                 return tokenFromPrefs
             }
             
-            // Try to get from AccountRepository storage
-            // This is a simplified approach - in a real implementation you might need
-            // to access the database directly or use a different mechanism
-            getRefreshTokenFromActiveAccount()
+            Timber.w("No refresh token found in any storage location")
+            null
         } catch (e: Exception) {
-            Timber.e(e, "Failed to get refresh token")
+            Timber.e(e, "Failed to get refresh token: ${e.message}")
             null
         }
     }
-    
-    private fun getRefreshTokenFromActiveAccount(): String? {
-        // This is a simplified approach. In a real implementation, you'd need to:
-        // 1. Access the database directly to get the active account
-        // 2. Or use a different storage mechanism
-        // For now, we'll use a simple approach
-        
-        // Try to get from a separate refresh token preference
-        return sharedPreferences.getString("active_refresh_token", null)
-    }
 
     private fun updateStoredTokens(accessToken: String, refreshToken: String) {
-        sharedPreferences.edit()
-            .putString("auth_token", accessToken)
-            .putString("refresh_token", refreshToken)
-            .putString("active_refresh_token", refreshToken)
-            .apply()
+        try {
+            // Update SharedPreferences
+            sharedPreferences.edit()
+                .putString("auth_token", accessToken)
+                .putString("refresh_token", refreshToken)
+                .putString("active_refresh_token", refreshToken)
+                .apply()
+            
+            // Update Room database for active account
+            runBlocking {
+                val activeAccount = accountRepository.getActiveAccount()
+                if (activeAccount != null) {
+                    accountRepository.updateTokens(
+                        email = activeAccount.email,
+                        accessToken = accessToken,
+                        refreshToken = refreshToken,
+                        lastLogin = System.currentTimeMillis()
+                    )
+                    Timber.d("Updated tokens in Room database for ${activeAccount.email}")
+                }
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to update stored tokens: ${e.message}")
+        }
     }
 
     private fun clearTokens() {

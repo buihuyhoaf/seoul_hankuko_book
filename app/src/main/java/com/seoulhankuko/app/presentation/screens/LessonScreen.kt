@@ -61,6 +61,15 @@ fun LessonScreen(
         viewModel.loadLesson(lessonId)
     }
     
+    // Observe progress updates and refresh lesson data
+    LaunchedEffect(uiState) {
+        val currentState = uiState
+        if (currentState is LessonUiState.Success && currentState.progressUpdated) {
+            // Progress was updated, refresh the lesson data
+            viewModel.loadLesson(lessonId)
+        }
+    }
+    
     Scaffold(
         topBar = {
             when (val currentState = uiState) {
@@ -69,6 +78,7 @@ fun LessonScreen(
                     currentChallenge = currentState.currentChallengeIndex + 1,
                     totalChallenges = currentState.getTotalChallenges(),
                     hearts = currentState.userProgress?.hearts ?: 5,
+                    progressPercentage = currentState.getProgressPercentage(),
                     onNavigateBack = onNavigateBack
                 )
                 else -> AnimatedTopBar(
@@ -118,6 +128,7 @@ private fun AnimatedTopBar(
     currentChallenge: Int,
     totalChallenges: Int,
     hearts: Int,
+    progressPercentage: Float = 0f,
     onNavigateBack: () -> Unit
 ) {
     var visible by remember { mutableStateOf(false) }
@@ -144,6 +155,25 @@ private fun AnimatedTopBar(
                             text = "Challenge $currentChallenge of $totalChallenges",
                             style = MaterialTheme.typography.bodySmall,
                             color = TextDark.copy(alpha = 0.6f)
+                        )
+                    }
+                    
+                    // Progress bar
+                    if (progressPercentage > 0f) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        LinearProgressIndicator(
+                            progress = { progressPercentage },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(4.dp),
+                            color = AccentGreen,
+                            trackColor = TextDark.copy(alpha = 0.2f)
+                        )
+                        Text(
+                            text = "${(progressPercentage * 100).toInt()}% Complete",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextDark.copy(alpha = 0.6f),
+                            modifier = Modifier.padding(top = 2.dp)
                         )
                     }
                 }
@@ -213,7 +243,26 @@ private fun ChallengeContent(
     LaunchedEffect(currentChallenge) {
         android.util.Log.d("LessonScreen", "Current challenge: $currentChallenge")
         android.util.Log.d("LessonScreen", "Challenge question: ${currentChallenge?.challenge?.question}")
-        android.util.Log.d("LessonScreen", "Challenge options: ${currentChallenge?.options?.map { it.text }}")
+        android.util.Log.d("LessonScreen", "Challenge options: ${currentChallenge?.options?.map { "${it.id}: ${it.text} (correct: ${it.correct})" }}")
+        android.util.Log.d("LessonScreen", "Challenge type: ${currentChallenge?.challenge?.type}")
+        android.util.Log.d("LessonScreen", "Challenge type enum: ${currentChallenge?.challenge?.type?.name}")
+        
+        if (currentChallenge?.challenge?.type == ChallengeType.TRUE_FALSE) {
+            android.util.Log.d("LessonScreen", "TRUE_FALSE challenge detected!")
+            android.util.Log.d("LessonScreen", "Total options: ${currentChallenge.options.size}")
+            currentChallenge.options.forEachIndexed { index, option ->
+                android.util.Log.d("LessonScreen", "Option $index: ID=${option.id}, Text='${option.text}', Correct=${option.correct}")
+            }
+            android.util.Log.d("LessonScreen", "Selected option: ${uiState.selectedOption}")
+            
+            // Check if True/False options exist
+            val trueOption = currentChallenge.options.find { it.text.equals("True", ignoreCase = true) }
+            val falseOption = currentChallenge.options.find { it.text.equals("False", ignoreCase = true) }
+            android.util.Log.d("LessonScreen", "True option found: $trueOption")
+            android.util.Log.d("LessonScreen", "False option found: $falseOption")
+        } else {
+            android.util.Log.d("LessonScreen", "Not a TRUE_FALSE challenge. Type: ${currentChallenge?.challenge?.type}")
+        }
     }
     
     var contentVisible by remember { mutableStateOf(false) }
@@ -255,13 +304,49 @@ private fun ChallengeContent(
                         slideInVertically(initialOffsetY = { 30 })
             ) {
                 when (currentChallenge.challenge.type) {
-                    ChallengeType.SELECT -> SelectChallengeCard(
+                    ChallengeType.MULTIPLE_CHOICE -> MultipleChoiceChallengeCard(
                         challenge = currentChallenge,
                         selectedOption = uiState.selectedOption,
                         status = uiState.status,
                         onSelectOption = viewModel::selectOption
                     )
-                    ChallengeType.ASSIST -> AssistChallengeCard(
+                    ChallengeType.FILL_IN_BLANK -> FillInBlankChallengeCard(
+                        challenge = currentChallenge,
+                        selectedOption = uiState.selectedOption,
+                        status = uiState.status,
+                        onSelectOption = viewModel::selectOption
+                    )
+                    ChallengeType.TRUE_FALSE -> TrueFalseChallengeCard(
+                        challenge = currentChallenge,
+                        selectedOption = uiState.selectedOption,
+                        status = uiState.status,
+                        onSelectOption = viewModel::selectOption
+                    )
+                    ChallengeType.AUDIO_COMPREHENSION -> AudioComprehensionChallengeCard(
+                        challenge = currentChallenge,
+                        selectedOption = uiState.selectedOption,
+                        status = uiState.status,
+                        onSelectOption = viewModel::selectOption
+                    )
+                    ChallengeType.WRITING_PRACTICE -> WritingPracticeChallengeCard(
+                        challenge = currentChallenge,
+                        selectedOption = uiState.selectedOption,
+                        status = uiState.status,
+                        onSelectOption = viewModel::selectOption
+                    )
+                    ChallengeType.READING_COMPREHENSION -> ReadingComprehensionChallengeCard(
+                        challenge = currentChallenge,
+                        selectedOption = uiState.selectedOption,
+                        status = uiState.status,
+                        onSelectOption = viewModel::selectOption
+                    )
+                    ChallengeType.MATCHING -> MatchingChallengeCard(
+                        challenge = currentChallenge,
+                        selectedOption = uiState.selectedOption,
+                        status = uiState.status,
+                        onSelectOption = viewModel::selectOption
+                    )
+                    ChallengeType.PRONUNCIATION -> PronunciationChallengeCard(
                         challenge = currentChallenge,
                         selectedOption = uiState.selectedOption,
                         status = uiState.status,
@@ -325,9 +410,11 @@ private fun ChallengeContent(
                 status = uiState.status,
                 hasSelectedOption = uiState.selectedOption != null,
                 isLastChallenge = uiState.isLastChallenge(),
+                canProceedAfterWrong = uiState.canProceedAfterWrong,
                 onSubmit = viewModel::submitAnswer,
                 onContinue = viewModel::nextChallenge,
-                onRetry = viewModel::retryChallenge
+                onRetry = viewModel::retryChallenge,
+                onProceedAfterWrong = viewModel::proceedAfterWrongAnswer
             )
         }
     }
@@ -382,7 +469,7 @@ private fun ProgressBar(
 }
 
 @Composable
-private fun SelectChallengeCard(
+private fun MultipleChoiceChallengeCard(
     challenge: ChallengeWithOptions,
     selectedOption: Int?,
     status: AnswerStatus,
@@ -400,6 +487,16 @@ private fun SelectChallengeCard(
             color = TextDark,
             lineHeight = 32.sp
         )
+        
+        // Hint text for answer selection
+        if (status == AnswerStatus.NONE) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Tap to select your answer",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextDark.copy(alpha = 0.6f)
+            )
+        }
         
         Spacer(modifier = Modifier.height(24.dp))
         
@@ -440,7 +537,7 @@ private fun SelectChallengeCard(
 }
 
 @Composable
-private fun AssistChallengeCard(
+private fun FillInBlankChallengeCard(
     challenge: ChallengeWithOptions,
     selectedOption: Int?,
     status: AnswerStatus,
@@ -460,6 +557,16 @@ private fun AssistChallengeCard(
             color = TextDark,
             lineHeight = 32.sp
         )
+        
+        // Hint text for answer selection
+        if (status == AnswerStatus.NONE) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Tap to select your answer",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextDark.copy(alpha = 0.6f)
+            )
+        }
         
         Spacer(modifier = Modifier.height(32.dp))
         
@@ -530,6 +637,630 @@ private fun AssistChallengeCard(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun TrueFalseChallengeCard(
+    challenge: ChallengeWithOptions,
+    selectedOption: Int?,
+    status: AnswerStatus,
+    onSelectOption: (Int) -> Unit
+) {
+    ChallengeCardContainer(
+        title = "True or False",
+        icon = "🎯",
+        iconColor = AccentGreen
+    ) {
+        // Question text with modern styling
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = LightMint),
+            shape = RoundedCornerShape(20.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Question icon
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(
+                            color = AccentGreen.copy(alpha = 0.2f),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "❓",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontSize = 24.sp
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Text(
+                    text = challenge.challenge.question,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = TextDark,
+                    lineHeight = 32.sp,
+                    textAlign = TextAlign.Center
+                )
+                
+                // Hint text for answer selection
+                if (status == AnswerStatus.NONE) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = AccentGreen,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Tap TRUE or FALSE to answer",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = AccentGreen,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        // True/False buttons with improved design
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Choose your answer:",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = TextDark.copy(alpha = 0.8f),
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
+            
+            // Debug logging for True/False options
+            LaunchedEffect(challenge.options) {
+                android.util.Log.d("TrueFalseChallengeCard", "Available options: ${challenge.options.map { "${it.id}: ${it.text} (correct: ${it.correct})" }}")
+                android.util.Log.d("TrueFalseChallengeCard", "Options count: ${challenge.options.size}")
+                android.util.Log.d("TrueFalseChallengeCard", "Selected option: $selectedOption")
+                android.util.Log.d("TrueFalseChallengeCard", "Status: $status")
+            }
+            
+            // Find True/False options - try multiple variations
+            val trueOption = challenge.options.find { option ->
+                option.text.equals("True", ignoreCase = true) || 
+                option.text.equals("true", ignoreCase = true) ||
+                option.text.equals("TRUE", ignoreCase = true)
+            }
+            val falseOption = challenge.options.find { option ->
+                option.text.equals("False", ignoreCase = true) || 
+                option.text.equals("false", ignoreCase = true) ||
+                option.text.equals("FALSE", ignoreCase = true)
+            }
+            
+            // If we can't find True/False options, use the first two options
+            val finalTrueOption = trueOption ?: challenge.options.getOrNull(0)
+            val finalFalseOption = falseOption ?: challenge.options.getOrNull(1)
+            
+            val isCorrectAnswerTrue = if (finalTrueOption != null && finalFalseOption != null) {
+                finalTrueOption.correct
+            } else {
+                // Fallback: determine based on correct answer text
+                val correctOption = challenge.options.find { it.correct }
+                correctOption?.text?.let { 
+                    it.contains("Hello", ignoreCase = true) || 
+                    it.contains("Thank you", ignoreCase = true) ||
+                    it.contains("안녕하세요", ignoreCase = true) ||
+                    it.contains("감사합니다", ignoreCase = true)
+                } ?: false
+            }
+            
+            // Get actual option IDs for True/False buttons
+            val trueOptionId = finalTrueOption?.id ?: challenge.options.firstOrNull()?.id ?: 1
+            val falseOptionId = finalFalseOption?.id ?: challenge.options.getOrNull(1)?.id ?: 2
+            
+            // Always show True/False buttons, even if options don't exist
+            android.util.Log.d("TrueFalseChallengeCard", "About to render buttons. Options empty: ${challenge.options.isEmpty()}")
+            if (challenge.options.isNotEmpty()) {
+                android.util.Log.d("TrueFalseChallengeCard", "Rendering True/False buttons with ${challenge.options.size} options")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(20.dp)
+                ) {
+                    // True Button with enhanced design
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(80.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = when {
+                                status != AnswerStatus.NONE && isCorrectAnswerTrue -> SuccessGreen
+                                status != AnswerStatus.NONE && selectedOption == trueOptionId && !isCorrectAnswerTrue -> ErrorRed
+                                selectedOption == trueOptionId -> AccentGreen
+                                else -> SuccessGreen.copy(alpha = 0.8f)
+                            }
+                        ),
+                        elevation = CardDefaults.cardElevation(
+                            defaultElevation = if (selectedOption == trueOptionId) 8.dp else 4.dp
+                        ),
+                        onClick = { 
+                            if (status == AnswerStatus.NONE) {
+                                android.util.Log.d("TrueFalseChallengeCard", "True button clicked, optionId: $trueOptionId")
+                                onSelectOption(trueOptionId)
+                            }
+                        }
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "TRUE",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                    
+                    // False Button with enhanced design
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(80.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = when {
+                                status != AnswerStatus.NONE && !isCorrectAnswerTrue -> SuccessGreen
+                                status != AnswerStatus.NONE && selectedOption == falseOptionId && isCorrectAnswerTrue -> ErrorRed
+                                selectedOption == falseOptionId -> AccentGreen
+                                else -> ErrorRed.copy(alpha = 0.8f)
+                            }
+                        ),
+                        elevation = CardDefaults.cardElevation(
+                            defaultElevation = if (selectedOption == falseOptionId) 8.dp else 4.dp
+                        ),
+                        onClick = { 
+                            if (status == AnswerStatus.NONE) {
+                                android.util.Log.d("TrueFalseChallengeCard", "False button clicked, optionId: $falseOptionId")
+                                onSelectOption(falseOptionId)
+                            }
+                        }
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "FALSE",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Fallback: Show error message if no options available
+                android.util.Log.w("TrueFalseChallengeCard", "No options available! Showing fallback message")
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = ErrorRed.copy(alpha = 0.1f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "No options available for this True/False question",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = ErrorRed,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Available options: ${challenge.options.size}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextDark.copy(alpha = 0.6f)
+                        )
+                    }
+                }
+            }
+        }
+        
+        // Feedback
+        AnimatedVisibility(
+            visible = status != AnswerStatus.NONE,
+            enter = fadeIn() + expandVertically()
+        ) {
+            Column {
+                Spacer(modifier = Modifier.height(20.dp))
+                FeedbackCard(
+                    status = status,
+                    correctAnswer = challenge.options.find { it.correct }?.text ?: ""
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ImprovedTrueFalseButton(
+    text: String,
+    icon: ImageVector,
+    isSelected: Boolean,
+    isCorrect: Boolean,
+    showResult: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    backgroundColor: Color,
+    textColor: Color
+) {
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.05f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "button_scale"
+    )
+    
+    val pulseScale by rememberInfiniteTransition(label = "pulse").animateFloat(
+        initialValue = 1f,
+        targetValue = if (isSelected && !showResult) 1.02f else 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = EaseInOutCubic),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
+    
+    val finalScale = scale * pulseScale
+    
+    val borderColor = when {
+        showResult && isCorrect -> SuccessGreen
+        showResult && isSelected && !isCorrect -> ErrorRed
+        isSelected -> AccentGreen
+        else -> backgroundColor.copy(alpha = 0.7f)
+    }
+    
+    val cardColor = when {
+        showResult && isCorrect -> SuccessGreen.copy(alpha = 0.9f)
+        showResult && isSelected && !isCorrect -> ErrorRed.copy(alpha = 0.9f)
+        isSelected -> backgroundColor.copy(alpha = 0.9f)
+        else -> backgroundColor.copy(alpha = 0.8f)
+    }
+    
+    val finalTextColor = when {
+        showResult && isCorrect -> Color.White
+        showResult && isSelected && !isCorrect -> Color.White
+        isSelected -> Color.White
+        else -> textColor
+    }
+    
+    Card(
+        modifier = modifier
+            .height(120.dp)
+            .scale(finalScale)
+            .shadow(
+                elevation = if (isSelected) 16.dp else 8.dp,
+                shape = RoundedCornerShape(20.dp),
+                spotColor = backgroundColor.copy(alpha = 0.3f)
+            ),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = cardColor),
+        border = BorderStroke(
+            width = if (isSelected) 4.dp else 2.dp,
+            color = borderColor
+        ),
+        onClick = onClick
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Icon with enhanced styling
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(
+                        color = Color.White.copy(alpha = 0.3f),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = finalTextColor
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Text with enhanced styling
+            Text(
+                text = text,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = finalTextColor,
+                letterSpacing = 1.sp
+            )
+            
+            // Visual feedback
+            if (isSelected && !showResult) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "✓",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            
+            // Result feedback
+            if (showResult) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = if (isCorrect) "✓" else "✗",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AudioComprehensionChallengeCard(
+    challenge: ChallengeWithOptions,
+    selectedOption: Int?,
+    status: AnswerStatus,
+    onSelectOption: (Int) -> Unit
+) {
+    ChallengeCardContainer(
+        title = "Audio Comprehension",
+        icon = "🎧",
+        iconColor = PastelBlue
+    ) {
+        Text(
+            text = challenge.challenge.question,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = TextDark,
+            lineHeight = 32.sp
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Audio player and options
+        challenge.options.forEachIndexed { index, option ->
+            val isSelected = selectedOption == option.id
+            val isCorrect = option.correct
+            val showResult = status != AnswerStatus.NONE
+            
+            AnimatedOptionButton(
+                text = option.text,
+                audioSrc = option.audioSrc,
+                isSelected = isSelected,
+                isCorrect = isCorrect,
+                showResult = showResult,
+                index = index,
+                onClick = { if (!showResult) onSelectOption(option.id) }
+            )
+            
+            if (index < challenge.options.size - 1) {
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+        }
+        
+        // Feedback
+        AnimatedVisibility(
+            visible = status != AnswerStatus.NONE,
+            enter = fadeIn() + expandVertically()
+        ) {
+            Column {
+                Spacer(modifier = Modifier.height(20.dp))
+                FeedbackCard(
+                    status = status,
+                    correctAnswer = challenge.options.find { it.correct }?.text
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WritingPracticeChallengeCard(
+    challenge: ChallengeWithOptions,
+    selectedOption: Int?,
+    status: AnswerStatus,
+    onSelectOption: (Int) -> Unit
+) {
+    ChallengeCardContainer(
+        title = "Writing Practice",
+        icon = "✍️",
+        iconColor = AccentGreen
+    ) {
+        Text(
+            text = challenge.challenge.question,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = TextDark,
+            lineHeight = 32.sp
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Text(
+            text = "Writing practice feature coming soon!",
+            style = MaterialTheme.typography.bodyLarge,
+            color = TextDark.copy(alpha = 0.7f),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun ReadingComprehensionChallengeCard(
+    challenge: ChallengeWithOptions,
+    selectedOption: Int?,
+    status: AnswerStatus,
+    onSelectOption: (Int) -> Unit
+) {
+    ChallengeCardContainer(
+        title = "Reading Comprehension",
+        icon = "📖",
+        iconColor = PastelPurple
+    ) {
+        Text(
+            text = challenge.challenge.question,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = TextDark,
+            lineHeight = 32.sp
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        challenge.options.forEachIndexed { index, option ->
+            val isSelected = selectedOption == option.id
+            val isCorrect = option.correct
+            val showResult = status != AnswerStatus.NONE
+            
+            AnimatedOptionButton(
+                text = option.text,
+                audioSrc = option.audioSrc,
+                isSelected = isSelected,
+                isCorrect = isCorrect,
+                showResult = showResult,
+                index = index,
+                onClick = { if (!showResult) onSelectOption(option.id) }
+            )
+            
+            if (index < challenge.options.size - 1) {
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+        }
+        
+        // Feedback
+        AnimatedVisibility(
+            visible = status != AnswerStatus.NONE,
+            enter = fadeIn() + expandVertically()
+        ) {
+            Column {
+                Spacer(modifier = Modifier.height(20.dp))
+                FeedbackCard(
+                    status = status,
+                    correctAnswer = challenge.options.find { it.correct }?.text
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MatchingChallengeCard(
+    challenge: ChallengeWithOptions,
+    selectedOption: Int?,
+    status: AnswerStatus,
+    onSelectOption: (Int) -> Unit
+) {
+    ChallengeCardContainer(
+        title = "Matching",
+        icon = "🔗",
+        iconColor = MintGreen
+    ) {
+        Text(
+            text = challenge.challenge.question,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = TextDark,
+            lineHeight = 32.sp
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Text(
+            text = "Matching feature coming soon!",
+            style = MaterialTheme.typography.bodyLarge,
+            color = TextDark.copy(alpha = 0.7f),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun PronunciationChallengeCard(
+    challenge: ChallengeWithOptions,
+    selectedOption: Int?,
+    status: AnswerStatus,
+    onSelectOption: (Int) -> Unit
+) {
+    ChallengeCardContainer(
+        title = "Pronunciation",
+        icon = "🎤",
+        iconColor = ErrorRed
+    ) {
+        Text(
+            text = challenge.challenge.question,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = TextDark,
+            lineHeight = 32.sp
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Text(
+            text = "Pronunciation practice feature coming soon!",
+            style = MaterialTheme.typography.bodyLarge,
+            color = TextDark.copy(alpha = 0.7f),
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -807,9 +1538,11 @@ private fun ActionButtons(
     status: AnswerStatus,
     hasSelectedOption: Boolean,
     isLastChallenge: Boolean,
+    canProceedAfterWrong: Boolean,
     onSubmit: () -> Unit,
     onContinue: () -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onProceedAfterWrong: () -> Unit
 ) {
     when (status) {
         AnswerStatus.NONE -> {
@@ -831,13 +1564,39 @@ private fun ActionButtons(
             )
         }
         AnswerStatus.WRONG -> {
-            GradientButton(
-                text = "Try Again",
-                icon = Icons.Default.Refresh,
-                enabled = true,
-                onClick = onRetry,
-                gradient = listOf(ErrorRed, Color(0xFFFB923C))
-            )
+            if (canProceedAfterWrong) {
+                // Show both Try Again and Continue buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    GradientButton(
+                        text = "Try Again",
+                        icon = Icons.Default.Refresh,
+                        enabled = true,
+                        onClick = onRetry,
+                        gradient = listOf(ErrorRed, Color(0xFFFB923C)),
+                        modifier = Modifier.weight(1f)
+                    )
+                    GradientButton(
+                        text = "Continue",
+                        icon = Icons.Default.ArrowForward,
+                        enabled = true,
+                        onClick = onProceedAfterWrong,
+                        gradient = listOf(AccentGreen, MintGreen),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            } else {
+                // Show only Try Again button
+                GradientButton(
+                    text = "Try Again",
+                    icon = Icons.Default.Refresh,
+                    enabled = true,
+                    onClick = onRetry,
+                    gradient = listOf(ErrorRed, Color(0xFFFB923C))
+                )
+            }
         }
     }
 }
@@ -848,7 +1607,8 @@ private fun GradientButton(
     icon: ImageVector,
     enabled: Boolean,
     onClick: () -> Unit,
-    gradient: List<Color>
+    gradient: List<Color>,
+    modifier: Modifier = Modifier
 ) {
     val scale by animateFloatAsState(
         targetValue = if (enabled) 1f else 0.95f,
@@ -858,7 +1618,7 @@ private fun GradientButton(
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(64.dp)
             .scale(scale),
@@ -1076,4 +1836,3 @@ private fun LessonCompletedState(
         }
     }
 }
-

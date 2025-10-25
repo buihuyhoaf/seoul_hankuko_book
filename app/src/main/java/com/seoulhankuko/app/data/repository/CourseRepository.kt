@@ -30,18 +30,26 @@ class CourseRepository @Inject constructor(
     suspend fun getCourses(page: Int = 1, itemsPerPage: Int = 10, token: String? = null): Result<PaginatedResponse<CourseResponse>> {
         return try {
             val formattedToken = token?.let { "Bearer $it" }
+            Timber.d("Calling getCourses API with token: ${formattedToken?.take(20)}...")
             val response = apiService.getCourses(page, itemsPerPage, formattedToken)
+            
+            Timber.d("API Response - Code: ${response.code()}, Success: ${response.isSuccessful}")
             
             if (response.isSuccessful) {
                 val coursesResponse = response.body()
+                Timber.d("Response body: $coursesResponse")
                 if (coursesResponse != null) {
-                    _courses.value = coursesResponse.items
+                    val courses = coursesResponse.data ?: emptyList()  // ← Thay đổi từ items thành data
+                    Timber.d("Courses from response: $courses")
+                    _courses.value = courses
                     Result.success(coursesResponse)
                 } else {
+                    Timber.e("Courses response body is null")
                     Result.failure(Exception("Courses response is null"))
                 }
             } else {
                 val errorMessage = response.errorBody()?.string() ?: "Failed to get courses"
+                Timber.e("API Error - Code: ${response.code()}, Message: $errorMessage")
                 Result.failure(Exception(errorMessage))
             }
         } catch (e: Throwable) {

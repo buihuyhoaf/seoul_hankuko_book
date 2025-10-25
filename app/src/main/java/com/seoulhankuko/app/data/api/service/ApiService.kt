@@ -103,6 +103,12 @@ interface ApiService {
         @Header("Authorization") token: String? = null
     ): Response<LessonDetailResponse>
     
+    @POST("v1/lessons/{lesson_id}/progress")
+    suspend fun updateLessonProgress(
+        @Path("lesson_id") lessonId: Int,
+        @Header("Authorization") token: String? = null
+    ): Response<Unit>
+    
     // Quiz management endpoints
     @GET("v1/quizzes/{quiz_id}")
     suspend fun getQuiz(

@@ -33,13 +33,13 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun CourseCard(
-    courseId: Int,
+    course: com.seoulhankuko.app.data.api.model.CourseResponse,
     onClick: () -> Unit,
     isNew: Boolean = false,
     isFeatured: Boolean = false
 ) {
-    val progressPercent = (courseId * 15 + 25) % 100 // Mock progress data
-    val lessonsCount = 5 + courseId * 2 // Mock lessons count
+    val progressPercent = course.progress?.progressPercent ?: 0
+    val lessonsCount = course.unitsCount
     
     Card(
         onClick = onClick,
@@ -82,7 +82,7 @@ fun CourseCard(
                 
                 // Course Title
                 Text(
-                    text = stringResource(R.string.course_title, courseId),
+                    text = course.title,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF1B5E20),
@@ -94,7 +94,7 @@ fun CourseCard(
                 
                 // Course Description
                 Text(
-                    text = stringResource(R.string.course_description),
+                    text = course.description ?: "",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFF666666),
                     maxLines = 1,
@@ -174,11 +174,14 @@ fun HomeScreen(
     onNavigateToLogin: () -> Unit = {}, // New callback for login navigation
     viewModel: GoogleSignInViewModel = hiltViewModel(),
     entryTestFlowViewModel: EntryTestFlowViewModel = hiltViewModel(),
-    authViewModel: AuthViewModel = hiltViewModel()
+    authViewModel: AuthViewModel = hiltViewModel(),
+    homeViewModel: com.seoulhankuko.app.presentation.viewmodel.HomeViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val userData by viewModel.userData.collectAsStateWithLifecycle()
     val authState by authViewModel.authState.collectAsStateWithLifecycle()
+    val courses by homeViewModel.courses.collectAsStateWithLifecycle()
+    val isLoading by homeViewModel.isLoading.collectAsStateWithLifecycle()
     val coroutineScope = rememberCoroutineScope()
     
     // State for entry test reminder popup
@@ -256,19 +259,40 @@ fun HomeScreen(
         
         Spacer(modifier = Modifier.height(32.dp))
         
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(150.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(top = 8.dp)
-        ) {
-            items(listOf(1, 2, 3, 4, 5, 6)) { courseId ->
-                CourseCard(
-                    courseId = courseId,
-                    onClick = { onCourseSelected(courseId) },
-                    isNew = courseId <= 2, // First 2 courses marked as "New"
-                    isFeatured = courseId == 1 // First course is "Featured"
+        // Courses Grid
+        if (isLoading) {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else if (courses.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No courses available",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.Gray
                 )
+            }
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(150.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(top = 8.dp)
+            ) {
+                items(courses) { course ->
+                    CourseCard(
+                        course = course,
+                        onClick = { onCourseSelected(course.id) },
+                        isNew = course.orderIndex <= 2, // First 2 courses marked as "New"
+                        isFeatured = course.orderIndex == 1 // First course is "Featured"
+                    )
+                }
             }
         }
         }

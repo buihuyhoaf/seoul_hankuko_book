@@ -12,7 +12,7 @@ import java.nio.charset.StandardCharsets
 import com.seoulhankuko.app.core.Logger
 import com.seoulhankuko.app.presentation.screens.FirstScreen
 import com.seoulhankuko.app.presentation.screens.LoginScreen
-import com.seoulhankuko.app.presentation.screens.HomeScreen
+import com.seoulhankuko.app.presentation.screens.ModernHomeScreen
 import com.seoulhankuko.app.presentation.screens.CourseScreen
 import com.seoulhankuko.app.presentation.screens.UnitScreen
 import com.seoulhankuko.app.presentation.screens.LessonScreen
@@ -144,17 +144,11 @@ fun AppNavigation(
         }
         
         
-        // Home Screen (formerly Courses)
+        // Home Screen (formerly Courses) - Now using Modern Design
         composable("courses") {
-            HomeScreen(
+            ModernHomeScreen(
                 onCourseSelected = { courseId: Int ->
                     navController.navigate("course/$courseId")
-                },
-                onNavigateBack = { navController.popBackStack() },
-                onLogout = { 
-                    navController.navigate("logged-accounts") {
-                        popUpTo(0) { inclusive = true }
-                    }
                 },
                 onNavigateToChallenge = {
                     navController.navigate("challenge")
@@ -164,14 +158,6 @@ fun AppNavigation(
                 },
                 onNavigateToProfile = {
                     navController.navigate("profile")
-                },
-                onNavigateToEntryTest = {
-                    // Flow B: Navigate to entry test when user clicks "Start Entry Test" in popup
-                    navController.navigate("entry-test")
-                },
-                onNavigateToLogin = {
-                    // Navigate to login screen from guest login prompt
-                    navController.navigate("login")
                 }
             )
         }
@@ -265,18 +251,20 @@ fun AppNavigation(
                     lessonId = id,
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToQuiz = { quizId: Int ->
-                        navController.navigate("quiz/$quizId")
+                        navController.navigate("quiz/$quizId/lesson/$lessonId")
                     }
                 )
             }
         }
         
         // Quiz Screen
-        composable("quiz/{quizId}") { backStackEntry ->
+        composable("quiz/{quizId}/lesson/{lessonId}") { backStackEntry ->
             val quizId = backStackEntry.arguments?.getString("quizId")?.toIntOrNull()
+            val lessonId = backStackEntry.arguments?.getString("lessonId")?.toIntOrNull()
             quizId?.let { id ->
                 QuizScreen(
                     quizId = id,
+                    lessonId = lessonId,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

@@ -10,13 +10,16 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seoulhankuko.app.presentation.viewmodel.AuthViewModel
+import com.seoulhankuko.app.presentation.viewmodel.LessonViewModel
 import com.seoulhankuko.app.domain.model.AuthState
 
 @Composable
 fun QuizScreen(
     quizId: Int,
+    lessonId: Int? = null, // Optional lessonId for progress tracking
     onNavigateBack: () -> Unit,
-    authViewModel: AuthViewModel = hiltViewModel()
+    authViewModel: AuthViewModel = hiltViewModel(),
+    lessonViewModel: LessonViewModel = hiltViewModel()
 ) {
     var currentQuestion by remember { mutableStateOf(1) }
     var selectedAnswer by remember { mutableStateOf<String?>(null) }
@@ -26,6 +29,18 @@ fun QuizScreen(
     
     val authState by authViewModel.authState.collectAsStateWithLifecycle()
     val totalQuestions = 5 // Mock total questions
+    
+    // Handle quiz completion and progress update
+    LaunchedEffect(quizCompleted) {
+        if (quizCompleted && lessonId != null) {
+            // Update lesson progress
+            lessonViewModel.updateProgress(lessonId)
+            
+            // Navigate back to lesson screen after a short delay
+            kotlinx.coroutines.delay(1000)
+            onNavigateBack()
+        }
+    }
     
     Column(
         modifier = Modifier
