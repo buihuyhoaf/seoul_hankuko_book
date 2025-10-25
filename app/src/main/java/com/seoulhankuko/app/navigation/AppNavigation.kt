@@ -1,32 +1,31 @@
 package com.seoulhankuko.app.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.navigation.NavHostController
 import androidx.navigation.NavType
-import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
+import androidx.navigation.navArgument
 import com.seoulhankuko.app.core.Logger
+import com.seoulhankuko.app.domain.model.TaskType
+import com.seoulhankuko.app.presentation.screens.ChallengeScreen
+import com.seoulhankuko.app.presentation.screens.CourseScreen
+import com.seoulhankuko.app.presentation.screens.EntryTestResultScreen
+import com.seoulhankuko.app.presentation.screens.EntryTestScreen
 import com.seoulhankuko.app.presentation.screens.FirstScreen
+import com.seoulhankuko.app.presentation.screens.LeaderboardScreen
+import com.seoulhankuko.app.presentation.screens.LessonScreenProgressive
+import com.seoulhankuko.app.presentation.screens.LoggedAccountsScreen
 import com.seoulhankuko.app.presentation.screens.LoginScreen
 import com.seoulhankuko.app.presentation.screens.ModernHomeScreen
-import com.seoulhankuko.app.presentation.screens.CourseScreen
-import com.seoulhankuko.app.presentation.screens.UnitScreen
-import com.seoulhankuko.app.presentation.screens.LessonScreen
-import com.seoulhankuko.app.presentation.screens.QuizScreen
-import com.seoulhankuko.app.presentation.screens.ShopScreen
-import com.seoulhankuko.app.presentation.screens.QuestsScreen
-import com.seoulhankuko.app.presentation.screens.LeaderboardScreen
-import com.seoulhankuko.app.presentation.screens.ChallengeScreen
 import com.seoulhankuko.app.presentation.screens.NotificationScreen
 import com.seoulhankuko.app.presentation.screens.ProfileScreen
-import com.seoulhankuko.app.presentation.screens.EntryTestScreen
-import com.seoulhankuko.app.presentation.screens.EntryTestResultScreen
-import com.seoulhankuko.app.presentation.screens.LoggedAccountsScreen
-import com.seoulhankuko.app.domain.model.LoggedAccount
+import com.seoulhankuko.app.presentation.screens.QuestsScreen
+import com.seoulhankuko.app.presentation.screens.QuizScreen
+import com.seoulhankuko.app.presentation.screens.ShopScreen
+import com.seoulhankuko.app.presentation.screens.UnitScreen
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 @Composable
 fun AppNavigation(
@@ -247,11 +246,24 @@ fun AppNavigation(
         composable("lesson/{lessonId}") { backStackEntry ->
             val lessonId = backStackEntry.arguments?.getString("lessonId")?.toIntOrNull()
             lessonId?.let { id ->
-                LessonScreen(
+                LessonScreenProgressive(
                     lessonId = id,
                     onNavigateBack = { navController.popBackStack() },
-                    onNavigateToQuiz = { quizId: Int ->
-                        navController.navigate("quiz/$quizId/lesson/$lessonId")
+                    onTaskClick = { taskType ->
+                        when (taskType) {
+                            TaskType.QUIZ -> {
+                                navController.navigate("quiz/$id/lesson/$lessonId")
+                            }
+                            TaskType.LISTENING -> {
+                                // Navigate to listening activity
+                            }
+                            TaskType.SPEAKING -> {
+                                // Navigate to speaking activity
+                            }
+                            TaskType.WRITING -> {
+                                // Navigate to writing activity
+                            }
+                        }
                     }
                 )
             }
