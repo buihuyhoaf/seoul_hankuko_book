@@ -17,10 +17,10 @@ data class LessonTask(
  * Types of tasks available in a lesson
  */
 enum class TaskType {
-    QUIZ,
     LISTENING,
     SPEAKING,
-    WRITING
+    WRITING,
+    FINAL_QUIZ
 }
 
 /**
@@ -28,27 +28,28 @@ enum class TaskType {
  */
 fun TaskType.getIcon(): String {
     return when (this) {
-        TaskType.QUIZ -> "🎯"
         TaskType.LISTENING -> "🎧"
         TaskType.SPEAKING -> "🎤"
         TaskType.WRITING -> "✍️"
+        TaskType.FINAL_QUIZ -> "🎯"
     }
 }
 
 fun TaskType.getDisplayName(): String {
     return when (this) {
-        TaskType.QUIZ -> "Quiz"
         TaskType.LISTENING -> "Listening"
         TaskType.SPEAKING -> "Speaking"
         TaskType.WRITING -> "Writing"
+        TaskType.FINAL_QUIZ -> "Final Quiz"
     }
 }
 
 fun TaskType.getColor(): Long {
     return when (this) {
-        TaskType.QUIZ -> 0xFFFF6F61 // coral
         TaskType.LISTENING -> 0xFF4DB6AC // teal
         TaskType.SPEAKING -> 0xFF81C784 // mint
         TaskType.WRITING -> 0xFFFFB74D // orange
+        TaskType.FINAL_QUIZ -> 0xFFFF6F61 // coral
     }
 }
+

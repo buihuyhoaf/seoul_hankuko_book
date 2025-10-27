@@ -55,7 +55,7 @@ class HomeViewModel @Inject constructor(
                 
                 result.fold(
                     onSuccess = { response ->
-                        val courses = response.data ?: emptyList()  // ← Thay đổi từ items thành data
+                        val courses = response.data ?: emptyList()
                         _courses.value = courses
                         Timber.d("Loaded ${courses.size} courses from backend")
                     },

@@ -39,7 +39,7 @@ class CourseRepository @Inject constructor(
                 val coursesResponse = response.body()
                 Timber.d("Response body: $coursesResponse")
                 if (coursesResponse != null) {
-                    val courses = coursesResponse.data ?: emptyList()  // ← Thay đổi từ items thành data
+                    val courses = coursesResponse.data ?: emptyList()
                     Timber.d("Courses from response: $courses")
                     _courses.value = courses
                     Result.success(coursesResponse)

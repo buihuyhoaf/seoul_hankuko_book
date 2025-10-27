@@ -14,7 +14,7 @@ import com.seoulhankuko.app.presentation.screens.EntryTestResultScreen
 import com.seoulhankuko.app.presentation.screens.EntryTestScreen
 import com.seoulhankuko.app.presentation.screens.FirstScreen
 import com.seoulhankuko.app.presentation.screens.LeaderboardScreen
-import com.seoulhankuko.app.presentation.screens.LessonScreenProgressive
+import com.seoulhankuko.app.presentation.screens.LessonScreen
 import com.seoulhankuko.app.presentation.screens.LoggedAccountsScreen
 import com.seoulhankuko.app.presentation.screens.LoginScreen
 import com.seoulhankuko.app.presentation.screens.ModernHomeScreen
@@ -246,22 +246,25 @@ fun AppNavigation(
         composable("lesson/{lessonId}") { backStackEntry ->
             val lessonId = backStackEntry.arguments?.getString("lessonId")?.toIntOrNull()
             lessonId?.let { id ->
-                LessonScreenProgressive(
+                LessonScreen(
                     lessonId = id,
                     onNavigateBack = { navController.popBackStack() },
-                    onTaskClick = { taskType ->
+                    onNavigateToTask = { taskType ->
                         when (taskType) {
-                            TaskType.QUIZ -> {
-                                navController.navigate("quiz/$id/lesson/$lessonId")
+                            TaskType.FINAL_QUIZ -> {
+                                navController.navigate("quiz/$id/lesson/$id")
                             }
                             TaskType.LISTENING -> {
                                 // Navigate to listening activity
+                                navController.navigate("listening/$id")
                             }
                             TaskType.SPEAKING -> {
                                 // Navigate to speaking activity
+                                navController.navigate("speaking/$id")
                             }
                             TaskType.WRITING -> {
                                 // Navigate to writing activity
+                                navController.navigate("writing/$id")
                             }
                         }
                     }

@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seoulhankuko.app.R
+import com.seoulhankuko.app.data.api.model.CourseResponse
 import com.seoulhankuko.app.domain.model.AuthState
 import com.seoulhankuko.app.presentation.components.BottomNavigationBar
 import com.seoulhankuko.app.presentation.components.BottomNavigationRoute
@@ -33,7 +34,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun CourseCard(
-    course: com.seoulhankuko.app.data.api.model.CourseResponse,
+    course: CourseResponse,
     onClick: () -> Unit,
     isNew: Boolean = false,
     isFeatured: Boolean = false

@@ -52,3 +52,4 @@ class CompletionHandlerTest {
         assertEquals("LESSON", CompletionType.LESSON.name)
     }
 }
+

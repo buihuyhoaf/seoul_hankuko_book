@@ -132,8 +132,8 @@ data class LessonDetailResponse(
     val orderIndex: Int,
     @SerializedName("created_at")
     val createdAt: String,
-    val quizzes: List<QuizResponse>,
-    val exercises: ExerciseResponse,
+    val questions: List<QuestionResponse>,
+    val exercises: List<ExerciseResponse>,
     val progress: LessonProgress?
 )
 
@@ -220,11 +220,23 @@ data class QuestionResultResponse(
 
 // Exercise Models
 data class ExerciseResponse(
-    val listening: List<ListeningExerciseResponse>,
-    val speaking: List<SpeakingExerciseResponse>,
-    val writing: List<WritingExerciseResponse>
+    val id: Int,
+    val type: String,
+    val title: String?,
+    val content: String?,
+    @SerializedName("audio_url")
+    val audioUrl: String?,
+    val transcript: String?,
+    val prompt: String?,
+    @SerializedName("sample_answer")
+    val sampleAnswer: String?,
+    @SerializedName("order_index")
+    val orderIndex: Int,
+    @SerializedName("created_at")
+    val createdAt: String
 )
 
+// Legacy exercise models for backward compatibility
 data class ListeningExerciseResponse(
     val id: Int,
     @SerializedName("lesson_id")

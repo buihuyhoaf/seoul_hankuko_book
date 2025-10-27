@@ -66,3 +66,4 @@ enum class CompletionType {
     EXERCISE,
     LESSON
 }
+

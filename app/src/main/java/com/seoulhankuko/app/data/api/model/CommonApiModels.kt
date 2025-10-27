@@ -4,7 +4,7 @@ import com.google.gson.annotations.SerializedName
 
 // Paginated response wrapper
 data class PaginatedResponse<T>(
-    val data: List<T>?,  // ← Thay đổi từ items thành data
+    val data: List<T>?,
     val total: Int,
     val page: Int,
     @SerializedName("items_per_page")

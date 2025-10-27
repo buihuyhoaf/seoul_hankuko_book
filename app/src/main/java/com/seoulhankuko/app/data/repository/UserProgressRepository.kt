@@ -65,7 +65,7 @@ class UserProgressRepository @Inject constructor(
             if (response.isSuccessful) {
                 val progressResponse = response.body()
                 if (progressResponse != null) {
-                    _courseProgress.value = progressResponse.data ?: emptyList()  // ← Thay đổi từ items thành data
+                    _courseProgress.value = progressResponse.data ?: emptyList()
                     Result.success(progressResponse)
                 } else {
                     Result.failure(Exception("Course progress response is null"))
@@ -92,7 +92,7 @@ class UserProgressRepository @Inject constructor(
             if (response.isSuccessful) {
                 val expResponse = response.body()
                 if (expResponse != null) {
-                    _expHistory.value = expResponse.data ?: emptyList()  // ← Thay đổi từ items thành data
+                    _expHistory.value = expResponse.data ?: emptyList()
                     Result.success(expResponse)
                 } else {
                     Result.failure(Exception("EXP history response is null"))
