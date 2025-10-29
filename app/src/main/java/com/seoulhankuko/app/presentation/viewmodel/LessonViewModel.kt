@@ -2,10 +2,8 @@ package com.seoulhankuko.app.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.seoulhankuko.app.data.database.entities.UserProgress
 import com.seoulhankuko.app.data.repository.AuthRepository
 import com.seoulhankuko.app.data.repository.LessonRepository
-import com.seoulhankuko.app.data.repository.LocalUserProgressRepository
 import com.seoulhankuko.app.domain.model.AnswerStatus
 import com.seoulhankuko.app.domain.model.ChallengeType
 import com.seoulhankuko.app.domain.model.ChallengeWithOptions
@@ -23,7 +21,6 @@ import javax.inject.Inject
 @HiltViewModel
 class LessonViewModel @Inject constructor(
     private val lessonRepository: LessonRepository,
-    private val userProgressRepository: LocalUserProgressRepository,
     private val authRepository: AuthRepository
 ) : ViewModel() {
     
@@ -39,32 +36,22 @@ class LessonViewModel @Inject constructor(
                 
                 // Get authentication token
                 val token = authRepository.getCurrentToken()
-                val userId = getCurrentUserId()
+                val userId = "guest"
                 
                 Timber.d("Using token: ${token?.take(20)}..., userId: $userId")
                 
-                val lessonWithChallenges = lessonRepository.getLessonWithChallenges(lessonId, userId, token)
+                val lessonWithChallenges = lessonRepository.getLessonWithChallenges(lessonId, userId ?: "guest", token)
                 if (lessonWithChallenges != null) {
                     Timber.d("Successfully loaded lesson with ${lessonWithChallenges.challenges.size} challenges")
                     Timber.d("Lesson title: ${lessonWithChallenges.lesson.title}")
                     Timber.d("Challenges: ${lessonWithChallenges.challenges.map { it.challenge.question }}")
                     
-                    userProgressRepository.getUserProgress(userId).collect { userProgress ->
-                        val currentChallengeIndex = lessonWithChallenges.challenges.indexOfFirst { !it.completed }
-                        
-                        _uiState.update {
-                            LessonUiState.Success(
-                                lessonWithChallenges = lessonWithChallenges,
-                                userProgress = userProgress,
-                                currentChallengeIndex = if (currentChallengeIndex == -1) 0 else currentChallengeIndex,
-                                selectedOption = null,
-                                status = AnswerStatus.NONE,
-                                isLessonCompleted = false,
-                                heartsReduced = false,
-                                completedChallenges = emptySet(),
-                                canProceedAfterWrong = false
-                            )
-                        }
+                    _uiState.update {
+                        LessonUiState.Success(
+                            lessonWithChallenges = lessonWithChallenges,
+                            userProgress = null,
+                            currentChallengeIndex = 0
+                        )
                     }
                 } else {
                     Timber.w("Lesson not found for ID: $lessonId")
@@ -173,20 +160,15 @@ class LessonViewModel @Inject constructor(
         }
         
         viewModelScope.launch {
-            val userId = getCurrentUserId()
-            
             try {
                 if (isCorrect) {
                     Timber.d("Correct answer submitted for challenge ${currentChallenge.challenge.id}")
                     
-                    // Mark challenge as completed
-                    lessonRepository.completeChallenge(userId, currentChallenge.challenge.id)
-                    
                     // Award points
-                    userProgressRepository.addPoints(
-                        userId,
-                        Constants.POINTS_PER_CHALLENGE
-                    )
+                    // userProgressRepository.addPoints(
+                    //     userId,
+                    //     Constants.POINTS_PER_CHALLENGE
+                    // )
                     
                     _uiState.update { 
                         (it as? LessonUiState.Success)?.copy(
@@ -198,13 +180,13 @@ class LessonViewModel @Inject constructor(
                     Timber.d("Wrong answer submitted for challenge ${currentChallenge.challenge.id}")
                     
                     // Reduce hearts for wrong answer (only once)
-                    val heartsReduced = userProgressRepository.reduceHearts(userId)
-                    Timber.d("Hearts reduced: $heartsReduced")
+                    // val heartsReduced = userProgressRepository.reduceHearts(userId)
+                    // Timber.d("Hearts reduced: $heartsReduced")
                     
                     _uiState.update { 
                         (it as? LessonUiState.Success)?.copy(
                             status = AnswerStatus.WRONG,
-                            heartsReduced = true,
+                            heartsReduced = false, // Hearts are not reduced in this version
                             canProceedAfterWrong = true
                         ) ?: it
                     }
@@ -299,44 +281,49 @@ class LessonViewModel @Inject constructor(
      * This method should be called from QuizScreen, ExerciseScreen, etc.
      */
     fun updateProgress(lessonId: Int) {
+        // No-op: backend progress update removed; just mark updated in UI
+        _uiState.update { currentState ->
+            if (currentState is LessonUiState.Success) {
+                currentState.copy(progressUpdated = true)
+            } else currentState
+        }
+    }
+    
+    /**
+     * Updates lesson progress on backend and calls callback when done
+     */
+    fun updateLessonProgress(lessonId: Int, onComplete: () -> Unit) {
         viewModelScope.launch {
             try {
-                Timber.d("Updating progress for lesson $lessonId")
-                
-                val userId = getCurrentUserId()
                 val token = authRepository.getCurrentToken()
+                val result = lessonRepository.updateLessonProgress(lessonId, token)
                 
-                // Call repository to update progress
-                lessonRepository.updateLessonProgress(lessonId, userId, token)
-                
-                // Refresh lesson data to get updated progress
-                val lessonWithChallenges = lessonRepository.getLessonWithChallenges(lessonId, userId, token)
-                if (lessonWithChallenges != null) {
+                result.onSuccess {
+                    Timber.d("Successfully updated lesson progress for lesson $lessonId")
                     _uiState.update { currentState ->
                         if (currentState is LessonUiState.Success) {
-                            currentState.copy(
-                                lessonWithChallenges = lessonWithChallenges,
-                                progressUpdated = true
-                            )
-                        } else {
-                            LessonUiState.Success(
-                                lessonWithChallenges = lessonWithChallenges,
-                                currentChallengeIndex = 0,
-                                status = AnswerStatus.NONE,
-                                selectedOption = null,
-                                isLessonCompleted = false,
-                                heartsReduced = false,
-                                completedChallenges = emptySet(),
-                                canProceedAfterWrong = false,
-                                progressUpdated = true
-                            )
-                        }
+                            currentState.copy(progressUpdated = true)
+                        } else currentState
+                    }
+                }.onFailure { error ->
+                    Timber.e(error, "Failed to update lesson progress for lesson $lessonId")
+                    // Still mark as updated in UI even if API call failed
+                    _uiState.update { currentState ->
+                        if (currentState is LessonUiState.Success) {
+                            currentState.copy(progressUpdated = true)
+                        } else currentState
                     }
                 }
-                
-                Timber.d("Successfully updated progress for lesson $lessonId")
             } catch (e: Exception) {
-                Timber.e(e, "Failed to update progress for lesson $lessonId")
+                Timber.e(e, "Exception while updating lesson progress")
+                // Still mark as updated in UI even if exception occurs
+                _uiState.update { currentState ->
+                    if (currentState is LessonUiState.Success) {
+                        currentState.copy(progressUpdated = true)
+                    } else currentState
+                    }
+            } finally {
+                onComplete()
             }
         }
     }
@@ -352,7 +339,7 @@ sealed class LessonUiState {
     
     data class Success(
         val lessonWithChallenges: LessonWithChallenges? = null,
-        val userProgress: UserProgress? = null,
+        val userProgress: Any? = null, // Removed LocalUserProgressRepository dependency
         val currentChallengeIndex: Int = 0,
         val selectedOption: Int? = null,
         val status: AnswerStatus = AnswerStatus.NONE,

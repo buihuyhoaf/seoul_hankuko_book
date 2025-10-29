@@ -25,52 +25,11 @@ object DatabaseModule {
             AppDatabase::class.java,
             "seoul_hankuko_database"
         )
-        .addMigrations(AppDatabase.MIGRATION_1_2)
+        .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5)
         .build()
     }
 
-    @Provides
-    @Singleton
-    fun provideCourseDao(database: AppDatabase): CourseDao {
-        return database.courseDao()
-    }
-
-    @Provides
-    @Singleton
-    fun provideUnitDao(database: AppDatabase): UnitDao {
-        return database.unitDao()
-    }
-
-    @Provides
-    @Singleton
-    fun provideLessonDao(database: AppDatabase): LessonDao {
-        return database.lessonDao()
-    }
-
-    @Provides
-    @Singleton
-    fun provideChallengeDao(database: AppDatabase): ChallengeDao {
-        return database.challengeDao()
-    }
-
-    @Provides
-    @Singleton
-    fun provideChallengeOptionDao(database: AppDatabase): ChallengeOptionDao {
-        return database.challengeOptionDao()
-    }
-
-    @Provides
-    @Singleton
-    fun provideUserProgressDao(database: AppDatabase): UserProgressDao {
-        return database.userProgressDao()
-    }
-
-    @Provides
-    @Singleton
-    fun provideChallengeProgressDao(database: AppDatabase): ChallengeProgressDao {
-        return database.challengeProgressDao()
-    }
-
+    // Only keep LoggedAccountDao
     @Provides
     @Singleton
     fun provideLoggedAccountDao(database: AppDatabase): LoggedAccountDao {

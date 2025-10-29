@@ -1,23 +1,45 @@
 package com.seoulhankuko.app.presentation.screens
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -27,99 +49,74 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.seoulhankuko.app.data.api.model.ExerciseResponse
 import com.seoulhankuko.app.data.api.model.LessonDetailResponse
 import com.seoulhankuko.app.domain.model.LessonTask
 import com.seoulhankuko.app.domain.model.TaskType
-import com.seoulhankuko.app.domain.model.getColor
-import com.seoulhankuko.app.domain.model.getIcon
-import com.seoulhankuko.app.data.repository.CourseRepository
-import com.seoulhankuko.app.data.repository.AuthRepository
-import timber.log.Timber
+import com.seoulhankuko.app.presentation.viewmodel.LessonUiState
+import com.seoulhankuko.app.presentation.viewmodel.LessonViewModel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.CoroutineScope
+import timber.log.Timber
 
 // Lesson Screen Color Palette
 private val PrimaryColor = Color(0xFFFF6F61)
 private val SecondaryColor = Color(0xFFFFE0B2)
 private val BackgroundColor = Color(0xFFFFF8E7)
-private val SuccessColor = Color(0xFF4CAF50)
-private val LockedColor = Color(0xFFE0E0E0)
 private val LessonTextPrimary = Color(0xFF333333)
 private val LessonTextSecondary = Color(0xFF757575)
 
 /**
- * Main LessonScreen composable
- * Shows lesson tasks with progressive unlock mechanism
+ * Redesigned LessonScreen - Shows simple intro with OK button
+ * User clicks OK to navigate to LessonFlowScreen
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LessonScreen(
     lessonId: Int,
     onNavigateBack: () -> Unit,
-    onNavigateToTask: (TaskType) -> Unit,
-    courseRepository: CourseRepository,
-    authRepository: AuthRepository
+    onNavigateToLessonFlow: () -> Unit
 ) {
-    var lessonData by remember { mutableStateOf<LessonDetailResponse?>(null) }
+    val lessonViewModel: LessonViewModel = hiltViewModel()
     var isLoading by remember { mutableStateOf(true) }
+    var visible by remember { mutableStateOf(false) }
     
-    // Load lesson data from API
+    // Load lesson data using LessonViewModel
     LaunchedEffect(lessonId) {
         isLoading = true
-        try {
-            val token = authRepository.getCurrentToken()
-            val result = courseRepository.getLesson(lessonId, token)
-            result.fold(
-                onSuccess = { lesson ->
-                    lessonData = lesson
-                    isLoading = false
-                },
-                onFailure = { error ->
-                    Timber.e(error, "Failed to load lesson $lessonId")
-                    isLoading = false
-                }
-            )
-        } catch (e: Exception) {
-            Timber.e(e, "Exception loading lesson $lessonId")
-            isLoading = false
+        lessonViewModel.loadLesson(lessonId)
+    }
+    
+    // Observe UI state from ViewModel
+    val uiState by lessonViewModel.uiState.collectAsStateWithLifecycle()
+    
+    // Update local state based on ViewModel UI state
+    LaunchedEffect(uiState) {
+        when (val currentState = uiState) {
+            is LessonUiState.Loading -> {
+                isLoading = true
+            }
+            is LessonUiState.Success -> {
+                isLoading = false
+                delay(300)
+                visible = true
+            }
+            is LessonUiState.Error -> {
+                isLoading = false
+                Timber.e("Error loading lesson: ${currentState.message}")
+            }
         }
     }
     
-    // Convert to tasks based on lesson data
-    val tasks = remember(lessonData) {
-        lessonData?.let { lesson ->
-            buildTasksFromLesson(lesson)
-        } ?: emptyList()
-    }
-    
-    val completedTasks = tasks.count { it.completed }
-    val totalTasks = tasks.size
-    
-    var showSnackbar by remember { mutableStateOf(false) }
-    var snackbarMessage by remember { mutableStateOf("") }
-    var visible by remember { mutableStateOf(false) }
-    
-    LaunchedEffect(Unit) {
-        delay(300)
-        visible = true
-    }
-    
-    val snackbarHostState = remember { SnackbarHostState() }
+    // Get lesson info
+    val lessonInfo = (uiState as? LessonUiState.Success)?.lessonWithChallenges
     
     Scaffold(
         topBar = {
             LessonTopAppBar(
-                lessonTitle = lessonData?.let { "Lesson ${it.id}: ${it.title}" } 
-                    ?: "Lesson $lessonId",
+                lessonTitle = lessonInfo?.lesson?.title ?: "Lesson $lessonId",
                 onNavigateBack = onNavigateBack
             )
         },
-        containerColor = BackgroundColor,
-        snackbarHost = {
-            SnackbarHost(snackbarHostState)
-        }
+        containerColor = BackgroundColor
     ) { paddingValues ->
         when {
             isLoading -> {
@@ -131,130 +128,136 @@ fun LessonScreen(
                 }
             }
             else -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                ) {
-                    // Progress Section
+                lessonInfo?.let { lesson ->
                     AnimatedVisibility(
                         visible = visible,
-                        enter = fadeIn() + slideInVertically(initialOffsetY = { -30 })
+                        enter = fadeIn(animationSpec = tween(600)),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues)
                     ) {
-                        LessonProgressCard(
-                            completedTasks = completedTasks,
-                            totalTasks = totalTasks
+                        LessonIntroContent(
+                            lessonTitle = "Lesson ${lesson.lesson.id}: ${lesson.lesson.title}",
+                            lessonDescription = "Let's start learning!",
+                            totalExercises = lesson.challenges.size,
+                            onStartClick = onNavigateToLessonFlow
                         )
                     }
-                    
-                    Spacer(modifier = Modifier.height(24.dp))
-                    
-                    // Task List
-                    AnimatedVisibility(
-                        visible = visible,
-                        enter = fadeIn() + slideInVertically(initialOffsetY = { 30 })
+                } ?: run {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
                     ) {
-                        LessonTaskList(
-                            tasks = tasks,
-                            onTaskClick = { task ->
-                                if (task.unlocked) {
-                                    onNavigateToTask(task.type)
-                                } else {
-                                    snackbarMessage = "Complete previous task first!"
-                                    showSnackbar = true
-                                }
-                            }
-                        )
+                        Text("Lesson not found")
                     }
                 }
             }
         }
     }
-    
-    // Handle snackbar
-    if (showSnackbar) {
-        LaunchedEffect(showSnackbar) {
-            snackbarHostState.showSnackbar(
-                message = snackbarMessage,
-                duration = SnackbarDuration.Short
-            )
-            showSnackbar = false
-        }
-    }
 }
 
 /**
- * Build tasks from lesson data
- * Tasks order: Listening, Speaking, Writing, Final Quiz
+ * Lesson intro content with title, description, and OK button
  */
-private fun buildTasksFromLesson(lesson: LessonDetailResponse): List<LessonTask> {
-    val tasks = mutableListOf<LessonTask>()
-    var orderIndex = 0
-    
-    // 1. Listening (from exercises)
-    val listeningExercises = lesson.exercises.filter { it.type == "listening" }
-    if (listeningExercises.isNotEmpty()) {
-        tasks.add(
-            LessonTask(
-                id = -orderIndex,
-                type = TaskType.LISTENING,
-                title = "Listening",
-                description = "Listen to Korean conversations",
-                completed = false, // TODO: Get from progress
-                unlocked = true,
-                orderIndex = orderIndex++
+@Composable
+fun LessonIntroContent(
+    lessonTitle: String,
+    lessonDescription: String,
+    totalExercises: Int,
+    onStartClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // Header Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(8.dp, RoundedCornerShape(24.dp)),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color.White
+            ),
+            border = BorderStroke(2.dp, SecondaryColor)
+        ) {
+            Column(
+                modifier = Modifier.padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Lesson Icon
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(PrimaryColor, SecondaryColor)
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "📚",
+                        fontSize = 40.sp
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Title
+                Text(
+                    text = lessonTitle,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = LessonTextPrimary,
+                    textAlign = TextAlign.Center
+                )
+                
+                // Description
+                Text(
+                    text = lessonDescription,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = LessonTextSecondary,
+                    textAlign = TextAlign.Center
+                )
+                
+                // Total exercises
+                Text(
+                    text = "$totalExercises exercises",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = PrimaryColor,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(48.dp))
+        
+        // OK Button
+        Button(
+            onClick = onStartClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(60.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = PrimaryColor
             )
-        )
-    }
-    
-    // 2. Speaking (from exercises)
-    val speakingExercises = lesson.exercises.filter { it.type == "speaking" }
-    if (speakingExercises.isNotEmpty()) {
-        tasks.add(
-            LessonTask(
-                id = -orderIndex,
-                type = TaskType.SPEAKING,
-                title = "Speaking",
-                description = "Practice pronunciation",
-                completed = false,
-                unlocked = tasks.isEmpty() || tasks.last().completed,
-                orderIndex = orderIndex++
+        ) {
+            Text(
+                text = "Bắt đầu",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
             )
-        )
+        }
     }
-    
-    // 3. Writing (from exercises)
-    val writingExercises = lesson.exercises.filter { it.type == "writing" }
-    if (writingExercises.isNotEmpty()) {
-        tasks.add(
-            LessonTask(
-                id = -orderIndex,
-                type = TaskType.WRITING,
-                title = "Writing",
-                description = "Write Korean sentences",
-                completed = false,
-                unlocked = tasks.isEmpty() || tasks.all { it.completed } || tasks.size == 1,
-                orderIndex = orderIndex++
-            )
-        )
-    }
-    
-    // 4. Final Quiz (from questions)
-    if (lesson.questions.isNotEmpty()) {
-        tasks.add(
-            LessonTask(
-                id = -orderIndex,
-                type = TaskType.FINAL_QUIZ,
-                title = "Final Quiz",
-                description = "Test your knowledge (${lesson.questions.size} questions)",
-                completed = false,
-                unlocked = tasks.isEmpty() || tasks.all { it.completed },
-                orderIndex = orderIndex
-            )
-        )
-    }
-    
-    return tasks
 }
 
 /**
@@ -268,18 +271,13 @@ private fun LessonTopAppBar(
 ) {
     TopAppBar(
         title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text("🇰🇷", fontSize = 20.sp)
-                Text(
-                    text = lessonTitle,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            }
+            Text(
+                text = lessonTitle,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                maxLines = 1
+            )
         },
         navigationIcon = {
             IconButton(onClick = onNavigateBack) {
@@ -306,257 +304,5 @@ private fun LessonTopAppBar(
     )
 }
 
-/**
- * Progress card showing completion status
- */
-@Composable
-private fun LessonProgressCard(
-    completedTasks: Int,
-    totalTasks: Int
-) {
-    val progress = if (totalTasks > 0) completedTasks.toFloat() / totalTasks else 0f
-    
-    val animatedProgress by animateFloatAsState(
-        targetValue = progress,
-        animationSpec = tween(
-            durationMillis = 1500,
-            easing = EaseOutCubic
-        ),
-        label = "progress"
-    )
-    
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFFFF8E7)
-        ),
-        border = BorderStroke(1.dp, Color(0xFFFFE0B2))
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Progress text
-            Text(
-                text = "$completedTasks of $totalTasks tasks completed",
-                style = MaterialTheme.typography.titleMedium,
-                color = LessonTextPrimary,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-            
-            // Progress bar
-            LinearProgressIndicator(
-                progress = { animatedProgress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(4.dp)),
-                color = PrimaryColor,
-                trackColor = LockedColor
-            )
-            
-            // Progress percentage
-            Text(
-                text = "${(animatedProgress * 100).toInt()}% Complete",
-                style = MaterialTheme.typography.bodyMedium,
-                color = LessonTextSecondary,
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}
-
-/**
- * Task list composable
- */
-@Composable
-private fun LessonTaskList(
-    tasks: List<LessonTask>,
-    onTaskClick: (LessonTask) -> Unit
-) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(bottom = 24.dp)
-    ) {
-        itemsIndexed(tasks) { index, task ->
-            LessonTaskItem(
-                task = task,
-                index = index,
-                onClick = { onTaskClick(task) }
-            )
-        }
-    }
-}
-
-/**
- * Individual task item with animations
- */
-@Composable
-private fun LessonTaskItem(
-    task: LessonTask,
-    index: Int,
-    onClick: () -> Unit
-) {
-    var isPressed by remember { mutableStateOf(false) }
-    
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.95f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "card_scale"
-    )
-    
-    val alpha by animateFloatAsState(
-        targetValue = if (task.unlocked) 1f else 0.6f,
-        animationSpec = tween(
-            durationMillis = 600,
-            delayMillis = index * 100,
-            easing = FastOutSlowInEasing
-        ),
-        label = "card_alpha"
-    )
-    
-    // Determine card colors based on status
-    val backgroundColor = when {
-        task.completed -> Color(0xFFE8F5E9)
-        task.unlocked -> Color.White
-        else -> LockedColor
-    }
-    
-    val borderColor = when {
-        task.completed -> SuccessColor
-        task.unlocked -> PrimaryColor
-        else -> Color(0xFFE0E0E0)
-    }
-    
-    val textColor = when {
-        task.completed -> LessonTextPrimary
-        task.unlocked -> LessonTextPrimary
-        else -> LessonTextSecondary
-    }
-    
-    val taskColor = Color(task.type.getColor())
-    
-    Card(
-        onClick = {
-            if (task.unlocked) {
-                isPressed = true
-                onClick()
-            }
-        },
-        modifier = Modifier
-            .fillMaxWidth()
-            .scale(scale)
-            .alpha(alpha)
-            .shadow(
-                elevation = if (task.unlocked) 8.dp else 2.dp,
-                shape = RoundedCornerShape(16.dp),
-                ambientColor = if (task.unlocked) taskColor.copy(alpha = 0.1f) else Color.Gray.copy(alpha = 0.1f)
-            ),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = backgroundColor
-        ),
-        border = BorderStroke(
-            width = if (task.completed) 3.dp else 1.dp,
-            color = borderColor
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Task Icon
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(
-                        color = if (task.unlocked) taskColor.copy(alpha = 0.1f) else Color.Gray.copy(alpha = 0.1f),
-                        shape = RoundedCornerShape(12.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = task.type.getIcon(),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontSize = 28.sp
-                )
-            }
-            
-            // Task Content
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = task.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = textColor
-                )
-                
-                Text(
-                    text = task.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = textColor.copy(alpha = 0.7f),
-                    maxLines = 2
-                )
-            }
-            
-            // Status Icon
-            AnimatedVisibility(
-                visible = true,
-                enter = scaleIn() + fadeIn(),
-                exit = scaleOut() + fadeOut()
-            ) {
-                Box(
-                    modifier = Modifier.size(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    when {
-                        task.completed -> {
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = "Completed",
-                                tint = SuccessColor,
-                                modifier = Modifier.size(28.dp)
-                            )
-                        }
-                        task.unlocked -> {
-                            Icon(
-                                imageVector = Icons.Default.PlayArrow,
-                                contentDescription = "Unlocked",
-                                tint = PrimaryColor,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        else -> {
-                            Icon(
-                                imageVector = Icons.Default.Lock,
-                                contentDescription = "Locked",
-                                tint = Color.Gray,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
+// Task UI and progress components removed as per the simplified LessonScreen intro design
 

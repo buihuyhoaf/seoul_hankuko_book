@@ -1,0 +1,564 @@
+package com.seoulhankuko.app.presentation.screens
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.seoulhankuko.app.domain.model.ChallengeWithOptions
+import com.seoulhankuko.app.presentation.viewmodel.LessonUiState
+import com.seoulhankuko.app.presentation.viewmodel.LessonViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+// Color Palette
+private val PrimaryColor = Color(0xFFFF6F61)
+private val SecondaryColor = Color(0xFFFFE0B2)
+private val BackgroundColor = Color(0xFFFFF8E7)
+private val SuccessColor = Color(0xFF4CAF50)
+private val ErrorColor = Color(0xFFF44336)
+
+/**
+ * LessonFlowScreen - Shows quiz questions in a swipeable pager
+ * Each page shows one question from lesson.questions
+ */
+@Composable
+fun LessonFlowScreen(
+    lessonId: Int,
+    onNavigateBack: () -> Unit,
+    onNavigateToListening: () -> Unit,
+    viewModel: LessonViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    
+    // Load lesson on start
+    LaunchedEffect(lessonId) {
+        viewModel.loadLesson(lessonId)
+    }
+    
+    when (val state = uiState) {
+        is LessonUiState.Loading -> {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(BackgroundColor),
+                contentAlignment = Alignment.Center
+            ) {
+                LoadingIndicator()
+            }
+        }
+        
+        is LessonUiState.Success -> {
+            state.lessonWithChallenges?.let { lesson ->
+                QuizPagerFlow(
+                    lessonId = lessonId,
+                    challenges = lesson.challenges,
+                    viewModel = viewModel,
+                    onNavigateBack = onNavigateBack,
+                    onNavigateToListening = onNavigateToListening,
+                    onCompleteAllQuestions = { 
+                        // Return to lesson screen
+                        onNavigateBack()
+                    }
+                )
+            }
+        }
+        
+        is LessonUiState.Error -> {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(BackgroundColor),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "Error loading lesson",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = ErrorColor
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = state.message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Quiz Pager - Swipeable pages for each quiz question
+ */
+@Composable
+fun QuizPagerFlow(
+    lessonId: Int,
+    challenges: List<ChallengeWithOptions>,
+    viewModel: LessonViewModel,
+    onNavigateBack: () -> Unit,
+    onNavigateToListening: () -> Unit,
+    onCompleteAllQuestions: () -> Unit
+) {
+    val pagerState = rememberPagerState(pageCount = { challenges.size })
+    val coroutineScope = rememberCoroutineScope() // Move here to composable scope
+    var currentAnswerStatus by remember { mutableStateOf<AnswerStatus>(AnswerStatus.NONE) }
+    var selectedOption by remember { mutableStateOf<Int?>(null) }
+    var showCompletionPrompt by remember { mutableStateOf(false) }
+    
+    // Check if user is on the last question
+    val isLastQuestion = pagerState.currentPage == challenges.size - 1
+    
+    LaunchedEffect(pagerState.currentPage) {
+        // Reset answer status when page changes
+        currentAnswerStatus = AnswerStatus.NONE
+        selectedOption = null
+    }
+    
+    // Show completion prompt when last question is answered
+    if (showCompletionPrompt) {
+        CompletionPrompt(
+            lessonId = lessonId,
+            viewModel = viewModel,
+            onYes = onNavigateToListening,
+            onNo = {
+                // Update progress via viewModel then navigate back
+                viewModel.updateLessonProgress(lessonId) {
+                    onNavigateBack()
+                }
+            }
+        )
+    } else {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(BackgroundColor)
+        ) {
+            // Progress indicator
+            ProgressIndicator(
+                currentPage = pagerState.currentPage + 1,
+                totalPages = challenges.size
+            )
+            
+            // Pager with questions
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.weight(1f),
+                pageSpacing = 16.dp,
+                contentPadding = PaddingValues(horizontal = 24.dp)
+            ) { page ->
+                val challenge = challenges[page]
+                QuizQuestionCard(
+                    challenge = challenge,
+                    selectedOption = selectedOption,
+                    answerStatus = currentAnswerStatus,
+                    onOptionSelected = { optionId ->
+                        if (currentAnswerStatus == AnswerStatus.NONE) {
+                            selectedOption = optionId
+                        }
+                    },
+                    onAnswerSubmitted = { isCorrect ->
+                        currentAnswerStatus = if (isCorrect) {
+                            AnswerStatus.CORRECT
+                        } else {
+                            AnswerStatus.WRONG
+                        }
+                        
+                        // Auto-advance to next question after 1 second
+                        coroutineScope.launch {
+                            delay(1000)
+                            
+                            if (isLastQuestion) {
+                                // Show completion prompt
+                                showCompletionPrompt = true
+                            } else {
+                                pagerState.animateScrollToPage(page + 1)
+                            }
+                        }
+                    }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Individual quiz question card
+ */
+@Composable
+fun QuizQuestionCard(
+    challenge: ChallengeWithOptions,
+    selectedOption: Int?,
+    answerStatus: AnswerStatus,
+    onOptionSelected: (Int) -> Unit,
+    onAnswerSubmitted: (Boolean) -> Unit
+) {
+    val isAnswered = answerStatus != AnswerStatus.NONE
+    val correctOption = challenge.options.find { it.correct }?.id
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Question text
+            Text(
+                text = challenge.challenge.question,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF333333),
+                lineHeight = 28.sp
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Answer options
+            challenge.options.forEach { option ->
+                val isSelected = selectedOption == option.id
+                val isCorrect = option.correct
+                
+                // Determine background color
+                val backgroundColor = when {
+                    !isAnswered && isSelected -> PrimaryColor.copy(alpha = 0.1f)
+                    answerStatus == AnswerStatus.WRONG && isSelected -> ErrorColor.copy(alpha = 0.1f)
+                    answerStatus == AnswerStatus.CORRECT && isCorrect -> SuccessColor.copy(alpha = 0.1f)
+                    else -> Color.White
+                }
+                
+                // Determine text color
+                val textColor = when {
+                    !isAnswered && isSelected -> PrimaryColor
+                    answerStatus == AnswerStatus.WRONG && isSelected -> ErrorColor
+                    answerStatus == AnswerStatus.CORRECT && isCorrect -> SuccessColor
+                    else -> Color(0xFF333333)
+                }
+                
+                // Determine border color
+                val borderColor = when {
+                    !isAnswered && isSelected -> PrimaryColor
+                    answerStatus == AnswerStatus.WRONG && isSelected -> ErrorColor
+                    answerStatus == AnswerStatus.CORRECT && isCorrect -> SuccessColor
+                    else -> Color(0xFFE0E0E0)
+                }
+                
+                // Option card
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = !isAnswered) {
+                            onOptionSelected(option.id)
+                        },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = backgroundColor
+                    ),
+                    border = if (isSelected || (isAnswered && isCorrect)) {
+                        BorderStroke(2.dp, borderColor)
+                    } else {
+                        null
+                    }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Option indicator
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(borderColor),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = option.id.toString().takeLast(1),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.width(12.dp))
+                        
+                        // Option text
+                        Text(
+                            text = option.text,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = textColor,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+            
+            // Submit or feedback
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            if (isAnswered) {
+                // Show feedback
+                val feedbackText = if (answerStatus == AnswerStatus.CORRECT) {
+                    "✓ Đúng rồi!"
+                } else {
+                    "✗ Sai rồi"
+                }
+                val feedbackColor = if (answerStatus == AnswerStatus.CORRECT) SuccessColor else ErrorColor
+                
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(feedbackColor.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = feedbackText,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = feedbackColor
+                    )
+                }
+            } else if (selectedOption != null) {
+                // Show submit button
+                Button(
+                    onClick = {
+                        val isCorrect = correctOption == selectedOption
+                        onAnswerSubmitted(isCorrect)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = PrimaryColor
+                    )
+                ) {
+                    Text(
+                        text = "Kiểm tra",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Progress indicator showing current question number
+ */
+@Composable
+fun ProgressIndicator(currentPage: Int, totalPages: Int) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                brush = Brush.horizontalGradient(
+                    colors = listOf(PrimaryColor, SecondaryColor)
+                )
+            )
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "Câu hỏi $currentPage / $totalPages",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+    }
+}
+
+/**
+ * Completion prompt - Ask user if they want to proceed to listening
+ */
+@Composable
+fun CompletionPrompt(
+    lessonId: Int,
+    viewModel: LessonViewModel,
+    onYes: () -> Unit,
+    onNo: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BackgroundColor),
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color.White
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                // Icon
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(CircleShape)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(PrimaryColor, SecondaryColor)
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("🎉", fontSize = 40.sp)
+                }
+                
+                // Message
+                Text(
+                    text = "Hoàn thành quiz!",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    color = Color(0xFF333333)
+                )
+                
+                Text(
+                    text = "Bạn có muốn đến phần nghe không?",
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                    color = Color(0xFF757575)
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onNo,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(2.dp, PrimaryColor)
+                    ) {
+                        Text(
+                            text = "Không",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryColor
+                        )
+                    }
+                    
+                    Button(
+                        onClick = onYes,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PrimaryColor
+                        )
+                    ) {
+                        Text(
+                            text = "Có",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Loading indicator
+ */
+@Composable
+fun LoadingIndicator() {
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(PrimaryColor.copy(alpha = 0.1f)),
+        contentAlignment = Alignment.Center
+    ) {
+        androidx.compose.material3.CircularProgressIndicator(
+            color = PrimaryColor,
+            strokeWidth = 3.dp
+        )
+    }
+}
+
+/**
+ * Answer status enum
+ */
+enum class AnswerStatus {
+    NONE,   // No answer selected yet
+    CORRECT, // Correct answer
+    WRONG   // Wrong answer
+}
+
+

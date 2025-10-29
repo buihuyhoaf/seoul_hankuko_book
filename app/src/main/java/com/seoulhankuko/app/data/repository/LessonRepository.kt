@@ -5,16 +5,11 @@ import com.seoulhankuko.app.data.api.model.QuestionResponse
 import com.seoulhankuko.app.data.api.model.QuizResponse
 import com.seoulhankuko.app.data.api.service.ApiService
 import com.seoulhankuko.app.data.repository.AuthRepository
-import com.seoulhankuko.app.data.database.daos.ChallengeDao
-import com.seoulhankuko.app.data.database.daos.ChallengeOptionDao
-import com.seoulhankuko.app.data.database.daos.ChallengeProgressDao
-import com.seoulhankuko.app.data.database.daos.LessonDao
-import com.seoulhankuko.app.data.database.entities.Challenge
-import com.seoulhankuko.app.data.database.entities.ChallengeOption
-import com.seoulhankuko.app.data.database.entities.ChallengeProgress
-import com.seoulhankuko.app.data.database.entities.Lesson
 import com.seoulhankuko.app.domain.model.ChallengeType
 import com.seoulhankuko.app.domain.model.ChallengeWithOptions
+import com.seoulhankuko.app.domain.model.ChallengeLite
+import com.seoulhankuko.app.domain.model.ChallengeOptionLite
+import com.seoulhankuko.app.domain.model.LessonLite
 import com.seoulhankuko.app.domain.model.LessonWithChallenges
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -26,11 +21,7 @@ import javax.inject.Singleton
 @Singleton
 class LessonRepository @Inject constructor(
     private val apiService: ApiService,
-    private val authRepository: AuthRepository,
-    private val lessonDao: LessonDao,
-    private val challengeDao: ChallengeDao,
-    private val challengeOptionDao: ChallengeOptionDao,
-    private val challengeProgressDao: ChallengeProgressDao
+    private val authRepository: AuthRepository
 ) {
     suspend fun getLessonWithChallenges(lessonId: Int, userId: String, token: String? = null): LessonWithChallenges? {
         return try {
@@ -71,21 +62,13 @@ class LessonRepository @Inject constructor(
     ): LessonWithChallenges {
         Timber.d("Converting lesson data to challenges for lesson: ${lessonDetail.title}")
         
-        // Convert API lesson to domain lesson
-        val lesson = Lesson(
+        // Convert API lesson to domain-only model (no DB persistence)
+        val lesson = LessonLite(
             id = lessonDetail.id,
             title = lessonDetail.title,
             unitId = lessonDetail.unitId,
             order = lessonDetail.orderIndex
         )
-        
-        // Insert lesson first to ensure foreign key constraint is satisfied
-        try {
-            lessonDao.insertLesson(lesson)
-            Timber.d("Successfully inserted lesson ${lesson.id}")
-        } catch (e: Exception) {
-            Timber.w(e, "Lesson ${lesson.id} might already exist, continuing...")
-        }
         
         // Convert questions to challenges
         val challengesWithOptions = mutableListOf<ChallengeWithOptions>()
@@ -102,45 +85,45 @@ class LessonRepository @Inject constructor(
                 
                 // Determine challenge type based on question type
                 val challengeType = when {
-                    question.questionType.name.lowercase().contains("multiple") -> {
+                    question.questionType.lowercase().contains("multiple") -> {
                         Timber.d("Question ${question.id}: Mapped to MULTIPLE_CHOICE")
-                        ChallengeType.MULTIPLE_CHOICE
+                        com.seoulhankuko.app.domain.model.ChallengeType.MULTIPLE_CHOICE
                     }
-                    question.questionType.name.lowercase().contains("fill") -> {
+                    question.questionType.lowercase().contains("fill") -> {
                         Timber.d("Question ${question.id}: Mapped to FILL_IN_BLANK")
-                        ChallengeType.FILL_IN_BLANK
+                        com.seoulhankuko.app.domain.model.ChallengeType.FILL_IN_BLANK
                     }
-                    question.questionType.name.lowercase().contains("true") -> {
+                    question.questionType.lowercase().contains("true") -> {
                         Timber.d("Question ${question.id}: Mapped to TRUE_FALSE")
-                        ChallengeType.TRUE_FALSE
+                        com.seoulhankuko.app.domain.model.ChallengeType.TRUE_FALSE
                     }
-                    question.questionType.name.lowercase().contains("audio") -> {
+                    question.questionType.lowercase().contains("audio") -> {
                         Timber.d("Question ${question.id}: Mapped to AUDIO_COMPREHENSION")
-                        ChallengeType.AUDIO_COMPREHENSION
+                        com.seoulhankuko.app.domain.model.ChallengeType.AUDIO_COMPREHENSION
                     }
-                    question.questionType.name.lowercase().contains("writing") -> {
+                    question.questionType.lowercase().contains("writing") -> {
                         Timber.d("Question ${question.id}: Mapped to WRITING_PRACTICE")
-                        ChallengeType.WRITING_PRACTICE
+                        com.seoulhankuko.app.domain.model.ChallengeType.WRITING_PRACTICE
                     }
-                    question.questionType.name.lowercase().contains("reading") -> {
+                    question.questionType.lowercase().contains("reading") -> {
                         Timber.d("Question ${question.id}: Mapped to READING_COMPREHENSION")
-                        ChallengeType.READING_COMPREHENSION
+                        com.seoulhankuko.app.domain.model.ChallengeType.READING_COMPREHENSION
                     }
-                    question.questionType.name.lowercase().contains("matching") -> {
+                    question.questionType.lowercase().contains("matching") -> {
                         Timber.d("Question ${question.id}: Mapped to MATCHING")
-                        ChallengeType.MATCHING
+                        com.seoulhankuko.app.domain.model.ChallengeType.MATCHING
                     }
-                    question.questionType.name.lowercase().contains("pronunciation") -> {
+                    question.questionType.lowercase().contains("pronunciation") -> {
                         Timber.d("Question ${question.id}: Mapped to PRONUNCIATION")
-                        ChallengeType.PRONUNCIATION
+                        com.seoulhankuko.app.domain.model.ChallengeType.PRONUNCIATION
                     }
                     else -> {
-                        Timber.w("Question ${question.id}: Unknown question type '${question.questionType.name}', defaulting to MULTIPLE_CHOICE")
-                        ChallengeType.MULTIPLE_CHOICE
+                        Timber.w("Question ${question.id}: Unknown question type '${question.questionType}', defaulting to MULTIPLE_CHOICE")
+                        com.seoulhankuko.app.domain.model.ChallengeType.MULTIPLE_CHOICE
                     }
                 }
                 
-                val challenge = Challenge(
+                val challenge = ChallengeLite(
                     id = question.id,
                     lessonId = lessonDetail.id,
                     question = question.content,
@@ -148,17 +131,9 @@ class LessonRepository @Inject constructor(
                     order = question.orderIndex
                 )
                 
-                // Insert challenge into database (with conflict resolution)
-                try {
-                    challengeDao.insertChallenge(challenge)
-                    Timber.d("Successfully inserted challenge ${challenge.id}")
-                } catch (e: Exception) {
-                    Timber.w(e, "Challenge ${challenge.id} might already exist, continuing...")
-                }
-                
                 // Convert question options to challenge options
                 val options = question.options.map { option ->
-                    ChallengeOption(
+                    ChallengeOptionLite(
                         id = option.id,
                         challengeId = question.id,
                         text = option.optionText,
@@ -167,16 +142,7 @@ class LessonRepository @Inject constructor(
                     )
                 }
                 
-                // Insert challenge options into database (with conflict resolution)
-                options.forEach { option ->
-                    try {
-                        challengeOptionDao.insertOption(option)
-                    } catch (e: Exception) {
-                        Timber.w(e, "Challenge option ${option.id} might already exist, continuing...")
-                    }
-                }
-                
-                Timber.d("Created and inserted challenge ${challenge.id} with ${options.size} options")
+                Timber.d("Prepared challenge ${challenge.id} with ${options.size} options")
                 
                 // For now, assume challenges are not completed
                 val completed = false
@@ -198,52 +164,28 @@ class LessonRepository @Inject constructor(
         return LessonWithChallenges(lesson, challengesWithOptions)
     }
     
-    
-    suspend fun completeChallenge(userId: String, challengeId: Int) {
-        try {
-            // First, verify that the challenge exists in the database
-            val challenge = challengeDao.getChallengeById(challengeId)
-            if (challenge == null) {
-                Timber.w("Challenge with ID $challengeId not found in database, cannot create progress")
-                return
-            }
-            
-            val progress = ChallengeProgress(
-                userId = userId,
-                challengeId = challengeId,
-                completed = true
-            )
-            challengeProgressDao.insertChallengeProgress(progress)
-            Timber.d("Successfully completed challenge $challengeId for user $userId")
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to complete challenge $challengeId for user $userId")
-            throw e
-        }
-    }
-    
-    /**
-     * Updates lesson progress when a quiz or exercise is completed
-     * This method calls the backend API to update progress
-     */
-    suspend fun updateLessonProgress(lessonId: Int, userId: String, token: String? = null): Boolean {
+    suspend fun updateLessonProgress(lessonId: Int, token: String? = null): Result<Map<String, Any>> {
         return try {
-            Timber.d("Updating lesson progress for lesson $lessonId, user $userId")
-            
-            // Call API to update lesson progress
             val authToken = if (token != null && token.isNotBlank()) "Bearer $token" else null
             val response = apiService.updateLessonProgress(lessonId, authToken)
             
             if (response.isSuccessful) {
-                Timber.d("Successfully updated lesson progress for lesson $lessonId")
-                true
+                val body = response.body()
+                if (body != null) {
+                    Timber.d("Successfully updated lesson progress for lesson $lessonId")
+                    Result.success(body)
+                } else {
+                    Timber.w("Lesson progress update response body is null")
+                    Result.failure(Exception("Response body is null"))
+                }
             } else {
                 val errorBody = response.errorBody()?.string()
                 Timber.e("Failed to update lesson progress - Code: ${response.code()}, Error: $errorBody")
-                false
+                Result.failure(Exception("Failed to update progress: ${response.code()}"))
             }
         } catch (e: Exception) {
             Timber.e(e, "Exception while updating lesson progress for lesson $lessonId")
-            false
+            Result.failure(e)
         }
     }
 }

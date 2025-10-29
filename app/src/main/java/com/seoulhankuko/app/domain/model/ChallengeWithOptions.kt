@@ -1,11 +1,25 @@
 package com.seoulhankuko.app.domain.model
 
-import com.seoulhankuko.app.data.database.entities.Challenge
-import com.seoulhankuko.app.data.database.entities.ChallengeOption
+data class ChallengeLite(
+    val id: Int,
+    val lessonId: Int,
+    val type: ChallengeType,
+    val question: String,
+    val order: Int
+)
+
+data class ChallengeOptionLite(
+    val id: Int,
+    val challengeId: Int,
+    val text: String,
+    val correct: Boolean,
+    val imageSrc: String? = null,
+    val audioSrc: String? = null
+)
 
 data class ChallengeWithOptions(
-    val challenge: Challenge,
-    val options: List<ChallengeOption>,
+    val challenge: ChallengeLite,
+    val options: List<ChallengeOptionLite>,
     val completed: Boolean
 )
 

@@ -7,7 +7,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.seoulhankuko.app.core.Logger
-import com.seoulhankuko.app.domain.model.TaskType
 import com.seoulhankuko.app.presentation.screens.ChallengeScreen
 import com.seoulhankuko.app.presentation.screens.CourseScreen
 import com.seoulhankuko.app.presentation.screens.EntryTestResultScreen
@@ -15,6 +14,10 @@ import com.seoulhankuko.app.presentation.screens.EntryTestScreen
 import com.seoulhankuko.app.presentation.screens.FirstScreen
 import com.seoulhankuko.app.presentation.screens.LeaderboardScreen
 import com.seoulhankuko.app.presentation.screens.LessonScreen
+import com.seoulhankuko.app.presentation.screens.LessonFlowScreen
+import com.seoulhankuko.app.presentation.screens.ListeningScreen
+import com.seoulhankuko.app.presentation.screens.SpeakingScreen
+import com.seoulhankuko.app.presentation.screens.WritingScreen
 import com.seoulhankuko.app.presentation.screens.LoggedAccountsScreen
 import com.seoulhankuko.app.presentation.screens.LoginScreen
 import com.seoulhankuko.app.presentation.screens.ModernHomeScreen
@@ -249,25 +252,56 @@ fun AppNavigation(
                 LessonScreen(
                     lessonId = id,
                     onNavigateBack = { navController.popBackStack() },
-                    onNavigateToTask = { taskType ->
-                        when (taskType) {
-                            TaskType.FINAL_QUIZ -> {
-                                navController.navigate("quiz/$id/lesson/$id")
-                            }
-                            TaskType.LISTENING -> {
-                                // Navigate to listening activity
-                                navController.navigate("listening/$id")
-                            }
-                            TaskType.SPEAKING -> {
-                                // Navigate to speaking activity
-                                navController.navigate("speaking/$id")
-                            }
-                            TaskType.WRITING -> {
-                                // Navigate to writing activity
-                                navController.navigate("writing/$id")
-                            }
-                        }
+                    onNavigateToLessonFlow = {
+                        navController.navigate("lesson-flow/$id")
                     }
+                )
+            }
+        }
+        
+        // Lesson Flow Screen (Practice Questions)
+        composable("lesson-flow/{lessonId}") { backStackEntry ->
+            val lessonId = backStackEntry.arguments?.getString("lessonId")?.toIntOrNull()
+            lessonId?.let { id ->
+                LessonFlowScreen(
+                    lessonId = id,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToListening = {
+                        navController.navigate("listening/$id")
+                    }
+                )
+            }
+        }
+        
+        // Listening Screen
+        composable("listening/{lessonId}") { backStackEntry ->
+            val lessonId = backStackEntry.arguments?.getString("lessonId")?.toIntOrNull()
+            lessonId?.let { id ->
+                ListeningScreen(
+                    lessonId = id,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+        }
+        
+        // Speaking Screen
+        composable("speaking/{lessonId}") { backStackEntry ->
+            val lessonId = backStackEntry.arguments?.getString("lessonId")?.toIntOrNull()
+            lessonId?.let { id ->
+                SpeakingScreen(
+                    lessonId = id,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+        }
+        
+        // Writing Screen
+        composable("writing/{lessonId}") { backStackEntry ->
+            val lessonId = backStackEntry.arguments?.getString("lessonId")?.toIntOrNull()
+            lessonId?.let { id ->
+                WritingScreen(
+                    lessonId = id,
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
         }

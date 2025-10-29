@@ -1,9 +1,14 @@
 package com.seoulhankuko.app.domain.model
 
-import com.seoulhankuko.app.data.database.entities.Lesson
+data class LessonLite(
+    val id: Int,
+    val title: String,
+    val unitId: Int,
+    val order: Int
+)
 
 data class LessonWithChallenges(
-    val lesson: Lesson,
+    val lesson: LessonLite,
     val challenges: List<ChallengeWithOptions>
 )
 
