@@ -23,6 +23,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -140,6 +141,7 @@ fun LessonScreen(
                             lessonTitle = "Lesson ${lesson.lesson.id}: ${lesson.lesson.title}",
                             lessonDescription = "Let's start learning!",
                             totalExercises = lesson.challenges.size,
+                            progressPercent = lesson.progressPercent,
                             onStartClick = onNavigateToLessonFlow
                         )
                     }
@@ -164,6 +166,7 @@ fun LessonIntroContent(
     lessonTitle: String,
     lessonDescription: String,
     totalExercises: Int,
+    progressPercent: Int = 0,
     onStartClick: () -> Unit
 ) {
     Column(
@@ -234,6 +237,37 @@ fun LessonIntroContent(
                     fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center
                 )
+                
+                // Progress indicator
+                if (progressPercent > 0) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Progress bar
+                        LinearProgressIndicator(
+                            progress = { progressPercent / 100f },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp)
+                                .clip(RoundedCornerShape(4.dp)),
+                            color = PrimaryColor,
+                            trackColor = SecondaryColor
+                        )
+                        
+                        // Progress text
+                        Text(
+                            text = "Progress: $progressPercent%",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = PrimaryColor,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
             }
         }
         

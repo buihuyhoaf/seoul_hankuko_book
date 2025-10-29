@@ -291,6 +291,7 @@ class LessonViewModel @Inject constructor(
     
     /**
      * Updates lesson progress on backend and calls callback when done
+     * Also reloads lesson data to get updated progress
      */
     fun updateLessonProgress(lessonId: Int, onComplete: () -> Unit) {
         viewModelScope.launch {
@@ -298,8 +299,12 @@ class LessonViewModel @Inject constructor(
                 val token = authRepository.getCurrentToken()
                 val result = lessonRepository.updateLessonProgress(lessonId, token)
                 
-                result.onSuccess {
+                result.onSuccess { responseBody ->
                     Timber.d("Successfully updated lesson progress for lesson $lessonId")
+                    
+                    // Reload lesson data to get updated progress
+                    loadLesson(lessonId)
+                    
                     _uiState.update { currentState ->
                         if (currentState is LessonUiState.Success) {
                             currentState.copy(progressUpdated = true)
@@ -307,6 +312,9 @@ class LessonViewModel @Inject constructor(
                     }
                 }.onFailure { error ->
                     Timber.e(error, "Failed to update lesson progress for lesson $lessonId")
+                    // Reload anyway to try to get latest progress
+                    loadLesson(lessonId)
+                    
                     // Still mark as updated in UI even if API call failed
                     _uiState.update { currentState ->
                         if (currentState is LessonUiState.Success) {
@@ -316,6 +324,9 @@ class LessonViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Exception while updating lesson progress")
+                // Reload anyway
+                loadLesson(lessonId)
+                
                 // Still mark as updated in UI even if exception occurs
                 _uiState.update { currentState ->
                     if (currentState is LessonUiState.Success) {

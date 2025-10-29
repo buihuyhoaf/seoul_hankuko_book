@@ -161,7 +161,12 @@ class LessonRepository @Inject constructor(
         
         Timber.d("Successfully converted lesson to ${challengesWithOptions.size} challenges")
         Timber.d("Challenge questions: ${challengesWithOptions.map { it.challenge.question }}")
-        return LessonWithChallenges(lesson, challengesWithOptions)
+        
+        // Get progress from API response
+        val progressPercent = lessonDetail.progress?.progressPercent ?: 0
+        Timber.d("Lesson progress: $progressPercent%")
+        
+        return LessonWithChallenges(lesson, challengesWithOptions, progressPercent)
     }
     
     suspend fun updateLessonProgress(lessonId: Int, token: String? = null): Result<Map<String, Any>> {

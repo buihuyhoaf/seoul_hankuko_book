@@ -9,6 +9,7 @@ data class LessonLite(
 
 data class LessonWithChallenges(
     val lesson: LessonLite,
-    val challenges: List<ChallengeWithOptions>
+    val challenges: List<ChallengeWithOptions>,
+    val progressPercent: Int = 0 // Progress percentage from backend
 )
 

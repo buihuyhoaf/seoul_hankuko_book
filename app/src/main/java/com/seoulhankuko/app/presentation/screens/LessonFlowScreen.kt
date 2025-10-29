@@ -27,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seoulhankuko.app.domain.model.ChallengeWithOptions
+import com.seoulhankuko.app.presentation.components.rememberSoundManager
 import com.seoulhankuko.app.presentation.viewmodel.LessonUiState
 import com.seoulhankuko.app.presentation.viewmodel.LessonViewModel
 import kotlinx.coroutines.delay
@@ -149,6 +151,16 @@ fun QuizPagerFlow(
     var selectedOption by remember { mutableStateOf<Int?>(null) }
     var showCompletionPrompt by remember { mutableStateOf(false) }
     
+    // Sound manager for playing correct/incorrect sounds
+    val soundManager = rememberSoundManager()
+    
+    // Cleanup sound manager when composable is disposed
+    DisposableEffect(Unit) {
+        onDispose {
+            soundManager.cleanup()
+        }
+    }
+    
     // Check if user is on the last question
     val isLastQuestion = pagerState.currentPage == challenges.size - 1
     
@@ -201,6 +213,13 @@ fun QuizPagerFlow(
                         }
                     },
                     onAnswerSubmitted = { isCorrect ->
+                        // Play sound effect based on answer correctness
+                        if (isCorrect) {
+                            soundManager.playCorrect()
+                        } else {
+                            soundManager.playIncorrect()
+                        }
+                        
                         currentAnswerStatus = if (isCorrect) {
                             AnswerStatus.CORRECT
                         } else {
