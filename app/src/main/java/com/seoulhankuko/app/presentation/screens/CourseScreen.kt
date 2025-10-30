@@ -367,14 +367,14 @@ private fun UnitCard(
                 unit.progress?.let { progress ->
                     Column {
                         LinearProgressIndicator(
-                            progress = { progress.progressPercent / 100f },
+                            progress = { (progress.progressPercent / 100.0).toFloat() },
                             modifier = Modifier.fillMaxWidth(),
                             color = SoftIndigo,
                             trackColor = SoftIndigo.copy(alpha = 0.2f)
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Progress: ${progress.progressPercent}%",
+                            text = "Progress: ${progress.progressPercent.toInt()}%",
                             style = MaterialTheme.typography.labelSmall,
                             color = SoftIndigo,
                             fontWeight = FontWeight.Medium

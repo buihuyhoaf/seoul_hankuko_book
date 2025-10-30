@@ -1,18 +1,15 @@
 package com.seoulhankuko.app.data.repository
 
 import com.seoulhankuko.app.data.api.model.LessonDetailResponse
-import com.seoulhankuko.app.data.api.model.QuestionResponse
-import com.seoulhankuko.app.data.api.model.QuizResponse
+import com.seoulhankuko.app.data.api.model.PracticeSelectedOptionRequest
+import com.seoulhankuko.app.data.api.model.PracticeTextAnswerRequest
 import com.seoulhankuko.app.data.api.service.ApiService
-import com.seoulhankuko.app.data.repository.AuthRepository
-import com.seoulhankuko.app.domain.model.ChallengeType
-import com.seoulhankuko.app.domain.model.ChallengeWithOptions
 import com.seoulhankuko.app.domain.model.ChallengeLite
 import com.seoulhankuko.app.domain.model.ChallengeOptionLite
+import com.seoulhankuko.app.domain.model.ChallengeType
+import com.seoulhankuko.app.domain.model.ChallengeWithOptions
 import com.seoulhankuko.app.domain.model.LessonLite
 import com.seoulhankuko.app.domain.model.LessonWithChallenges
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import retrofit2.Response
 import timber.log.Timber
 import javax.inject.Inject
@@ -56,6 +53,45 @@ class LessonRepository @Inject constructor(
         }
     }
     
+    suspend fun submitPracticeQuestion(
+        lessonId: Int,
+        questionId: Int,
+        token: String,
+        selectedOptionId: Int? = null,
+        textAnswer: String? = null
+    ): Result<Map<String, Any>> {
+        return try {
+            val authHeader = "Bearer $token"
+            val response: Response<Map<String, Any>> = when {
+                selectedOptionId != null -> {
+                    apiService.submitPracticeQuestionSelectedOption(
+                        lessonId, questionId, authHeader,
+                        PracticeSelectedOptionRequest(selectedOptionId)
+                    )
+                }
+                textAnswer != null -> {
+                    apiService.submitPracticeQuestionTextAnswer(
+                        lessonId, questionId, authHeader,
+                        PracticeTextAnswerRequest(textAnswer)
+                    )
+                }
+                else -> {
+                    throw IllegalArgumentException("Either selectedOptionId or textAnswer must be provided")
+                }
+            }
+            if (response.isSuccessful) {
+                Result.success(response.body() ?: emptyMap())
+            } else {
+                val error = response.errorBody()?.string()
+                Timber.e("Submit practice question failed: code=${response.code()}, error=$error")
+                Result.failure(Exception("Submit failed: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Exception submitting practice question")
+            Result.failure(e)
+        }
+    }
+
     private suspend fun convertApiResponseToLessonWithChallenges(
         lessonDetail: LessonDetailResponse, 
         userId: String
@@ -87,39 +123,39 @@ class LessonRepository @Inject constructor(
                 val challengeType = when {
                     question.questionType.lowercase().contains("multiple") -> {
                         Timber.d("Question ${question.id}: Mapped to MULTIPLE_CHOICE")
-                        com.seoulhankuko.app.domain.model.ChallengeType.MULTIPLE_CHOICE
+                        ChallengeType.MULTIPLE_CHOICE
                     }
                     question.questionType.lowercase().contains("fill") -> {
                         Timber.d("Question ${question.id}: Mapped to FILL_IN_BLANK")
-                        com.seoulhankuko.app.domain.model.ChallengeType.FILL_IN_BLANK
+                        ChallengeType.FILL_IN_BLANK
                     }
                     question.questionType.lowercase().contains("true") -> {
                         Timber.d("Question ${question.id}: Mapped to TRUE_FALSE")
-                        com.seoulhankuko.app.domain.model.ChallengeType.TRUE_FALSE
+                        ChallengeType.TRUE_FALSE
                     }
                     question.questionType.lowercase().contains("audio") -> {
                         Timber.d("Question ${question.id}: Mapped to AUDIO_COMPREHENSION")
-                        com.seoulhankuko.app.domain.model.ChallengeType.AUDIO_COMPREHENSION
+                        ChallengeType.AUDIO_COMPREHENSION
                     }
                     question.questionType.lowercase().contains("writing") -> {
                         Timber.d("Question ${question.id}: Mapped to WRITING_PRACTICE")
-                        com.seoulhankuko.app.domain.model.ChallengeType.WRITING_PRACTICE
+                        ChallengeType.WRITING_PRACTICE
                     }
                     question.questionType.lowercase().contains("reading") -> {
                         Timber.d("Question ${question.id}: Mapped to READING_COMPREHENSION")
-                        com.seoulhankuko.app.domain.model.ChallengeType.READING_COMPREHENSION
+                        ChallengeType.READING_COMPREHENSION
                     }
                     question.questionType.lowercase().contains("matching") -> {
                         Timber.d("Question ${question.id}: Mapped to MATCHING")
-                        com.seoulhankuko.app.domain.model.ChallengeType.MATCHING
+                        ChallengeType.MATCHING
                     }
                     question.questionType.lowercase().contains("pronunciation") -> {
                         Timber.d("Question ${question.id}: Mapped to PRONUNCIATION")
-                        com.seoulhankuko.app.domain.model.ChallengeType.PRONUNCIATION
+                        ChallengeType.PRONUNCIATION
                     }
                     else -> {
                         Timber.w("Question ${question.id}: Unknown question type '${question.questionType}', defaulting to MULTIPLE_CHOICE")
-                        com.seoulhankuko.app.domain.model.ChallengeType.MULTIPLE_CHOICE
+                        ChallengeType.MULTIPLE_CHOICE
                     }
                 }
                 

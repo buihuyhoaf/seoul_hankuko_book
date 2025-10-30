@@ -225,6 +225,14 @@ fun QuizPagerFlow(
                         } else {
                             AnswerStatus.WRONG
                         }
+                        // If correct and an option is selected, submit to backend to increment progress
+                        if (isCorrect && selectedOption != null) {
+                            viewModel.submitPracticeCorrectAnswer(
+                                lessonId = lessonId,
+                                questionId = challenge.challenge.id,
+                                selectedOptionId = selectedOption!!
+                            )
+                        }
                         
                         // Auto-advance to next question after 1 second
                         coroutineScope.launch {

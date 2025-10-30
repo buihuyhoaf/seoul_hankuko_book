@@ -99,180 +99,33 @@ class LessonViewModel @Inject constructor(
             (it as? LessonUiState.Success)?.copy(selectedOption = optionId) ?: it
         }
     }
-    
-    fun submitAnswer() {
-        val currentState = _uiState.value
-        if (currentState !is LessonUiState.Success) return
-        
-        val selectedOption = currentState.selectedOption ?: return
-        val currentChallenge = currentState.getCurrentChallenge() ?: return
-        
-        // Prevent multiple submissions
-        if (currentState.status != AnswerStatus.NONE) {
-            return
-        }
-        
-        val correctOption = currentChallenge.options.find { it.correct }
-        val isCorrect = if (currentChallenge.challenge.type == ChallengeType.TRUE_FALSE) {
-            // For True/False questions, determine correctness based on the correct answer
-            val trueOption = currentChallenge.options.find { option ->
-                option.text.equals("True", ignoreCase = true) || 
-                option.text.equals("true", ignoreCase = true) ||
-                option.text.equals("TRUE", ignoreCase = true)
-            }
-            val falseOption = currentChallenge.options.find { option ->
-                option.text.equals("False", ignoreCase = true) || 
-                option.text.equals("false", ignoreCase = true) ||
-                option.text.equals("FALSE", ignoreCase = true)
-            }
-            
-            // If we can't find True/False options, use the first two options
-            val finalTrueOption = trueOption ?: currentChallenge.options.getOrNull(0)
-            val finalFalseOption = falseOption ?: currentChallenge.options.getOrNull(1)
-            
-            val isCorrectAnswerTrue = if (finalTrueOption != null && finalFalseOption != null) {
-                finalTrueOption.correct
-            } else {
-                // Fallback: determine based on correct answer text
-                correctOption?.text?.let { 
-                    it.contains("Hello", ignoreCase = true) || 
-                    it.contains("Thank you", ignoreCase = true) ||
-                    it.contains("안녕하세요", ignoreCase = true) ||
-                    it.contains("감사합니다", ignoreCase = true)
-                } ?: false
-            }
-            
-            // Get actual option IDs for True/False buttons
-            val trueOptionId = finalTrueOption?.id ?: currentChallenge.options.firstOrNull()?.id ?: 1
-            val falseOptionId = finalFalseOption?.id ?: currentChallenge.options.getOrNull(1)?.id ?: 2
-            
-            Timber.d("True/False question - isCorrectAnswerTrue: $isCorrectAnswerTrue, selectedOption: $selectedOption, trueOptionId: $trueOptionId, falseOptionId: $falseOptionId")
-            
-            // Check if selected option matches the correct True/False value
-            if (isCorrectAnswerTrue) {
-                selectedOption == trueOptionId // True is correct
-            } else {
-                selectedOption == falseOptionId // False is correct
-            }
-        } else {
-            // For other question types, use the original logic
-            correctOption?.id == selectedOption
-        }
-        
+
+    fun submitPracticeCorrectAnswer(lessonId: Int, questionId: Int, selectedOptionId: Int) {
         viewModelScope.launch {
             try {
-                if (isCorrect) {
-                    Timber.d("Correct answer submitted for challenge ${currentChallenge.challenge.id}")
-                    
-                    // Award points
-                    // userProgressRepository.addPoints(
-                    //     userId,
-                    //     Constants.POINTS_PER_CHALLENGE
-                    // )
-                    
-                    _uiState.update { 
-                        (it as? LessonUiState.Success)?.copy(
-                            status = AnswerStatus.CORRECT,
-                            completedChallenges = it.completedChallenges + currentChallenge.challenge.id
-                        ) ?: it
+                val token = authRepository.getCurrentToken()
+                if (!token.isNullOrBlank() && lessonId > 0 && questionId > 0) {
+                    val result = lessonRepository.submitPracticeQuestion(
+                        lessonId = lessonId,
+                        questionId = questionId,
+                        token = token,
+                        selectedOptionId = selectedOptionId
+                    )
+                    result.onSuccess {
+                        Timber.d("Practice submit API success for lesson=$lessonId question=$questionId")
+                        // Optionally update backend progress immediately
+                        val update = lessonRepository.updateLessonProgress(lessonId, token)
+                        update.onSuccess { Timber.d("Progress updated after submit") }
+                        update.onFailure { e -> Timber.w(e, "Progress update failed after submit") }
+                    }.onFailure { err ->
+                        Timber.e(err, "Practice submit API failed")
                     }
                 } else {
-                    Timber.d("Wrong answer submitted for challenge ${currentChallenge.challenge.id}")
-                    
-                    // Reduce hearts for wrong answer (only once)
-                    // val heartsReduced = userProgressRepository.reduceHearts(userId)
-                    // Timber.d("Hearts reduced: $heartsReduced")
-                    
-                    _uiState.update { 
-                        (it as? LessonUiState.Success)?.copy(
-                            status = AnswerStatus.WRONG,
-                            heartsReduced = false, // Hearts are not reduced in this version
-                            canProceedAfterWrong = true
-                        ) ?: it
-                    }
+                    Timber.w("Skip practice submit: token=${token?.take(5)}..., lessonId=$lessonId, questionId=$questionId")
                 }
             } catch (e: Exception) {
-                Timber.e(e, "Failed to submit answer")
-                _uiState.update { 
-                    LessonUiState.Error("Failed to submit answer: ${e.message ?: "Unknown error"}")
-                }
+                Timber.e(e, "Failed to submit practice question to backend")
             }
-        }
-    }
-    
-    fun nextChallenge() {
-        val currentState = _uiState.value
-        if (currentState !is LessonUiState.Success) return
-        
-        val nextIndex = currentState.currentChallengeIndex + 1
-        val totalChallenges = currentState.lessonWithChallenges?.challenges?.size ?: 0
-        
-        if (nextIndex >= totalChallenges) {
-            // All challenges completed
-            _uiState.update { 
-                (it as? LessonUiState.Success)?.copy(
-                    isLessonCompleted = true,
-                    status = AnswerStatus.NONE,
-                    selectedOption = null
-                ) ?: it
-            }
-        } else {
-            _uiState.update { 
-                (it as? LessonUiState.Success)?.copy(
-                    currentChallengeIndex = nextIndex,
-                    status = AnswerStatus.NONE,
-                    selectedOption = null,
-                    heartsReduced = false,
-                    canProceedAfterWrong = false
-                ) ?: it
-            }
-        }
-    }
-    
-    fun proceedAfterWrongAnswer() {
-        val currentState = _uiState.value
-        if (currentState !is LessonUiState.Success) return
-        
-        // Proceed to next challenge even after wrong answer
-        // Note: Hearts are already reduced in submitAnswer, so we don't need to check here
-        nextChallenge()
-        
-        // Reset the canProceedAfterWrong flag
-        _uiState.update { 
-            (it as? LessonUiState.Success)?.copy(
-                canProceedAfterWrong = false
-            ) ?: it
-        }
-    }
-    
-    fun retryChallenge() {
-        val currentState = _uiState.value
-        if (currentState !is LessonUiState.Success) return
-        
-        _uiState.update { 
-            (it as? LessonUiState.Success)?.copy(
-                status = AnswerStatus.NONE,
-                selectedOption = null,
-                heartsReduced = false,
-                canProceedAfterWrong = false
-            ) ?: it
-        }
-    }
-    
-    fun resetLesson() {
-        val currentState = _uiState.value
-        if (currentState !is LessonUiState.Success) return
-        
-        _uiState.update { 
-            (it as? LessonUiState.Success)?.copy(
-                currentChallengeIndex = 0,
-                selectedOption = null,
-                status = AnswerStatus.NONE,
-                isLessonCompleted = false,
-                heartsReduced = false,
-                completedChallenges = emptySet(),
-                canProceedAfterWrong = false
-            ) ?: it
         }
     }
     
@@ -339,9 +192,6 @@ class LessonViewModel @Inject constructor(
         }
     }
     
-    fun retryLoadLesson(lessonId: Int) {
-        loadLesson(lessonId)
-    }
 }
 
 // UI State - exported for use in Composables

@@ -39,7 +39,7 @@ fun CourseCard(
     isNew: Boolean = false,
     isFeatured: Boolean = false
 ) {
-    val progressPercent = course.progress?.progressPercent ?: 0
+    val progressPercent = course.progress?.progressPercent ?: 0.0
     val lessonsCount = course.unitsCount
     
     Card(
@@ -111,7 +111,7 @@ fun CourseCard(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "$progressPercent%",
+                            text = "${progressPercent.toInt()}%",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF58CC02),
                             fontWeight = FontWeight.Medium
@@ -127,7 +127,7 @@ fun CourseCard(
                     
                     // Progress Bar
                     LinearProgressIndicator(
-                        progress = progressPercent / 100f,
+                        progress = (progressPercent / 100.0).toFloat(),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(4.dp)

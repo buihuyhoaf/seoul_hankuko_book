@@ -463,3 +463,12 @@ data class EntryTestResultResponse(
     @SerializedName("completed_at")
     val completedAt: String
 )
+
+// Practice question submission requests
+data class PracticeSelectedOptionRequest(
+    @SerializedName("selected_option_id") val selectedOptionId: Int
+)
+
+data class PracticeTextAnswerRequest(
+    @SerializedName("answer") val answer: String
+)

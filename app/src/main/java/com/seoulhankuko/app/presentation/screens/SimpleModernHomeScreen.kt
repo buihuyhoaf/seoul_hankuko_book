@@ -424,13 +424,13 @@ fun CourseCard(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = "${course.progress?.progressPercent ?: 0}%",
+                                    text = "${(course.progress?.progressPercent ?: 0.0).toInt()}%",
                                     style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.Medium,
                                     color = DuolingoGreen
                                 )
                                 Text(
-                                    text = "${(course.progress?.progressPercent ?: 0) * course.unitsCount / 100}/${course.unitsCount} bài",
+                                    text = "${(((course.progress?.progressPercent ?: 0.0) * course.unitsCount) / 100.0).toInt()}/${course.unitsCount} bài",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = DuolingoGray
                                 )
@@ -440,7 +440,7 @@ fun CourseCard(
                             
                             // Progress Bar
                             LinearProgressIndicator(
-                                progress = { (course.progress?.progressPercent ?: 0) / 100f },
+                                progress = { ((course.progress?.progressPercent ?: 0.0) / 100.0).toFloat() },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(6.dp)
