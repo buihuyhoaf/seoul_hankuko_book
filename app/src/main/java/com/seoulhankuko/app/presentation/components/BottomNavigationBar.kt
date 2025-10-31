@@ -13,6 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.seoulhankuko.app.presentation.screens.DuolingoGreen
+import com.seoulhankuko.app.presentation.screens.DuolingoGray
 
 enum class BottomNavigationRoute {
     HOME, CHALLENGE, NOTIFICATION, PROFILE
@@ -90,5 +92,121 @@ fun BottomNavigationBar(
                 contentDescription = getContentDescriptionForRoute(BottomNavigationRoute.PROFILE)
             )
         }
+    }
+}
+
+@Composable
+fun ModernBottomNavigationBar(
+    currentRoute: String,
+    onNavigateToHome: () -> Unit,
+    onNavigateToChallenge: () -> Unit,
+    onNavigateToNotification: () -> Unit,
+    onNavigateToProfile: () -> Unit
+) {
+    NavigationBar(
+        containerColor = Color.White,
+        tonalElevation = 8.dp
+    ) {
+        NavigationBarItem(
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Home,
+                    contentDescription = "Home"
+                )
+            },
+            label = { Text("Trang chủ") },
+            selected = currentRoute == "home",
+            onClick = onNavigateToHome,
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = DuolingoGreen,
+                selectedTextColor = DuolingoGreen,
+                unselectedIconColor = DuolingoGray,
+                unselectedTextColor = DuolingoGray
+            )
+        )
+        
+        NavigationBarItem(
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Star,
+                    contentDescription = "Challenge"
+                )
+            },
+            label = { Text("Thử thách") },
+            selected = currentRoute == "challenge",
+            onClick = onNavigateToChallenge,
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = DuolingoGreen,
+                selectedTextColor = DuolingoGreen,
+                unselectedIconColor = DuolingoGray,
+                unselectedTextColor = DuolingoGray
+            )
+        )
+        
+        NavigationBarItem(
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Notifications,
+                    contentDescription = "Notification"
+                )
+            },
+            label = { Text("Thông báo") },
+            selected = currentRoute == "notification",
+            onClick = onNavigateToNotification,
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = DuolingoGreen,
+                selectedTextColor = DuolingoGreen,
+                unselectedIconColor = DuolingoGray,
+                unselectedTextColor = DuolingoGray
+            )
+        )
+        
+        NavigationBarItem(
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = "Profile"
+                )
+            },
+            label = { Text("Hồ sơ") },
+            selected = currentRoute == "profile",
+            onClick = onNavigateToProfile,
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = DuolingoGreen,
+                selectedTextColor = DuolingoGreen,
+                unselectedIconColor = DuolingoGray,
+                unselectedTextColor = DuolingoGray
+            )
+        )
+    }
+}
+
+/**
+ * Main Screen Wrapper with Bottom Navigation
+ * Wraps main navigation screens (Home, Challenge, Notification, Profile) with bottom navigation bar
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MainScreenWrapper(
+    currentRoute: String,
+    onNavigateToHome: () -> Unit,
+    onNavigateToChallenge: () -> Unit,
+    onNavigateToNotification: () -> Unit,
+    onNavigateToProfile: () -> Unit,
+    content: @Composable (PaddingValues) -> Unit
+) {
+    Scaffold(
+        bottomBar = {
+            ModernBottomNavigationBar(
+                currentRoute = currentRoute,
+                onNavigateToHome = onNavigateToHome,
+                onNavigateToChallenge = onNavigateToChallenge,
+                onNavigateToNotification = onNavigateToNotification,
+                onNavigateToProfile = onNavigateToProfile
+            )
+        },
+        containerColor = Color.White
+    ) { paddingValues ->
+        content(paddingValues)
     }
 }

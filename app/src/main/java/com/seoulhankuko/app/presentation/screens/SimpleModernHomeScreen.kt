@@ -20,7 +20,6 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -29,10 +28,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
-import com.seoulhankuko.app.domain.model.AuthState
 import com.seoulhankuko.app.data.api.model.CourseResponse
 import com.seoulhankuko.app.presentation.viewmodel.HomeViewModel
+import com.seoulhankuko.app.presentation.components.ModernBottomNavigationBar
 import kotlinx.coroutines.delay
+import kotlin.math.floor
 
 // 🎨 Color Palette - Duolingo Style
 val DuolingoGreen = Color(0xFF58CC02)
@@ -73,7 +73,7 @@ fun ModernHomeScreen(
         },
         bottomBar = {
             ModernBottomNavigationBar(
-                currentRoute = "home",
+                currentRoute = "courses",
                 onNavigateToHome = {},
                 onNavigateToChallenge = onNavigateToChallenge,
                 onNavigateToNotification = onNavigateToNotification,
@@ -430,7 +430,12 @@ fun CourseCard(
                                     color = DuolingoGreen
                                 )
                                 Text(
-                                    text = "${(((course.progress?.progressPercent ?: 0.0) * course.unitsCount) / 100.0).toInt()}/${course.unitsCount} bài",
+                                    text = run {
+                                        val percentVal = (course.progress?.progressPercent ?: 0)
+                                        val unitsInt: Int = course.unitsCount
+                                        val completedUnits = (percentVal * unitsInt) / 100
+                                        "$completedUnits/$unitsInt bài"
+                                    },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = DuolingoGray
                                 )
@@ -440,7 +445,10 @@ fun CourseCard(
                             
                             // Progress Bar
                             LinearProgressIndicator(
-                                progress = { ((course.progress?.progressPercent ?: 0.0) / 100.0).toFloat() },
+                                progress = {
+                                    val fraction = ((course.progress?.progressPercent ?: 0) / 100).toFloat()
+                                    fraction.coerceIn(0f, 1f)
+                                },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(6.dp)
@@ -453,113 +461,6 @@ fun CourseCard(
                 }
             }
         }
-    }
-}
-
-@Composable
-fun ModernBottomNavigationBar(
-    currentRoute: String,
-    onNavigateToHome: () -> Unit,
-    onNavigateToChallenge: () -> Unit,
-    onNavigateToNotification: () -> Unit,
-    onNavigateToProfile: () -> Unit
-) {
-    NavigationBar(
-        containerColor = Color.White,
-        tonalElevation = 8.dp
-    ) {
-        NavigationBarItem(
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Home,
-                    contentDescription = "Home"
-                )
-            },
-            label = { Text("Trang chủ") },
-            selected = currentRoute == "home",
-            onClick = onNavigateToHome,
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = DuolingoGreen,
-                selectedTextColor = DuolingoGreen,
-                unselectedIconColor = DuolingoGray,
-                unselectedTextColor = DuolingoGray
-            )
-        )
-        
-        NavigationBarItem(
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Star,
-                    contentDescription = "Challenge"
-                )
-            },
-            label = { Text("Thử thách") },
-            selected = currentRoute == "challenge",
-            onClick = onNavigateToChallenge,
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = DuolingoGreen,
-                selectedTextColor = DuolingoGreen,
-                unselectedIconColor = DuolingoGray,
-                unselectedTextColor = DuolingoGray
-            )
-        )
-        
-        NavigationBarItem(
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Notifications,
-                    contentDescription = "Notification"
-                )
-            },
-            label = { Text("Thông báo") },
-            selected = currentRoute == "notification",
-            onClick = onNavigateToNotification,
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = DuolingoGreen,
-                selectedTextColor = DuolingoGreen,
-                unselectedIconColor = DuolingoGray,
-                unselectedTextColor = DuolingoGray
-            )
-        )
-        
-        NavigationBarItem(
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Profile"
-                )
-            },
-            label = { Text("Hồ sơ") },
-            selected = currentRoute == "profile",
-            onClick = onNavigateToProfile,
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = DuolingoGreen,
-                selectedTextColor = DuolingoGreen,
-                unselectedIconColor = DuolingoGray,
-                unselectedTextColor = DuolingoGray
-            )
-        )
-    }
-}
-
-@Composable
-fun Badge(
-    text: String,
-    backgroundColor: Color,
-    textColor: Color,
-    fontSize: androidx.compose.ui.unit.TextUnit
-) {
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = backgroundColor
-    ) {
-        Text(
-            text = text,
-            color = textColor,
-            fontSize = fontSize,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-        )
     }
 }
 

@@ -108,7 +108,7 @@ interface ApiService {
         @Path("lesson_id") lessonId: Int,
         @Header("Authorization") token: String? = null
     ): Response<Map<String, Any>>
-
+    
     // Practice question submit endpoints (increment lesson progress on correct answers)
     @POST("v1/lessons/{lesson_id}/practice-questions/{question_id}/submit")
     suspend fun submitPracticeQuestionSelectedOption(

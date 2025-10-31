@@ -2,20 +2,15 @@ package com.seoulhankuko.app.presentation.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.seoulhankuko.app.presentation.components.BottomNavigationBar
-import com.seoulhankuko.app.presentation.components.BottomNavigationRoute
+import com.seoulhankuko.app.presentation.components.MainScreenWrapper
 
 @Composable
 fun ChallengeScreen(
@@ -24,16 +19,19 @@ fun ChallengeScreen(
     onNavigateToNotification: () -> Unit = {},
     onNavigateToProfile: () -> Unit = {}
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF81C784)) // Nền xanh lá cây nhạt
-    ) {
+    MainScreenWrapper(
+        currentRoute = "challenge",
+        onNavigateToHome = onNavigateToHome,
+        onNavigateToChallenge = onNavigateToChallenge,
+        onNavigateToNotification = onNavigateToNotification,
+        onNavigateToProfile = onNavigateToProfile
+    ) { paddingValues ->
         Column(
             modifier = Modifier
-                .weight(1f)
+                .fillMaxSize()
+                .padding(paddingValues)
+                .background(Color(0xFF81C784)) // Nền xanh lá cây nhạt
                 .padding(16.dp)
-                .padding(bottom = 0.dp)
         ) {
             Text(
                 text = "🏆 Challenge",
@@ -78,14 +76,5 @@ fun ChallengeScreen(
                 }
             }
         }
-        
-        // Bottom Navigation Bar
-        BottomNavigationBar(
-            currentRoute = BottomNavigationRoute.CHALLENGE,
-            onNavigateToHome = onNavigateToHome,
-            onNavigateToChallenge = { /* Current screen */ },
-            onNavigateToNotification = onNavigateToNotification,
-            onNavigateToProfile = onNavigateToProfile
-        )
     }
 }
