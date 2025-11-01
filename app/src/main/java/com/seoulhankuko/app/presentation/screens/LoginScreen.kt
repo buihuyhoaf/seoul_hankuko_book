@@ -21,6 +21,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seoulhankuko.app.R
 import com.seoulhankuko.app.presentation.components.SocialSignInSection
 import com.seoulhankuko.app.presentation.viewmodel.AuthViewModel
+import com.seoulhankuko.app.presentation.utils.LoginColors
+import com.seoulhankuko.app.presentation.utils.AppColors
 import com.seoulhankuko.app.core.Logger
 import com.seoulhankuko.app.domain.model.AuthState.SignedIn
 import com.seoulhankuko.app.domain.model.AuthState.SignedOut
@@ -82,13 +84,13 @@ fun LoginScreen(
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
-                    color = Color(0xFF1B5E20) // Dark green for title on white background
+                    color = LoginColors.TitleGreen
                 )
                 
                 Text(
                     text = stringResource(R.string.sign_in_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF2E7D32), // Medium green for subtitle
+                    color = LoginColors.SubtitleGreen,
                     textAlign = TextAlign.Center
                 )
             }
@@ -107,10 +109,10 @@ fun LoginScreen(
                     singleLine = true,
                     shape = MaterialTheme.shapes.medium,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF4CAF50), // Green border when focused
-                        unfocusedBorderColor = Color(0xFFE0E0E0), // Light gray border when unfocused
-                        focusedTextColor = Color(0xFF1B5E20), // Dark green text
-                        unfocusedTextColor = Color(0xFF2E7D32) // Medium green text
+                        focusedBorderColor = LoginColors.FocusedBorder,
+                        unfocusedBorderColor = LoginColors.UnfocusedBorder,
+                        focusedTextColor = LoginColors.TitleGreen,
+                        unfocusedTextColor = LoginColors.SubtitleGreen
                     )
                 )
                 
@@ -124,10 +126,10 @@ fun LoginScreen(
                     singleLine = true,
                     shape = MaterialTheme.shapes.medium,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF4CAF50), // Green border when focused
-                        unfocusedBorderColor = Color(0xFFE0E0E0), // Light gray border when unfocused
-                        focusedTextColor = Color(0xFF1B5E20), // Dark green text
-                        unfocusedTextColor = Color(0xFF2E7D32) // Medium green text
+                        focusedBorderColor = LoginColors.FocusedBorder,
+                        unfocusedBorderColor = LoginColors.UnfocusedBorder,
+                        focusedTextColor = LoginColors.TitleGreen,
+                        unfocusedTextColor = LoginColors.SubtitleGreen
                     )
                 )
                 
@@ -135,7 +137,7 @@ fun LoginScreen(
                 if (errorMessage != null) {
                     Text(
                         text = errorMessage!!,
-                        color = Color(0xFFD32F2F), // Red color for error message on white background
+                        color = LoginColors.Error,
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(horizontal = dimensionResource(R.dimen.spacing_medium))
                     )
@@ -161,17 +163,17 @@ fun LoginScreen(
                         .height(dimensionResource(R.dimen.login_button_height)),
                     enabled = !isLoading,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF4CAF50), // Green button background
-                        contentColor = Color.White, // White text on green button
-                        disabledContainerColor = Color(0xFFE0E0E0), // Light gray when disabled
-                        disabledContentColor = Color(0xFF9E9E9E) // Gray text when disabled
+                        containerColor = LoginColors.PrimaryButton,
+                        contentColor = AppColors.White,
+                        disabledContainerColor = LoginColors.Disabled,
+                        disabledContentColor = LoginColors.DisabledText
                     ),
                     shape = MaterialTheme.shapes.medium
                 ) {
                     if (isLoading) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(dimensionResource(R.dimen.login_progress_indicator_size)),
-                            color = Color.White, // White progress indicator on green background
+                            color = AppColors.White,
                             strokeWidth = 2.dp
                         )
                     } else {
@@ -222,7 +224,7 @@ fun LoginScreen(
                     Text(
                         text = stringResource(R.string.back_to_home),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFF4CAF50) // Green for clickable text
+                        color = LoginColors.PrimaryButton
                     )
                 }
                 
@@ -233,7 +235,7 @@ fun LoginScreen(
                     Text(
                         text = stringResource(R.string.dont_have_account),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFF2E7D32) // Medium green for regular text
+                        color = LoginColors.SubtitleGreen
                     )
                     TextButton(
                         onClick = { /* TODO: Navigate to sign up */ }
@@ -241,7 +243,7 @@ fun LoginScreen(
                         Text(
                             text = stringResource(R.string.sign_up),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color(0xFF4CAF50) // Green for clickable text
+                            color = LoginColors.PrimaryButton
                         )
                     }
                 }
@@ -250,7 +252,7 @@ fun LoginScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFF8F9FA) // Light gray background for card
+                        containerColor = LoginColors.CardBackground
                     ),
                     shape = MaterialTheme.shapes.medium
                 ) {
@@ -261,13 +263,13 @@ fun LoginScreen(
                             text = stringResource(R.string.demo_credentials),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1B5E20) // Dark green for card title
+                            color = LoginColors.TitleGreen
                         )
                         Spacer(modifier = Modifier.height(dimensionResource(R.dimen.spacing_small)))
                         Text(
                             text = stringResource(R.string.demo_credentials_text),
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF2E7D32) // Medium green for card content
+                            color = LoginColors.SubtitleGreen
                         )
                     }
                 }

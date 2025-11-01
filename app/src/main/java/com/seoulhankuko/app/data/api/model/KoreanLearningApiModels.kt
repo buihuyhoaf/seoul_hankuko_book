@@ -218,6 +218,35 @@ data class QuestionResultResponse(
     val isCorrect: Boolean
 )
 
+// Exercise Question Models
+data class ExerciseQuestionOptionResponse(
+    val id: Int,
+    @SerializedName("question_id")
+    val questionId: Int,
+    @SerializedName("option_text")
+    val optionText: String,
+    @SerializedName("is_correct")
+    val isCorrect: Boolean,
+    @SerializedName("order_index")
+    val orderIndex: Int,
+    @SerializedName("created_at")
+    val createdAt: String
+)
+
+data class ExerciseQuestionResponse(
+    val id: Int,
+    @SerializedName("exercise_id")
+    val exerciseId: Int,
+    @SerializedName("question_text")
+    val questionText: String,
+    val explanation: String?,
+    @SerializedName("order_index")
+    val orderIndex: Int,
+    val options: List<ExerciseQuestionOptionResponse>,
+    @SerializedName("created_at")
+    val createdAt: String
+)
+
 // Exercise Models
 data class ExerciseResponse(
     val id: Int,
@@ -225,7 +254,9 @@ data class ExerciseResponse(
     val title: String?,
     val content: String?,
     @SerializedName("audio_url")
-    val audioUrl: String?,
+    val audioUrl: String? = null, // Deprecated - use text_to_speak instead
+    @SerializedName("text_to_speak")
+    val textToSpeech: String?,
     val transcript: String?,
     val prompt: String?,
     @SerializedName("sample_answer")
@@ -233,7 +264,8 @@ data class ExerciseResponse(
     @SerializedName("order_index")
     val orderIndex: Int,
     @SerializedName("created_at")
-    val createdAt: String
+    val createdAt: String,
+    val questions: List<ExerciseQuestionResponse> = emptyList()
 )
 
 // Legacy exercise models for backward compatibility
@@ -471,4 +503,11 @@ data class PracticeSelectedOptionRequest(
 
 data class PracticeTextAnswerRequest(
     @SerializedName("answer") val answer: String
+)
+
+// Exercise submission request
+data class ExerciseSubmissionRequest(
+    @SerializedName("response") val response: String? = null,
+    @SerializedName("audio_url") val audioUrl: String? = null,
+    @SerializedName("selected_answers") val selectedAnswers: Map<Int, Int>? = null // Map of questionId to optionId for listening exercises with questions
 )

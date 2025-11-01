@@ -14,6 +14,7 @@ import timber.log.Timber
 /**
  * Handles automatic navigation and progress update when quizzes or exercises are completed.
  * This provides a consistent experience across all completion flows.
+ * Also updates user streak after completing activities.
  */
 @Composable
 fun useCompletionHandler(
@@ -32,8 +33,11 @@ fun useCompletionHandler(
             Timber.d("Quiz/Exercise completed for lesson $lessonId, updating progress...")
             
             try {
-                // Update lesson progress
-                lessonViewModel.updateProgress(lessonId)
+                // Update lesson progress (this will also update streak if lesson is completed)
+                lessonViewModel.updateLessonProgress(lessonId) {
+                    // After progress update, update streak for quiz/exercise completion
+                    lessonViewModel.updateStreakAfterActivity()
+                }
                 
                 // Show completion message briefly, then navigate back
                 delay(delayMs)

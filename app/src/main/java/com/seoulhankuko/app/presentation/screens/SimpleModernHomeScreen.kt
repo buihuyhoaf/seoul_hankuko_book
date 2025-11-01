@@ -31,22 +31,16 @@ import androidx.compose.ui.platform.LocalContext
 import com.seoulhankuko.app.data.api.model.CourseResponse
 import com.seoulhankuko.app.presentation.viewmodel.HomeViewModel
 import com.seoulhankuko.app.presentation.components.ModernBottomNavigationBar
+import com.seoulhankuko.app.presentation.utils.HomeColors
+import com.seoulhankuko.app.presentation.utils.MiscColors
 import kotlinx.coroutines.delay
 import kotlin.math.floor
-
-// 🎨 Color Palette - Duolingo Style
-val DuolingoGreen = Color(0xFF58CC02)
-val DuolingoDarkGreen = Color(0xFF1B5E20)
-val DuolingoLightGreen = Color(0xFFE8F5E8)
-val DuolingoGray = Color(0xFF7F8C8D)
-val DuolingoLightGray = Color(0xFFF8F9FA)
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ModernHomeScreen(
     onCourseSelected: (courseId: Int) -> Unit,
-    onNavigateToChallenge: () -> Unit = {},
     onNavigateToNotification: () -> Unit = {},
     onNavigateToProfile: () -> Unit = {},
     homeViewModel: HomeViewModel = hiltViewModel()
@@ -75,12 +69,11 @@ fun ModernHomeScreen(
             ModernBottomNavigationBar(
                 currentRoute = "courses",
                 onNavigateToHome = {},
-                onNavigateToChallenge = onNavigateToChallenge,
                 onNavigateToNotification = onNavigateToNotification,
                 onNavigateToProfile = onNavigateToProfile
             )
         },
-        containerColor = DuolingoLightGray
+        containerColor = HomeColors.DuolingoLightGray
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -102,7 +95,7 @@ fun ModernHomeScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(
-                        color = DuolingoGreen,
+                        color = HomeColors.DuolingoGreen,
                         modifier = Modifier.size(48.dp)
                     )
                 }
@@ -114,7 +107,7 @@ fun ModernHomeScreen(
                     Text(
                         text = "Không có khóa học nào",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = DuolingoGray
+                        color = HomeColors.DuolingoGray
                     )
                 }
             } else {
@@ -140,7 +133,7 @@ fun AppBarSection(
                 text = "Korean Learning",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = DuolingoDarkGreen
+                color = HomeColors.DuolingoDarkGreen
             )
         },
         actions = {
@@ -170,7 +163,7 @@ fun AppBarSection(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape),
-                    color = DuolingoGreen,
+                    color = HomeColors.DuolingoGreen,
                     shadowElevation = 4.dp
                 ) {
                     Box(
@@ -188,7 +181,7 @@ fun AppBarSection(
         },
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
             containerColor = Color.White,
-            titleContentColor = DuolingoDarkGreen
+            titleContentColor = HomeColors.DuolingoDarkGreen
         ),
         modifier = Modifier.shadow(elevation = 2.dp)
     )
@@ -220,7 +213,7 @@ fun WelcomeSection(
                 text = "Xin chào, $userName! 👋",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = DuolingoDarkGreen
+                color = HomeColors.DuolingoDarkGreen
             )
             
             Spacer(modifier = Modifier.height(8.dp))
@@ -228,7 +221,7 @@ fun WelcomeSection(
             Text(
                 text = "Hãy tiếp tục hành trình học tiếng Hàn của bạn",
                 style = MaterialTheme.typography.bodyMedium,
-                color = DuolingoGray
+                color = HomeColors.DuolingoGray
             )
         }
     }
@@ -306,12 +299,12 @@ fun CourseCard(
     
     // Get gradient colors based on course ID
     val gradientColors = when (course.id % 6) {
-        1 -> listOf(Color(0xFFE8F5E8), Color(0xFFF0F8F0))
-        2 -> listOf(Color(0xFFE3F2FD), Color(0xFFF3E5F5))
-        3 -> listOf(Color(0xFFFFF3E0), Color(0xFFFFF8E1))
-        4 -> listOf(Color(0xFFF1F8E9), Color(0xFFF9FBE7))
-        5 -> listOf(Color(0xFFE8EAF6), Color(0xFFF3E5F5))
-        else -> listOf(Color(0xFFE0F2F1), Color(0xFFE8F5E8))
+        1 -> MiscColors.Gradient1
+        2 -> MiscColors.Gradient2
+        3 -> MiscColors.Gradient3
+        4 -> MiscColors.Gradient4
+        5 -> MiscColors.Gradient5
+        else -> MiscColors.Gradient6
     }
     
     AnimatedVisibility(
@@ -385,7 +378,7 @@ fun CourseCard(
                                 Icon(
                                     painter = painterResource(id = getDrawableResourceId(context, courseIcon)),
                                     contentDescription = null,
-                                    tint = DuolingoGreen,
+                                    tint = HomeColors.DuolingoGreen,
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
@@ -399,7 +392,7 @@ fun CourseCard(
                             text = course.title,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = DuolingoDarkGreen,
+                            color = HomeColors.DuolingoDarkGreen,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -410,7 +403,7 @@ fun CourseCard(
                         Text(
                             text = course.description ?: "",
                             style = MaterialTheme.typography.bodySmall,
-                            color = DuolingoGray,
+                            color = HomeColors.DuolingoGray,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -427,7 +420,7 @@ fun CourseCard(
                                     text = "${(course.progress?.progressPercent ?: 0.0).toInt()}%",
                                     style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.Medium,
-                                    color = DuolingoGreen
+                                    color = HomeColors.DuolingoGreen
                                 )
                                 Text(
                                     text = run {
@@ -437,7 +430,7 @@ fun CourseCard(
                                         "$completedUnits/$unitsInt bài"
                                     },
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = DuolingoGray
+                                    color = HomeColors.DuolingoGray
                                 )
                             }
                             
@@ -453,8 +446,8 @@ fun CourseCard(
                                     .fillMaxWidth()
                                     .height(6.dp)
                                     .clip(RoundedCornerShape(3.dp)),
-                                color = DuolingoGreen,
-                                trackColor = DuolingoLightGreen
+                                color = HomeColors.DuolingoGreen,
+                                trackColor = HomeColors.DuolingoLightGreen
                             )
                         }
                     }

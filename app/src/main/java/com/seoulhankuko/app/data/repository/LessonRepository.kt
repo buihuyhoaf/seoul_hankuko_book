@@ -3,6 +3,7 @@ package com.seoulhankuko.app.data.repository
 import com.seoulhankuko.app.data.api.model.LessonDetailResponse
 import com.seoulhankuko.app.data.api.model.PracticeSelectedOptionRequest
 import com.seoulhankuko.app.data.api.model.PracticeTextAnswerRequest
+import com.seoulhankuko.app.data.api.model.ExerciseSubmissionRequest
 import com.seoulhankuko.app.data.api.service.ApiService
 import com.seoulhankuko.app.domain.model.ChallengeLite
 import com.seoulhankuko.app.domain.model.ChallengeOptionLite
@@ -10,6 +11,7 @@ import com.seoulhankuko.app.domain.model.ChallengeType
 import com.seoulhankuko.app.domain.model.ChallengeWithOptions
 import com.seoulhankuko.app.domain.model.LessonLite
 import com.seoulhankuko.app.domain.model.LessonWithChallenges
+import com.seoulhankuko.app.domain.model.ExerciseLite
 import retrofit2.Response
 import timber.log.Timber
 import javax.inject.Inject
@@ -37,6 +39,10 @@ class LessonRepository @Inject constructor(
                 if (lessonDetail != null) {
                     Timber.d("Successfully received lesson data: ${lessonDetail.title}")
                     Timber.d("Lesson has ${lessonDetail.questions.size} questions")
+                    Timber.d("Lesson has ${lessonDetail.exercises.size} exercises from API")
+                    lessonDetail.exercises.forEachIndexed { index, exercise ->
+                        Timber.d("Exercise $index: type=${exercise.type}, title=${exercise.title}, id=${exercise.id}")
+                    }
                     convertApiResponseToLessonWithChallenges(lessonDetail, userId)
                 } else {
                     Timber.w("Lesson API response body is null")
@@ -88,6 +94,35 @@ class LessonRepository @Inject constructor(
             }
         } catch (e: Exception) {
             Timber.e(e, "Exception submitting practice question")
+            Result.failure(e)
+        }
+    }
+
+    suspend fun submitExercise(
+        exerciseId: Int,
+        token: String,
+        response: String? = null,
+        audioUrl: String? = null,
+        selectedAnswers: Map<Int, Int>? = null
+    ): Result<Map<String, Any>> {
+        return try {
+            val authHeader = "Bearer $token"
+            val submissionRequest = ExerciseSubmissionRequest(
+                response = response,
+                audioUrl = audioUrl,
+                selectedAnswers = selectedAnswers
+            )
+            val apiResponse = apiService.submitExercise(exerciseId, authHeader, submissionRequest)
+            
+            if (apiResponse.isSuccessful) {
+                Result.success(apiResponse.body() ?: emptyMap())
+            } else {
+                val error = apiResponse.errorBody()?.string()
+                Timber.e("Submit exercise failed: code=${apiResponse.code()}, error=$error")
+                Result.failure(Exception("Submit exercise failed: ${apiResponse.code()}"))
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Exception submitting exercise")
             Result.failure(e)
         }
     }
@@ -198,11 +233,33 @@ class LessonRepository @Inject constructor(
         Timber.d("Successfully converted lesson to ${challengesWithOptions.size} challenges")
         Timber.d("Challenge questions: ${challengesWithOptions.map { it.challenge.question }}")
         
+        // Convert exercises to ExerciseLite from API response
+        // This is REAL data from API, NOT fake data
+        Timber.d("Converting ${lessonDetail.exercises.size} exercises from API response...")
+        val exercises = lessonDetail.exercises.map { exercise ->
+            ExerciseLite(
+                id = exercise.id,
+                type = exercise.type.lowercase(),
+                title = exercise.title,
+                content = exercise.content,
+                orderIndex = exercise.orderIndex
+            )
+        }
+        Timber.d("Converted ${exercises.size} exercises from API: ${exercises.map { "id=${it.id}, type=${it.type}, title=${it.title}" }}")
+        
+        // Keep full ExerciseResponse for detailed access (audioUrl, transcript, etc.)
+        val exercisesResponse = lessonDetail.exercises
+        Timber.d("Preserved ${exercisesResponse.size} full exercise responses with complete data")
+        
+        if (exercises.isEmpty()) {
+            Timber.w("WARNING: No exercises found in API response for lesson ${lessonDetail.id}")
+        }
+        
         // Get progress from API response
         val progressPercent = lessonDetail.progress?.progressPercent ?: 0
         Timber.d("Lesson progress: $progressPercent%")
         
-        return LessonWithChallenges(lesson, challengesWithOptions, progressPercent)
+        return LessonWithChallenges(lesson, challengesWithOptions, exercises, exercisesResponse, progressPercent)
     }
     
     suspend fun updateLessonProgress(lessonId: Int, token: String? = null): Result<Map<String, Any>> {

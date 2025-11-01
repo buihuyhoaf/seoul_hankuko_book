@@ -29,16 +29,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.seoulhankuko.app.R
 import com.seoulhankuko.app.presentation.viewmodel.UnitViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-
-// Custom pastel color palette inspired by Korean minimal design
-val SoftIndigo = Color(0xFF5A67D8)
-val CoolGray = Color(0xFFA0AEC0)
-val WarmOrange = Color(0xFFF6AD55)
-val BackgroundLight = Color(0xFFF8FAFC)
-val TextPrimary = Color(0xFF1A202C)
-val TextSecondary = Color(0xFF4A5568)
-val Lavender = Color(0xFFE9D8FD)
-val LightGray = Color(0xFFEDF2F7)
+import com.seoulhankuko.app.presentation.utils.UnitColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,7 +54,7 @@ fun UnitScreen(
                         text = uiState.unitTitle ?: "Unit",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary
+                        color = UnitColors.TextPrimary
                     )
                 },
                 navigationIcon = {
@@ -71,25 +62,25 @@ fun UnitScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.back),
-                            tint = SoftIndigo
+                            tint = UnitColors.SoftIndigo
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.White,
-                    titleContentColor = TextPrimary,
-                    navigationIconContentColor = SoftIndigo
+                    titleContentColor = UnitColors.TextPrimary,
+                    navigationIconContentColor = UnitColors.SoftIndigo
                 ),
                 modifier = Modifier.shadow(elevation = 4.dp, shape = RoundedCornerShape(0.dp))
             )
         },
-        containerColor = BackgroundLight
+        containerColor = UnitColors.BackgroundLight
     ) { paddingValues ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(BackgroundLight)
+                .background(UnitColors.BackgroundLight)
         ) {
             when {
                 uiState.isLoading -> {
@@ -100,7 +91,7 @@ fun UnitScreen(
                     ) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(48.dp),
-                            color = SoftIndigo
+                            color = UnitColors.SoftIndigo
                         )
                     }
                 }
@@ -119,17 +110,17 @@ fun UnitScreen(
                             Text(
                                 text = "Failed to load lessons",
                                 style = MaterialTheme.typography.titleMedium,
-                                color = TextPrimary
+                                color = UnitColors.TextPrimary
                             )
                             Text(
                                 text = errorMessage ?: "Unknown error",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondary
+                                color = UnitColors.TextSecondary
                             )
                             Button(
                                 onClick = { viewModel.loadUnit(unitId) },
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = SoftIndigo
+                                    containerColor = UnitColors.SoftIndigo
                                 )
                             ) {
                                 Text("Retry")
@@ -147,7 +138,7 @@ fun UnitScreen(
                         Text(
                             text = "No lessons available",
                             style = MaterialTheme.typography.bodyLarge,
-                            color = TextSecondary
+                            color = UnitColors.TextSecondary
                         )
                     }
                 }
@@ -163,7 +154,7 @@ fun UnitScreen(
                         Text(
                             text = "Select a lesson to start",
                             style = MaterialTheme.typography.titleMedium,
-                            color = TextSecondary,
+                            color = UnitColors.TextSecondary,
                             modifier = Modifier.padding(start = 8.dp, top = 8.dp, bottom = 16.dp)
                         )
 
@@ -244,8 +235,8 @@ fun LessonCard(
             .shadow(
                 elevation = if (isPressed) 2.dp else 8.dp,
                 shape = RoundedCornerShape(16.dp),
-                ambientColor = SoftIndigo.copy(alpha = 0.1f),
-                spotColor = SoftIndigo.copy(alpha = 0.3f)
+                ambientColor = UnitColors.SoftIndigo.copy(alpha = 0.1f),
+                spotColor = UnitColors.SoftIndigo.copy(alpha = 0.3f)
             )
             .clickable(
                 onClick = onClick,
@@ -262,7 +253,7 @@ fun LessonCard(
                 .fillMaxSize()
                 .background(
                     brush = Brush.verticalGradient(
-                        colors = listOf(Lavender, LightGray)
+                        colors = listOf(UnitColors.Lavender, UnitColors.LightGray)
                     )
                 )
                 .padding(16.dp)
@@ -279,7 +270,7 @@ fun LessonCard(
                 ) {
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = SoftIndigo.copy(alpha = 0.2f),
+                        color = UnitColors.SoftIndigo.copy(alpha = 0.2f),
                         modifier = Modifier
                             .widthIn(max = 100.dp)
                             .height(36.dp)
@@ -292,7 +283,7 @@ fun LessonCard(
                                 text = "Lesson ${lesson.orderIndex}",
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
-                                color = SoftIndigo,
+                                color = UnitColors.SoftIndigo,
                                 textAlign = TextAlign.Center
                             )
                         }
@@ -304,7 +295,7 @@ fun LessonCard(
                             Icon(
                                 imageVector = Icons.Default.PlayArrow,
                                 contentDescription = null,
-                                tint = WarmOrange,
+                                tint = UnitColors.WarmOrange,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
@@ -319,7 +310,7 @@ fun LessonCard(
                         text = lesson.title,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary,
+                        color = UnitColors.TextPrimary,
                         maxLines = 2
                     )
 
@@ -330,7 +321,7 @@ fun LessonCard(
                         text = lesson.description?.takeIf { it.isNotBlank() } 
                             ?: "${lesson.quizzesCount} quizzes, ${lesson.exercisesCount} exercises",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary,
+                        color = UnitColors.TextSecondary,
                         maxLines = 2
                     )
 
@@ -344,14 +335,14 @@ fun LessonCard(
                         Icon(
                             imageVector = Icons.Default.PlayArrow,
                             contentDescription = null,
-                            tint = WarmOrange,
+                            tint = UnitColors.WarmOrange,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = if (lesson.progress?.isCompleted == true) "Continue" else "Tap to start",
                             style = MaterialTheme.typography.labelSmall,
-                            color = WarmOrange,
+                            color = UnitColors.WarmOrange,
                             fontWeight = FontWeight.Medium
                         )
                     }

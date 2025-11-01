@@ -13,6 +13,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Icon
+import com.seoulhankuko.app.presentation.utils.BottomNavColors
+import com.seoulhankuko.app.presentation.utils.AppColors
 
 @Composable
 fun BottomNavigationItem(
@@ -20,8 +22,8 @@ fun BottomNavigationItem(
     isSelected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    selectedColor: Color = Color(0xFFFFEB3B), // Màu vàng khi được chọn
-    unselectedColor: Color = Color.White,
+    selectedColor: Color = BottomNavColors.SelectedYellow,
+    unselectedColor: Color = AppColors.White,
     contentDescription: String? = null
 ) {
     // Animation cho scale khi được chọn

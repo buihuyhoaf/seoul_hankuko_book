@@ -36,6 +36,7 @@ import com.seoulhankuko.app.MainActivity
 import com.seoulhankuko.app.R
 import com.seoulhankuko.app.presentation.ui.theme.SeoulhankukobookTheme
 import com.seoulhankuko.app.presentation.viewmodel.GoogleSignInViewModel
+import com.seoulhankuko.app.presentation.utils.AppColors
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -143,7 +144,7 @@ fun SplashScreenWithAutoLogin(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF2E7D32)), // Xanh lá đậm cho SplashScreen
+            .background(AppColors.GreenMediumDark),
         contentAlignment = Alignment.Center
     ) {
         Column(

@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
+import com.seoulhankuko.app.presentation.utils.ComponentColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -129,7 +130,7 @@ fun AudioButton(
                 else 
                     Icons.Default.PlayArrow,
                 contentDescription = if (isPlaying) "Stop audio" else "Play audio",
-                tint = androidx.compose.ui.graphics.Color(0xFF5EEAD4)
+                tint = ComponentColors.AudioPlayerTint
             )
         }
     }

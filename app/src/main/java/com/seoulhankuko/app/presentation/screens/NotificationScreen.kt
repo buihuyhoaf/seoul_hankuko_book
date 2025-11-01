@@ -12,18 +12,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.seoulhankuko.app.presentation.components.MainScreenWrapper
+import com.seoulhankuko.app.presentation.utils.NotificationColors
 
 @Composable
 fun NotificationScreen(
     onNavigateToHome: () -> Unit = {},
-    onNavigateToChallenge: () -> Unit = {},
     onNavigateToNotification: () -> Unit = {},
     onNavigateToProfile: () -> Unit = {}
 ) {
     MainScreenWrapper(
         currentRoute = "notification",
         onNavigateToHome = onNavigateToHome,
-        onNavigateToChallenge = onNavigateToChallenge,
         onNavigateToNotification = onNavigateToNotification,
         onNavigateToProfile = onNavigateToProfile
     ) { paddingValues ->
@@ -31,14 +30,14 @@ fun NotificationScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(Color(0xFF81C784)) // Nền xanh lá cây nhạt
+                .background(NotificationColors.BackgroundGreen)
                 .padding(16.dp)
         ) {
             Text(
                 text = "🔔 Notification",
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1B5E20), // Xanh lá đậm cho title
+                color = NotificationColors.TitleGreen,
                 modifier = Modifier.padding(bottom = 32.dp)
             )
             
@@ -69,7 +68,7 @@ fun NotificationScreen(
                                         text = title,
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF1B5E20)
+                                        color = NotificationColors.TitleGreen
                                     )
                                     Text(
                                         text = content,

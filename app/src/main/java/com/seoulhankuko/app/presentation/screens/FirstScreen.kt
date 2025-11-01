@@ -22,6 +22,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seoulhankuko.app.R
 import com.seoulhankuko.app.domain.model.AuthState
 import com.seoulhankuko.app.presentation.viewmodel.HomeViewModel
+import com.seoulhankuko.app.presentation.utils.FirstScreenColors
+import com.seoulhankuko.app.presentation.utils.HomeColors
+import com.seoulhankuko.app.presentation.utils.AppColors
 import com.seoulhankuko.app.core.Logger
 
 @Composable
@@ -111,13 +114,13 @@ fun FirstScreen(
                                     .fillMaxWidth()
                                     .height(56.dp), // Fixed height để button to hơn
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF58CC02), // Màu nền 58CC02
-                                    contentColor = Color(0xFFFFFFFF) // Màu chữ FFFFFF
+                                    containerColor = FirstScreenColors.PrimaryButton,
+                                    contentColor = AppColors.White
                                 )
                             ) {
                                 Text(
                                     stringResource(id = R.string.get_started),
-                                    color = Color(0xFFFFFFFF),
+                                    color = AppColors.White,
                                     modifier = Modifier.padding(vertical = 8.dp)
                                 )
                             }
@@ -131,14 +134,14 @@ fun FirstScreen(
                                     .fillMaxWidth()
                                     .height(56.dp), // Fixed height để button to hơn
                                 colors = ButtonDefaults.outlinedButtonColors(
-                                    containerColor = Color(0xFFFFFFFF), // Màu nền FFFFFF
-                                    contentColor = Color(0xFF1CB0F6) // Màu chữ 1CB0F6
+                                    containerColor = AppColors.White,
+                                    contentColor = FirstScreenColors.SecondaryButton
                                 ),
-                                border = BorderStroke(1.dp, Color(0xFFE5E5E5)) // Border màu E5E5E5
+                                border = BorderStroke(1.dp, FirstScreenColors.BorderGray)
                             ) {
                                 Text(
                                     stringResource(id = R.string.already_have_account),
-                                    color = Color(0xFF1CB0F6),
+                                    color = FirstScreenColors.SecondaryButton,
                                     modifier = Modifier.padding(vertical = 8.dp)
                                 )
                             }
@@ -151,7 +154,7 @@ fun FirstScreen(
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF1B5E20) // Xanh lá đậm nhất cho button chính
+                                    containerColor = FirstScreenColors.ContinueButton
                                 )
                             ) {
                                 Text(
@@ -181,7 +184,7 @@ fun FirstScreen(
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF1B5E20)
+                                    containerColor = FirstScreenColors.ContinueButton
                                 )
                             ) {
                                 Text(

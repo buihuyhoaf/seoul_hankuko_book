@@ -13,18 +13,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import com.seoulhankuko.app.presentation.screens.DuolingoGreen
-import com.seoulhankuko.app.presentation.screens.DuolingoGray
+import com.seoulhankuko.app.presentation.utils.HomeColors
+import com.seoulhankuko.app.presentation.utils.BottomNavColors
 
 enum class BottomNavigationRoute {
-    HOME, CHALLENGE, NOTIFICATION, PROFILE
+    HOME, NOTIFICATION, PROFILE
 }
 
 @Composable
 private fun getIconForRoute(route: BottomNavigationRoute): ImageVector {
     return when (route) {
         BottomNavigationRoute.HOME -> Icons.Default.Home
-        BottomNavigationRoute.CHALLENGE -> Icons.Default.Star
         BottomNavigationRoute.NOTIFICATION -> Icons.Default.Notifications
         BottomNavigationRoute.PROFILE -> Icons.Default.Person
     }
@@ -34,7 +33,6 @@ private fun getIconForRoute(route: BottomNavigationRoute): ImageVector {
 private fun getContentDescriptionForRoute(route: BottomNavigationRoute): String {
     return when (route) {
         BottomNavigationRoute.HOME -> "Home"
-        BottomNavigationRoute.CHALLENGE -> "Challenge"
         BottomNavigationRoute.NOTIFICATION -> "Notification"
         BottomNavigationRoute.PROFILE -> "Profile"
     }
@@ -44,7 +42,6 @@ private fun getContentDescriptionForRoute(route: BottomNavigationRoute): String 
 fun BottomNavigationBar(
     currentRoute: BottomNavigationRoute,
     onNavigateToHome: () -> Unit,
-    onNavigateToChallenge: () -> Unit,
     onNavigateToNotification: () -> Unit,
     onNavigateToProfile: () -> Unit,
     modifier: Modifier = Modifier
@@ -52,7 +49,7 @@ fun BottomNavigationBar(
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF4CAF50) // Xanh lá đậm hơn cho bottom nav
+            containerColor = BottomNavColors.ContainerGreen
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
@@ -69,13 +66,6 @@ fun BottomNavigationBar(
                 isSelected = currentRoute == BottomNavigationRoute.HOME,
                 onClick = onNavigateToHome,
                 contentDescription = getContentDescriptionForRoute(BottomNavigationRoute.HOME)
-            )
-            
-            BottomNavigationItem(
-                icon = getIconForRoute(BottomNavigationRoute.CHALLENGE),
-                isSelected = currentRoute == BottomNavigationRoute.CHALLENGE,
-                onClick = onNavigateToChallenge,
-                contentDescription = getContentDescriptionForRoute(BottomNavigationRoute.CHALLENGE)
             )
             
             BottomNavigationItem(
@@ -99,7 +89,6 @@ fun BottomNavigationBar(
 fun ModernBottomNavigationBar(
     currentRoute: String,
     onNavigateToHome: () -> Unit,
-    onNavigateToChallenge: () -> Unit,
     onNavigateToNotification: () -> Unit,
     onNavigateToProfile: () -> Unit
 ) {
@@ -115,31 +104,13 @@ fun ModernBottomNavigationBar(
                 )
             },
             label = { Text("Trang chủ") },
-            selected = currentRoute == "home",
+            selected = currentRoute == "home" || currentRoute == "courses",
             onClick = onNavigateToHome,
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = DuolingoGreen,
-                selectedTextColor = DuolingoGreen,
-                unselectedIconColor = DuolingoGray,
-                unselectedTextColor = DuolingoGray
-            )
-        )
-        
-        NavigationBarItem(
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Star,
-                    contentDescription = "Challenge"
-                )
-            },
-            label = { Text("Thử thách") },
-            selected = currentRoute == "challenge",
-            onClick = onNavigateToChallenge,
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = DuolingoGreen,
-                selectedTextColor = DuolingoGreen,
-                unselectedIconColor = DuolingoGray,
-                unselectedTextColor = DuolingoGray
+                selectedIconColor = HomeColors.DuolingoGreen,
+                selectedTextColor = HomeColors.DuolingoGreen,
+                unselectedIconColor = HomeColors.DuolingoGray,
+                unselectedTextColor = HomeColors.DuolingoGray
             )
         )
         
@@ -154,10 +125,10 @@ fun ModernBottomNavigationBar(
             selected = currentRoute == "notification",
             onClick = onNavigateToNotification,
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = DuolingoGreen,
-                selectedTextColor = DuolingoGreen,
-                unselectedIconColor = DuolingoGray,
-                unselectedTextColor = DuolingoGray
+                selectedIconColor = HomeColors.DuolingoGreen,
+                selectedTextColor = HomeColors.DuolingoGreen,
+                unselectedIconColor = HomeColors.DuolingoGray,
+                unselectedTextColor = HomeColors.DuolingoGray
             )
         )
         
@@ -172,10 +143,10 @@ fun ModernBottomNavigationBar(
             selected = currentRoute == "profile",
             onClick = onNavigateToProfile,
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = DuolingoGreen,
-                selectedTextColor = DuolingoGreen,
-                unselectedIconColor = DuolingoGray,
-                unselectedTextColor = DuolingoGray
+                selectedIconColor = HomeColors.DuolingoGreen,
+                selectedTextColor = HomeColors.DuolingoGreen,
+                unselectedIconColor = HomeColors.DuolingoGray,
+                unselectedTextColor = HomeColors.DuolingoGray
             )
         )
     }
@@ -183,14 +154,13 @@ fun ModernBottomNavigationBar(
 
 /**
  * Main Screen Wrapper with Bottom Navigation
- * Wraps main navigation screens (Home, Challenge, Notification, Profile) with bottom navigation bar
+ * Wraps main navigation screens (Home, Notification, Profile) with bottom navigation bar
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreenWrapper(
     currentRoute: String,
     onNavigateToHome: () -> Unit,
-    onNavigateToChallenge: () -> Unit,
     onNavigateToNotification: () -> Unit,
     onNavigateToProfile: () -> Unit,
     content: @Composable (PaddingValues) -> Unit
@@ -200,7 +170,6 @@ fun MainScreenWrapper(
             ModernBottomNavigationBar(
                 currentRoute = currentRoute,
                 onNavigateToHome = onNavigateToHome,
-                onNavigateToChallenge = onNavigateToChallenge,
                 onNavigateToNotification = onNavigateToNotification,
                 onNavigateToProfile = onNavigateToProfile
             )

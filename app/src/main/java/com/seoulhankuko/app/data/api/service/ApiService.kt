@@ -167,6 +167,13 @@ interface ApiService {
         @Header("Authorization") token: String
     ): Response<WritingExerciseResponse>
     
+    @POST("v1/exercises/{exercise_id}/submit")
+    suspend fun submitExercise(
+        @Path("exercise_id") exerciseId: Int,
+        @Header("Authorization") token: String,
+        @Body body: ExerciseSubmissionRequest
+    ): Response<Map<String, Any>>
+    
     // User progress endpoints
     @GET("v1/user/{username}/progress")
     suspend fun getUserProgress(

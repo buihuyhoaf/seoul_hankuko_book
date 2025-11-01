@@ -54,6 +54,10 @@ class UserPreferencesManager @Inject constructor(
         // Guest mode tracking
         private val IS_GUEST_MODE_KEY = booleanPreferencesKey("is_guest_mode")
         private val GUEST_LESSONS_COMPLETED_KEY = intPreferencesKey("guest_lessons_completed")
+        
+        // User stats tracking
+        private val STREAK_DAYS_KEY = intPreferencesKey("streak_days")
+        private val EXP_KEY = intPreferencesKey("exp")
     }
 
     /**
@@ -66,7 +70,9 @@ class UserPreferencesManager @Inject constructor(
         avatarUrl: String? = null,
         accessToken: String,
         refreshToken: String? = null,
-        isPremium: Boolean = false
+        isPremium: Boolean = false,
+        streakDays: Int = 0,
+        exp: Int = 0
     ) {
         context.dataStore.edit { preferences ->
             preferences[USER_ID_KEY] = userId
@@ -75,6 +81,8 @@ class UserPreferencesManager @Inject constructor(
             preferences[ACCESS_TOKEN_KEY] = accessToken
             preferences[IS_LOGGED_IN_KEY] = true
             preferences[IS_PREMIUM_KEY] = isPremium
+            preferences[STREAK_DAYS_KEY] = streakDays
+            preferences[EXP_KEY] = exp
             
             avatarUrl?.let { preferences[USER_AVATAR_URL_KEY] = it }
             refreshToken?.let { preferences[REFRESH_TOKEN_KEY] = it }
@@ -107,6 +115,8 @@ class UserPreferencesManager @Inject constructor(
             preferences.remove(CURRENT_COURSE_NAME_KEY)
             preferences.remove(ENTRY_TEST_SCORE_KEY)
             preferences.remove(ENTRY_TEST_POPUP_DISMISSED_KEY) // Reset popup dismissal on logout
+            preferences.remove(STREAK_DAYS_KEY)
+            preferences.remove(EXP_KEY)
             preferences[IS_LOGGED_IN_KEY] = false
             preferences[IS_PREMIUM_KEY] = false
         }
@@ -180,7 +190,9 @@ class UserPreferencesManager @Inject constructor(
             accessToken = preferences[ACCESS_TOKEN_KEY],
             refreshToken = preferences[REFRESH_TOKEN_KEY],
             isLoggedIn = preferences[IS_LOGGED_IN_KEY] ?: false,
-            isPremium = preferences[IS_PREMIUM_KEY] ?: false
+            isPremium = preferences[IS_PREMIUM_KEY] ?: false,
+            streakDays = preferences[STREAK_DAYS_KEY] ?: 0,
+            exp = preferences[EXP_KEY] ?: 0
         )
     }
     
@@ -421,6 +433,8 @@ data class UserData(
     val accessToken: String?,
     val refreshToken: String?,
     val isLoggedIn: Boolean,
-    val isPremium: Boolean
+    val isPremium: Boolean,
+    val streakDays: Int = 0,
+    val exp: Int = 0
 )
 

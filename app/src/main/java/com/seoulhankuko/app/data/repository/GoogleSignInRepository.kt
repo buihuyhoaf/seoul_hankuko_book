@@ -90,11 +90,15 @@ class GoogleSignInRepository @Inject constructor(
                             
                             // Lấy user data từ backend để có đúng userId
                             var backendUserId = account.id ?: "" // Fallback to Google ID
+                            var streakDays = 0
+                            var exp = 0
                             try {
                                 val userResponse = apiService.getCurrentUser("Bearer $accessToken")
                                 if (userResponse.isSuccessful && userResponse.body() != null) {
                                     val userData = userResponse.body()!!
                                     backendUserId = userData.id.toString() // Use backend user ID
+                                    streakDays = userData.streakDays
+                                    exp = userData.exp
                                     
                                     userPreferencesManager.saveEntryTestResult(
                                         hasCompletedEntryTest = userData.hasCompletedEntryTest,
@@ -117,7 +121,9 @@ class GoogleSignInRepository @Inject constructor(
                                 avatarUrl = account.photoUrl?.toString(),
                                 accessToken = accessToken, // JWT token thật từ backend
                                 refreshToken = refreshToken ?: "",
-                                isPremium = false
+                                isPremium = false,
+                                streakDays = streakDays,
+                                exp = exp
                             )
                             
                             // Save logged account information for future auto-login với đúng userId từ backend

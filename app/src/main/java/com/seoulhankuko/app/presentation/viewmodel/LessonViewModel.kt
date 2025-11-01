@@ -2,8 +2,10 @@ package com.seoulhankuko.app.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.seoulhankuko.app.data.repository.AccountRepository
 import com.seoulhankuko.app.data.repository.AuthRepository
 import com.seoulhankuko.app.data.repository.LessonRepository
+import com.seoulhankuko.app.data.repository.UserProgressRepository
 import com.seoulhankuko.app.domain.model.AnswerStatus
 import com.seoulhankuko.app.domain.model.ChallengeType
 import com.seoulhankuko.app.domain.model.ChallengeWithOptions
@@ -21,7 +23,9 @@ import javax.inject.Inject
 @HiltViewModel
 class LessonViewModel @Inject constructor(
     private val lessonRepository: LessonRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val accountRepository: AccountRepository,
+    private val userProgressRepository: UserProgressRepository
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow<LessonUiState>(LessonUiState.Loading)
@@ -115,7 +119,11 @@ class LessonViewModel @Inject constructor(
                         Timber.d("Practice submit API success for lesson=$lessonId question=$questionId")
                         // Optionally update backend progress immediately
                         val update = lessonRepository.updateLessonProgress(lessonId, token)
-                        update.onSuccess { Timber.d("Progress updated after submit") }
+                        update.onSuccess { 
+                            Timber.d("Progress updated after submit")
+                            // Update streak after quiz/question completed
+                            updateStreakAfterActivity()
+                        }
                         update.onFailure { e -> Timber.w(e, "Progress update failed after submit") }
                     }.onFailure { err ->
                         Timber.e(err, "Practice submit API failed")
@@ -128,10 +136,52 @@ class LessonViewModel @Inject constructor(
             }
         }
     }
+
+    fun submitExercise(
+        exerciseId: Int,
+        lessonId: Int,
+        selectedAnswers: Map<Int, Int>? = null,
+        response: String? = null,
+        audioUrl: String? = null
+    ) {
+        viewModelScope.launch {
+            try {
+                val token = authRepository.getCurrentToken()
+                if (!token.isNullOrBlank() && exerciseId > 0 && lessonId > 0) {
+                    val result = lessonRepository.submitExercise(
+                        exerciseId = exerciseId,
+                        token = token,
+                        response = response,
+                        audioUrl = audioUrl,
+                        selectedAnswers = selectedAnswers
+                    )
+                    result.onSuccess {
+                        Timber.d("Exercise submit API success for exercise=$exerciseId lesson=$lessonId")
+                        // Update backend progress after exercise submission
+                        val update = lessonRepository.updateLessonProgress(lessonId, token)
+                        update.onSuccess { 
+                            Timber.d("Progress updated after exercise submit")
+                            // Update streak after exercise completed
+                            updateStreakAfterActivity()
+                            // Reload lesson data to get updated progress
+                            loadLesson(lessonId)
+                        }
+                        update.onFailure { e -> Timber.w(e, "Progress update failed after exercise submit") }
+                    }.onFailure { err ->
+                        Timber.e(err, "Exercise submit API failed")
+                    }
+                } else {
+                    Timber.w("Skip exercise submit: token=${token?.take(5)}..., exerciseId=$exerciseId, lessonId=$lessonId")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to submit exercise to backend")
+            }
+        }
+    }
     
     /**
      * Updates lesson progress when a quiz or exercise is completed
-     * This method should be called from QuizScreen, ExerciseScreen, etc.
+     * This method should be called from ExerciseScreen, etc.
      */
     fun updateProgress(lessonId: Int) {
         // No-op: backend progress update removed; just mark updated in UI
@@ -145,6 +195,7 @@ class LessonViewModel @Inject constructor(
     /**
      * Updates lesson progress on backend and calls callback when done
      * Also reloads lesson data to get updated progress
+     * Updates streak if lesson is newly completed
      */
     fun updateLessonProgress(lessonId: Int, onComplete: () -> Unit) {
         viewModelScope.launch {
@@ -154,6 +205,16 @@ class LessonViewModel @Inject constructor(
                 
                 result.onSuccess { responseBody ->
                     Timber.d("Successfully updated lesson progress for lesson $lessonId")
+                    
+                    // Check if lesson was completed and update streak
+                    val wasCompletedBefore = (_uiState.value as? LessonUiState.Success)?.isLessonCompleted ?: false
+                    val progressPercent = (responseBody as? Map<*, *>)?.get("progress_percent") as? Number
+                    val isNowCompleted = progressPercent?.toFloat() ?: 0f >= 80f
+                    
+                    // Update streak if lesson was newly completed
+                    if (!wasCompletedBefore && isNowCompleted && token != null) {
+                        updateUserStreak(token)
+                    }
                     
                     // Reload lesson data to get updated progress
                     loadLesson(lessonId)
@@ -188,6 +249,44 @@ class LessonViewModel @Inject constructor(
                     }
             } finally {
                 onComplete()
+            }
+        }
+    }
+    
+    /**
+     * Updates user streak after completing activities
+     */
+    private suspend fun updateUserStreak(token: String) {
+        try {
+            val activeAccount = accountRepository.getActiveAccount()
+            val username = activeAccount?.email ?: activeAccount?.displayName
+            
+            if (!username.isNullOrBlank()) {
+                val result = userProgressRepository.updateUserStreak(username, token)
+                result.onSuccess { streakResponse ->
+                    Timber.d("Successfully updated streak: ${streakResponse.newStreak}, bonus EXP: ${streakResponse.streakBonusExp}")
+                }.onFailure { error ->
+                    Timber.w(error, "Failed to update streak")
+                }
+            } else {
+                Timber.w("Cannot update streak: no active account found")
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Exception while updating streak")
+        }
+    }
+    
+    /**
+     * Updates user streak after completing quiz or exercise
+     * Called from completion handlers
+     */
+    fun updateStreakAfterActivity() {
+        viewModelScope.launch {
+            val token = authRepository.getCurrentToken()
+            if (token != null) {
+                updateUserStreak(token)
+            } else {
+                Timber.w("Cannot update streak: no token available")
             }
         }
     }

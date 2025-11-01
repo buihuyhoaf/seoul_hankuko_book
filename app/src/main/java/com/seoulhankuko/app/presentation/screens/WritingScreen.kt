@@ -41,11 +41,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seoulhankuko.app.presentation.viewmodel.LessonViewModel
 import com.seoulhankuko.app.presentation.viewmodel.LessonUiState
-
-// Color Palette
-private val PrimaryColor = Color(0xFFFF6F61)
-private val SecondaryColor = Color(0xFFFFE0B2)
-private val BackgroundColor = Color(0xFFFFF8E7)
+import com.seoulhankuko.app.presentation.utils.LessonFlowColors
+import com.seoulhankuko.app.presentation.utils.AppColors
 
 /**
  * WritingScreen - Practice writing Korean
@@ -63,10 +60,10 @@ fun WritingScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(BackgroundColor),
+                    .background(LessonFlowColors.BackgroundColor),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = PrimaryColor)
+                CircularProgressIndicator(color = LessonFlowColors.PrimaryColor)
             }
         }
         
@@ -80,7 +77,10 @@ fun WritingScreen(
                 WritingContent(
                     exercise = exercise,
                     onComplete = {
-                        // TODO: Update progress
+                        // Update progress and streak
+                        viewModel.updateLessonProgress(lessonId) {
+                            viewModel.updateStreakAfterActivity()
+                        }
                         onNavigateBack()
                     }
                 )
@@ -93,7 +93,7 @@ fun WritingScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(BackgroundColor),
+                    .background(LessonFlowColors.BackgroundColor),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -116,7 +116,7 @@ fun WritingContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(BackgroundColor)
+            .background(LessonFlowColors.BackgroundColor)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -125,7 +125,7 @@ fun WritingContent(
             text = "✍️ Viết",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF333333)
+            color = LessonFlowColors.TextPrimary
         )
         
         Spacer(modifier = Modifier.height(32.dp))
@@ -150,7 +150,7 @@ fun WritingContent(
                         .clip(CircleShape)
                         .background(
                             brush = Brush.radialGradient(
-                                colors = listOf(PrimaryColor, SecondaryColor)
+                                colors = listOf(LessonFlowColors.PrimaryColor, LessonFlowColors.SecondaryColor)
                             )
                         ),
                     contentAlignment = Alignment.Center
@@ -163,7 +163,7 @@ fun WritingContent(
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
-                    color = Color(0xFF333333)
+                    color = LessonFlowColors.TextPrimary
                 )
                 
                 OutlinedTextField(
@@ -189,7 +189,7 @@ fun WritingContent(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF4CAF50)
+                containerColor = LessonFlowColors.SuccessColor
             ),
             enabled = userInput.isNotBlank()
         ) {
@@ -197,7 +197,7 @@ fun WritingContent(
                 text = "Hoàn thành",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = AppColors.White
             )
         }
     }

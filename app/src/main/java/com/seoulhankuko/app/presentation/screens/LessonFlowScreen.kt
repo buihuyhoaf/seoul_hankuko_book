@@ -47,17 +47,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seoulhankuko.app.domain.model.ChallengeWithOptions
 import com.seoulhankuko.app.presentation.components.rememberSoundManager
+import com.seoulhankuko.app.presentation.components.rememberTTSManager
 import com.seoulhankuko.app.presentation.viewmodel.LessonUiState
 import com.seoulhankuko.app.presentation.viewmodel.LessonViewModel
+import com.seoulhankuko.app.presentation.utils.LessonFlowColors
+import com.seoulhankuko.app.presentation.utils.AppColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
-// Color Palette
-private val PrimaryColor = Color(0xFFFF6F61)
-private val SecondaryColor = Color(0xFFFFE0B2)
-private val BackgroundColor = Color(0xFFFFF8E7)
-private val SuccessColor = Color(0xFF4CAF50)
-private val ErrorColor = Color(0xFFF44336)
 
 /**
  * LessonFlowScreen - Shows quiz questions in a swipeable pager
@@ -67,7 +63,7 @@ private val ErrorColor = Color(0xFFF44336)
 fun LessonFlowScreen(
     lessonId: Int,
     onNavigateBack: () -> Unit,
-    onNavigateToListening: () -> Unit,
+    onNavigateToListening: (exerciseId: Int) -> Unit,
     viewModel: LessonViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -82,7 +78,7 @@ fun LessonFlowScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(BackgroundColor),
+                    .background(LessonFlowColors.BackgroundColor),
                 contentAlignment = Alignment.Center
             ) {
                 LoadingIndicator()
@@ -91,12 +87,21 @@ fun LessonFlowScreen(
         
         is LessonUiState.Success -> {
             state.lessonWithChallenges?.let { lesson ->
+                // Find listening exercise ID
+                val listeningExerciseId = lesson.exercisesResponse.firstOrNull { 
+                    it.type.lowercase() == "listening" 
+                }?.id
+                
                 QuizPagerFlow(
                     lessonId = lessonId,
                     challenges = lesson.challenges,
                     viewModel = viewModel,
                     onNavigateBack = onNavigateBack,
-                    onNavigateToListening = onNavigateToListening,
+                    onNavigateToListening = {
+                        listeningExerciseId?.let { exerciseId ->
+                            onNavigateToListening(exerciseId)
+                        } ?: onNavigateBack()
+                    },
                     onCompleteAllQuestions = { 
                         // Return to lesson screen
                         onNavigateBack()
@@ -109,7 +114,7 @@ fun LessonFlowScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(BackgroundColor),
+                    .background(LessonFlowColors.BackgroundColor),
                 contentAlignment = Alignment.Center
             ) {
                 Column(
@@ -119,7 +124,7 @@ fun LessonFlowScreen(
                     Text(
                         text = "Error loading lesson",
                         style = MaterialTheme.typography.titleLarge,
-                        color = ErrorColor
+                        color = LessonFlowColors.ErrorColor
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
@@ -142,7 +147,7 @@ fun QuizPagerFlow(
     challenges: List<ChallengeWithOptions>,
     viewModel: LessonViewModel,
     onNavigateBack: () -> Unit,
-    onNavigateToListening: () -> Unit,
+    onNavigateToListening: () -> Unit, // Keep original signature for QuizPagerFlow
     onCompleteAllQuestions: () -> Unit
 ) {
     val pagerState = rememberPagerState(pageCount = { challenges.size })
@@ -154,20 +159,46 @@ fun QuizPagerFlow(
     // Sound manager for playing correct/incorrect sounds
     val soundManager = rememberSoundManager()
     
-    // Cleanup sound manager when composable is disposed
+    // TTS Manager for reading question content
+    val ttsManager = rememberTTSManager()
+    
+    // Cleanup managers when composable is disposed
     DisposableEffect(Unit) {
         onDispose {
             soundManager.cleanup()
+            ttsManager.cleanup()
         }
     }
     
     // Check if user is on the last question
     val isLastQuestion = pagerState.currentPage == challenges.size - 1
     
+    // Read first question when screen loads
+    LaunchedEffect(Unit) {
+        if (challenges.isNotEmpty()) {
+            delay(300) // Wait for TTS to initialize
+            if (ttsManager.isAvailable()) {
+                val firstQuestionText = challenges[0].challenge.question
+                if (firstQuestionText.isNotBlank()) {
+                    ttsManager.speak(firstQuestionText, speed = 0.8f)
+                }
+            }
+        }
+    }
+    
     LaunchedEffect(pagerState.currentPage) {
         // Reset answer status when page changes
         currentAnswerStatus = AnswerStatus.NONE
         selectedOption = null
+        
+        // Read the question content using TTS when page changes (skip first page as it's already read)
+        if (pagerState.currentPage > 0) {
+            val currentChallenge = challenges[pagerState.currentPage]
+            val questionText = currentChallenge.challenge.question
+            if (questionText.isNotBlank() && ttsManager.isAvailable()) {
+                ttsManager.speak(questionText, speed = 0.8f)
+            }
+        }
     }
     
     // Show completion prompt when last question is answered
@@ -187,7 +218,7 @@ fun QuizPagerFlow(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(BackgroundColor)
+                .background(LessonFlowColors.BackgroundColor)
         ) {
             // Progress indicator
             ProgressIndicator(
@@ -287,7 +318,7 @@ fun QuizQuestionCard(
                 text = challenge.challenge.question,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF333333),
+                color = LessonFlowColors.TextPrimary,
                 lineHeight = 28.sp
             )
             
@@ -300,26 +331,26 @@ fun QuizQuestionCard(
                 
                 // Determine background color
                 val backgroundColor = when {
-                    !isAnswered && isSelected -> PrimaryColor.copy(alpha = 0.1f)
-                    answerStatus == AnswerStatus.WRONG && isSelected -> ErrorColor.copy(alpha = 0.1f)
-                    answerStatus == AnswerStatus.CORRECT && isCorrect -> SuccessColor.copy(alpha = 0.1f)
+                    !isAnswered && isSelected -> LessonFlowColors.PrimaryColor.copy(alpha = 0.1f)
+                    answerStatus == AnswerStatus.WRONG && isSelected -> LessonFlowColors.ErrorColor.copy(alpha = 0.1f)
+                    answerStatus == AnswerStatus.CORRECT && isCorrect -> LessonFlowColors.SuccessColor.copy(alpha = 0.1f)
                     else -> Color.White
                 }
                 
                 // Determine text color
                 val textColor = when {
-                    !isAnswered && isSelected -> PrimaryColor
-                    answerStatus == AnswerStatus.WRONG && isSelected -> ErrorColor
-                    answerStatus == AnswerStatus.CORRECT && isCorrect -> SuccessColor
-                    else -> Color(0xFF333333)
+                    !isAnswered && isSelected -> LessonFlowColors.PrimaryColor
+                    answerStatus == AnswerStatus.WRONG && isSelected -> LessonFlowColors.ErrorColor
+                    answerStatus == AnswerStatus.CORRECT && isCorrect -> LessonFlowColors.SuccessColor
+                    else -> LessonFlowColors.TextPrimary
                 }
                 
                 // Determine border color
                 val borderColor = when {
-                    !isAnswered && isSelected -> PrimaryColor
-                    answerStatus == AnswerStatus.WRONG && isSelected -> ErrorColor
-                    answerStatus == AnswerStatus.CORRECT && isCorrect -> SuccessColor
-                    else -> Color(0xFFE0E0E0)
+                    !isAnswered && isSelected -> LessonFlowColors.PrimaryColor
+                    answerStatus == AnswerStatus.WRONG && isSelected -> LessonFlowColors.ErrorColor
+                    answerStatus == AnswerStatus.CORRECT && isCorrect -> LessonFlowColors.SuccessColor
+                    else -> AppColors.LightGray
                 }
                 
                 // Option card
@@ -355,7 +386,7 @@ fun QuizQuestionCard(
                         ) {
                             Text(
                                 text = option.id.toString().takeLast(1),
-                                color = Color.White,
+                                color = AppColors.White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp
                             )
@@ -384,7 +415,7 @@ fun QuizQuestionCard(
                 } else {
                     "✗ Sai rồi"
                 }
-                val feedbackColor = if (answerStatus == AnswerStatus.CORRECT) SuccessColor else ErrorColor
+                val feedbackColor = if (answerStatus == AnswerStatus.CORRECT) LessonFlowColors.SuccessColor else LessonFlowColors.ErrorColor
                 
                 Box(
                     modifier = Modifier
@@ -410,14 +441,14 @@ fun QuizQuestionCard(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = PrimaryColor
+                        containerColor = LessonFlowColors.PrimaryColor
                     )
                 ) {
                     Text(
                         text = "Kiểm tra",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = AppColors.White
                     )
                 }
             }
@@ -435,7 +466,7 @@ fun ProgressIndicator(currentPage: Int, totalPages: Int) {
             .fillMaxWidth()
             .background(
                 brush = Brush.horizontalGradient(
-                    colors = listOf(PrimaryColor, SecondaryColor)
+                    colors = listOf(LessonFlowColors.PrimaryColor, LessonFlowColors.SecondaryColor)
                 )
             )
             .padding(16.dp),
@@ -445,7 +476,7 @@ fun ProgressIndicator(currentPage: Int, totalPages: Int) {
             text = "Câu hỏi $currentPage / $totalPages",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = Color.White
+            color = AppColors.White
         )
     }
 }
@@ -463,7 +494,7 @@ fun CompletionPrompt(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BackgroundColor),
+            .background(LessonFlowColors.BackgroundColor),
         contentAlignment = Alignment.Center
     ) {
         Card(
@@ -490,7 +521,7 @@ fun CompletionPrompt(
                         .clip(CircleShape)
                         .background(
                             brush = Brush.radialGradient(
-                                colors = listOf(PrimaryColor, SecondaryColor)
+                                colors = listOf(LessonFlowColors.PrimaryColor, LessonFlowColors.SecondaryColor)
                             )
                         ),
                     contentAlignment = Alignment.Center
@@ -504,14 +535,14 @@ fun CompletionPrompt(
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
-                    color = Color(0xFF333333)
+                    color = LessonFlowColors.TextPrimary
                 )
                 
                 Text(
                     text = "Bạn có muốn đến phần nghe không?",
                     style = MaterialTheme.typography.bodyLarge,
                     textAlign = TextAlign.Center,
-                    color = Color(0xFF757575)
+                    color = LessonFlowColors.TextSecondary
                 )
                 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -527,13 +558,13 @@ fun CompletionPrompt(
                             .weight(1f)
                             .height(56.dp),
                         shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(2.dp, PrimaryColor)
+                        border = BorderStroke(2.dp, LessonFlowColors.PrimaryColor)
                     ) {
                         Text(
                             text = "Không",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = PrimaryColor
+                            color = LessonFlowColors.PrimaryColor
                         )
                     }
                     
@@ -544,14 +575,14 @@ fun CompletionPrompt(
                             .height(56.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = PrimaryColor
+                            containerColor = LessonFlowColors.PrimaryColor
                         )
                     ) {
                         Text(
                             text = "Có",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = AppColors.White
                         )
                     }
                 }
@@ -569,11 +600,11 @@ fun LoadingIndicator() {
         modifier = Modifier
             .size(48.dp)
             .clip(CircleShape)
-            .background(PrimaryColor.copy(alpha = 0.1f)),
+            .background(LessonFlowColors.PrimaryColor.copy(alpha = 0.1f)),
         contentAlignment = Alignment.Center
     ) {
         androidx.compose.material3.CircularProgressIndicator(
-            color = PrimaryColor,
+            color = LessonFlowColors.PrimaryColor,
             strokeWidth = 3.dp
         )
     }

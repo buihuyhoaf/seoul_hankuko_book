@@ -7,7 +7,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.seoulhankuko.app.core.Logger
-import com.seoulhankuko.app.presentation.screens.ChallengeScreen
 import com.seoulhankuko.app.presentation.screens.CourseScreen
 import com.seoulhankuko.app.presentation.screens.EntryTestResultScreen
 import com.seoulhankuko.app.presentation.screens.EntryTestScreen
@@ -24,7 +23,6 @@ import com.seoulhankuko.app.presentation.screens.ModernHomeScreen
 import com.seoulhankuko.app.presentation.screens.NotificationScreen
 import com.seoulhankuko.app.presentation.screens.ProfileScreen
 import com.seoulhankuko.app.presentation.screens.QuestsScreen
-import com.seoulhankuko.app.presentation.screens.QuizScreen
 import com.seoulhankuko.app.presentation.screens.ShopScreen
 import com.seoulhankuko.app.presentation.screens.UnitScreen
 import java.net.URLEncoder
@@ -152,25 +150,6 @@ fun AppNavigation(
                 onCourseSelected = { courseId: Int ->
                     navController.navigate("course/$courseId")
                 },
-                onNavigateToChallenge = {
-                    navController.navigate("challenge")
-                },
-                onNavigateToNotification = {
-                    navController.navigate("notification")
-                },
-                onNavigateToProfile = {
-                    navController.navigate("profile")
-                }
-            )
-        }
-        
-        // Challenge Screen
-        composable("challenge") {
-            ChallengeScreen(
-                onNavigateToHome = {
-                    navController.navigate("courses")
-                },
-                onNavigateToChallenge = { /* Current screen */ },
                 onNavigateToNotification = {
                     navController.navigate("notification")
                 },
@@ -185,9 +164,6 @@ fun AppNavigation(
             NotificationScreen(
                 onNavigateToHome = {
                     navController.navigate("courses")
-                },
-                onNavigateToChallenge = {
-                    navController.navigate("challenge")
                 },
                 onNavigateToNotification = { /* Current screen */ },
                 onNavigateToProfile = {
@@ -207,13 +183,13 @@ fun AppNavigation(
                 onNavigateToHome = {
                     navController.navigate("courses")
                 },
-                onNavigateToChallenge = {
-                    navController.navigate("challenge")
-                },
                 onNavigateToNotification = {
                     navController.navigate("notification")
                 },
-                onNavigateToProfile = { /* Current screen */ }
+                onNavigateToProfile = { /* Current screen */ },
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
             )
         }
         
@@ -254,6 +230,23 @@ fun AppNavigation(
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToLessonFlow = {
                         navController.navigate("lesson-flow/$id")
+                    },
+                    onNavigateToListening = { exerciseId ->
+                        // Pass both lessonId and exerciseId to ensure we can reload if needed
+                        val currentLessonId = (navController.currentBackStackEntry?.arguments?.getString("lessonId")?.toIntOrNull()) ?: id
+                        navController.navigate("listening/$exerciseId/lesson/$currentLessonId")
+                    },
+                    onNavigateToSpeaking = { exerciseId ->
+                        // TODO: When SpeakingScreen is updated to accept exerciseId,
+                        // change route to "speaking/{exerciseId}" and pass exerciseId
+                        // For now, use lessonId which is available in this scope
+                        navController.navigate("speaking/$id")
+                    },
+                    onNavigateToWriting = { exerciseId ->
+                        // TODO: When WritingScreen is updated to accept exerciseId,
+                        // change route to "writing/{exerciseId}" and pass exerciseId
+                        // For now, use lessonId which is available in this scope
+                        navController.navigate("writing/$id")
                     }
                 )
             }
@@ -266,25 +259,33 @@ fun AppNavigation(
                 LessonFlowScreen(
                     lessonId = id,
                     onNavigateBack = { navController.popBackStack() },
-                    onNavigateToListening = {
-                        navController.navigate("listening/$id")
+                    onNavigateToListening = { exerciseId ->
+                        navController.navigate("listening/$exerciseId/lesson/$id")
                     }
                 )
             }
         }
         
-        // Listening Screen
-        composable("listening/{lessonId}") { backStackEntry ->
-            val lessonId = backStackEntry.arguments?.getString("lessonId")?.toIntOrNull()
-            lessonId?.let { id ->
+        // Listening Screen - receives exerciseId and optionally lessonId
+        composable(
+            route = "listening/{exerciseId}/lesson/{lessonId}",
+            arguments = listOf(
+                navArgument("exerciseId") { type = NavType.IntType },
+                navArgument("lessonId") { type = NavType.IntType }
+            )
+        ) { backStackEntry ->
+            val exerciseId = backStackEntry.arguments?.getInt("exerciseId")
+            val lessonId = backStackEntry.arguments?.getInt("lessonId")
+            if (exerciseId != null && lessonId != null) {
                 ListeningScreen(
-                    lessonId = id,
+                    exerciseId = exerciseId,
+                    lessonId = lessonId,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
         }
         
-        // Speaking Screen
+        // Speaking Screen - TODO: Update to receive exerciseId like ListeningScreen
         composable("speaking/{lessonId}") { backStackEntry ->
             val lessonId = backStackEntry.arguments?.getString("lessonId")?.toIntOrNull()
             lessonId?.let { id ->
@@ -295,7 +296,7 @@ fun AppNavigation(
             }
         }
         
-        // Writing Screen
+        // Writing Screen - TODO: Update to receive exerciseId like ListeningScreen
         composable("writing/{lessonId}") { backStackEntry ->
             val lessonId = backStackEntry.arguments?.getString("lessonId")?.toIntOrNull()
             lessonId?.let { id ->
@@ -305,20 +306,6 @@ fun AppNavigation(
                 )
             }
         }
-        
-        // Quiz Screen
-        composable("quiz/{quizId}/lesson/{lessonId}") { backStackEntry ->
-            val quizId = backStackEntry.arguments?.getString("quizId")?.toIntOrNull()
-            val lessonId = backStackEntry.arguments?.getString("lessonId")?.toIntOrNull()
-            quizId?.let { id ->
-                QuizScreen(
-                    quizId = id,
-                    lessonId = lessonId,
-                    onNavigateBack = { navController.popBackStack() }
-                )
-            }
-        }
-        
         // Shop Screen
         composable("shop") {
             ShopScreen(

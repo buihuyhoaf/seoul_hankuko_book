@@ -37,6 +37,7 @@ import com.seoulhankuko.app.data.api.model.UnitResponse
 import com.seoulhankuko.app.presentation.viewmodel.CourseUiState
 import com.seoulhankuko.app.presentation.viewmodel.CourseViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.seoulhankuko.app.presentation.utils.UnitColors
 
 @OptIn(ExperimentalMaterialApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -73,7 +74,7 @@ fun CourseScreen(
                         },
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary
+                        color = UnitColors.TextPrimary
                     )
                 },
                 navigationIcon = {
@@ -81,25 +82,25 @@ fun CourseScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.back),
-                            tint = SoftIndigo
+                            tint = UnitColors.SoftIndigo
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.White,
-                    titleContentColor = TextPrimary,
-                    navigationIconContentColor = SoftIndigo
+                    titleContentColor = UnitColors.TextPrimary,
+                    navigationIconContentColor = UnitColors.SoftIndigo
                 ),
                 modifier = Modifier.shadow(elevation = 4.dp, shape = RoundedCornerShape(0.dp))
             )
         },
-        containerColor = BackgroundLight
+        containerColor = UnitColors.BackgroundLight
     ) { paddingValues ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(BackgroundLight)
+                .background(UnitColors.BackgroundLight)
                 .pullRefresh(pullRefreshState)
         ) {
             when (val currentState = uiState) {
@@ -142,12 +143,12 @@ private fun LoadingContent() {
         ) {
             CircularProgressIndicator(
                 modifier = Modifier.size(48.dp),
-                color = SoftIndigo
+                color = UnitColors.SoftIndigo
             )
             Text(
                 text = "Loading course...",
                 style = MaterialTheme.typography.bodyLarge,
-                color = TextSecondary
+                color = UnitColors.TextSecondary
             )
         }
     }
@@ -167,7 +168,7 @@ private fun SuccessContent(
         Text(
             text = "Select a unit to start",
             style = MaterialTheme.typography.titleMedium,
-            color = TextSecondary,
+            color = UnitColors.TextSecondary,
             modifier = Modifier.padding(start = 8.dp, top = 8.dp, bottom = 16.dp)
         )
         
@@ -179,7 +180,7 @@ private fun SuccessContent(
                 Text(
                     text = "No units available",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = TextSecondary
+                    color = UnitColors.TextSecondary
                 )
             }
         } else {
@@ -218,17 +219,17 @@ private fun ErrorContent(
             Text(
                 text = "Failed to load course",
                 style = MaterialTheme.typography.titleMedium,
-                color = TextPrimary
+                color = UnitColors.TextPrimary
             )
             Text(
                 text = errorMessage,
                 style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary
+                color = UnitColors.TextSecondary
             )
             Button(
                 onClick = onRetry,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = SoftIndigo
+                    containerColor = UnitColors.SoftIndigo
                 )
             ) {
                 Text("Retry")
@@ -292,8 +293,8 @@ private fun UnitCard(
             .shadow(
                 elevation = if (isPressed) 2.dp else 8.dp,
                 shape = RoundedCornerShape(16.dp),
-                ambientColor = SoftIndigo.copy(alpha = 0.1f),
-                spotColor = SoftIndigo.copy(alpha = 0.3f)
+                ambientColor = UnitColors.SoftIndigo.copy(alpha = 0.1f),
+                spotColor = UnitColors.SoftIndigo.copy(alpha = 0.3f)
             )
             .clickable(
                 onClick = onClick,
@@ -310,7 +311,7 @@ private fun UnitCard(
                 .fillMaxSize()
                 .background(
                     brush = Brush.verticalGradient(
-                        colors = listOf(Lavender, LightGray)
+                        colors = listOf(UnitColors.Lavender, UnitColors.LightGray)
                     )
                 )
                 .padding(16.dp)
@@ -332,7 +333,7 @@ private fun UnitCard(
                             text = unit.title,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = TextPrimary,
+                            color = UnitColors.TextPrimary,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -341,7 +342,7 @@ private fun UnitCard(
                             Text(
                                 text = description,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = TextSecondary,
+                                color = UnitColors.TextSecondary,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -354,7 +355,7 @@ private fun UnitCard(
                             Icon(
                                 imageVector = Icons.Default.PlayArrow,
                                 contentDescription = null,
-                                tint = WarmOrange,
+                                tint = UnitColors.WarmOrange,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
@@ -369,14 +370,14 @@ private fun UnitCard(
                         LinearProgressIndicator(
                             progress = { (progress.progressPercent / 100.0).toFloat() },
                             modifier = Modifier.fillMaxWidth(),
-                            color = SoftIndigo,
-                            trackColor = SoftIndigo.copy(alpha = 0.2f)
+                            color = UnitColors.SoftIndigo,
+                            trackColor = UnitColors.SoftIndigo.copy(alpha = 0.2f)
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Progress: ${progress.progressPercent.toInt()}%",
                             style = MaterialTheme.typography.labelSmall,
-                            color = SoftIndigo,
+                            color = UnitColors.SoftIndigo,
                             fontWeight = FontWeight.Medium
                         )
                     }
@@ -401,14 +402,14 @@ private fun UnitCard(
                         Text(
                             text = "${unit.lessonsCount} lessons",
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary
+                            color = UnitColors.TextSecondary
                         )
                     }
                     
                     Icon(
                         imageVector = Icons.Default.PlayArrow,
                         contentDescription = null,
-                        tint = WarmOrange,
+                        tint = UnitColors.WarmOrange,
                         modifier = Modifier.size(20.dp)
                     )
                 }

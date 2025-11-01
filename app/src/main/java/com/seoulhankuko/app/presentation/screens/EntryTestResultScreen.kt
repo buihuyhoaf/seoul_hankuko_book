@@ -12,6 +12,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.seoulhankuko.app.presentation.viewmodel.EntryTestFlowViewModel
+import com.seoulhankuko.app.presentation.utils.AppColors
+import com.seoulhankuko.app.presentation.utils.MiscColors
 
 @Composable
 fun EntryTestResultScreen(
@@ -92,10 +94,10 @@ fun EntryTestResultScreen(
                             style = MaterialTheme.typography.displayMedium,
                             fontWeight = FontWeight.Bold,
                             color = when {
-                                score >= 80 -> Color(0xFF4CAF50) // Green
-                                score >= 60 -> Color(0xFFFF9800) // Orange
-                                score >= 40 -> Color(0xFFFF5722) // Deep Orange
-                                else -> Color(0xFFF44336) // Red
+                                score >= 80 -> MiscColors.SuccessGreen
+                                score >= 60 -> MiscColors.Orange
+                                score >= 40 -> MiscColors.DeepOrange
+                                else -> MiscColors.ErrorRed
                             }
                         )
                     }
@@ -107,7 +109,7 @@ fun EntryTestResultScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFE8F5E8)
+                        containerColor = AppColors.GreenLight
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -118,7 +120,7 @@ fun EntryTestResultScreen(
                         Text(
                             text = "Recommended Course",
                             style = MaterialTheme.typography.titleMedium,
-                            color = Color(0xFF2E7D32),
+                            color = AppColors.GreenMediumDark,
                             fontWeight = FontWeight.Bold
                         )
                         
@@ -128,7 +130,7 @@ fun EntryTestResultScreen(
                             text = courseName,
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1B5E20),
+                            color = AppColors.GreenDarkest,
                             textAlign = TextAlign.Center
                         )
                         
@@ -137,7 +139,7 @@ fun EntryTestResultScreen(
                         Text(
                             text = "This course is perfect for your current Korean level!",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color(0xFF2E7D32),
+                            color = AppColors.GreenMediumDark,
                             textAlign = TextAlign.Center
                         )
                     }
@@ -150,7 +152,7 @@ fun EntryTestResultScreen(
                     onClick = onContinue,
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF4CAF50)
+                        containerColor = MiscColors.SuccessGreen
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
