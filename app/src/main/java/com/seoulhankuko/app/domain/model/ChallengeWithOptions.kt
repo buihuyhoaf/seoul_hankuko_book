@@ -3,7 +3,7 @@ package com.seoulhankuko.app.domain.model
 data class ChallengeLite(
     val id: Int,
     val lessonId: Int,
-    val type: ChallengeType,
+    val type: QuestionType,
     val question: String,
     val order: Int
 )

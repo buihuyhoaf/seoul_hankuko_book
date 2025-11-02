@@ -3,19 +3,18 @@ package com.seoulhankuko.app.presentation.components
 import android.content.Context
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import timber.log.Timber
 import java.util.Locale
+import javax.inject.Singleton
 
 /**
  * TTS Manager for clean Text-to-Speech integration
  * Handles Korean language TTS with playback control
  */
+@Singleton
 class TTSManager(private val context: Context) {
     private var textToSpeech: TextToSpeech? = null
     private var isInitialized = false
@@ -220,13 +219,3 @@ class TTSManager(private val context: Context) {
         Timber.d("TTS cleaned up")
     }
 }
-
-/**
- * Remember TTSManager instance
- */
-@Composable
-fun rememberTTSManager(): TTSManager {
-    val context = LocalContext.current
-    return remember { TTSManager(context) }
-}
-

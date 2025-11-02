@@ -177,6 +177,8 @@ data class QuestionResponse(
     val orderIndex: Int,
     @SerializedName("question_type")
     val questionType: String,
+    @SerializedName("question_type_id")
+    val questionTypeId: Int? = null,
     val options: List<QuestionOptionResponse>
 )
 

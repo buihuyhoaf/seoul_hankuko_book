@@ -42,7 +42,6 @@ import com.seoulhankuko.app.R
 import com.seoulhankuko.app.data.api.model.ExerciseResponse
 import com.seoulhankuko.app.data.api.model.ExerciseQuestionResponse
 import com.seoulhankuko.app.data.api.model.ExerciseQuestionOptionResponse
-import com.seoulhankuko.app.presentation.components.rememberTTSManager
 import com.seoulhankuko.app.presentation.components.rememberSoundManager
 import com.seoulhankuko.app.presentation.utils.AppColors
 import com.seoulhankuko.app.presentation.viewmodel.LessonUiState
@@ -256,8 +255,8 @@ private fun ListeningScreenContent(
     val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
     
-    // TTS Manager
-    val ttsManager = rememberTTSManager()
+    // TTS Manager - injected via ViewModel
+    val ttsManager = viewModel.ttsManager
     val isPlaying by ttsManager.isPlaying.collectAsState()
     val playbackPositionState by ttsManager.playbackPosition.collectAsState()
     
@@ -364,10 +363,9 @@ private fun ListeningScreenContent(
         Timber.d("TTS state: isPlaying=$isPlaying, hasListened=$hasListened, hasCompletedFirstListen=$hasCompletedFirstListen, showQuestions=$showQuestions, questionsCount=${exercise.questions.size}, currentQuestionIndex=$currentQuestionIndex")
     }
     
-    // Cleanup TTS and Sound Manager on dispose
+    // Cleanup Sound Manager on dispose (TTS is singleton, managed by Hilt)
     DisposableEffect(Unit) {
         onDispose {
-            ttsManager.cleanup()
             soundManager.cleanup()
         }
     }

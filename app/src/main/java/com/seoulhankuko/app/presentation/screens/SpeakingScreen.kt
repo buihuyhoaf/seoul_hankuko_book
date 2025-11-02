@@ -66,7 +66,7 @@ fun SpeakingScreen(
         
         is LessonUiState.Success -> {
             val exercises = state.lessonWithChallenges?.challenges?.filter { 
-                it.challenge.type == com.seoulhankuko.app.domain.model.ChallengeType.PRONUNCIATION
+                it.challenge.type == com.seoulhankuko.app.domain.model.QuestionType.PRONUNCIATION
             } ?: emptyList()
             
             if (exercises.isNotEmpty()) {

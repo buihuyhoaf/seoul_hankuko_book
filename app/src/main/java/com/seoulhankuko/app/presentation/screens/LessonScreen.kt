@@ -55,7 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.seoulhankuko.app.domain.model.ChallengeType
+import com.seoulhankuko.app.domain.model.QuestionType
 import com.seoulhankuko.app.domain.model.LessonWithChallenges
 import com.seoulhankuko.app.presentation.utils.LessonColors
 import com.seoulhankuko.app.presentation.viewmodel.LessonUiState
@@ -345,11 +345,12 @@ private fun buildTimelineItems(
     
     // Add Questions node (if questions exist)
     val questionTypes = setOf(
-        ChallengeType.MULTIPLE_CHOICE,
-        ChallengeType.FILL_IN_BLANK,
-        ChallengeType.TRUE_FALSE,
-        ChallengeType.READING_COMPREHENSION,
-        ChallengeType.MATCHING
+        QuestionType.MULTIPLE_CHOICE,
+        QuestionType.BLANK,
+        QuestionType.MATCHING,
+        QuestionType.AUDIO_COMPREHENSION,
+        QuestionType.SENTENCE_ORDER,
+        QuestionType.IMAGE_SELECTION
     )
     val hasQuestions = lessonInfo.challenges.any { it.challenge.type in questionTypes }
     val allQuestionsCompleted = hasQuestions && lessonInfo.challenges

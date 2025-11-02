@@ -68,8 +68,10 @@ fun WritingScreen(
         }
         
         is LessonUiState.Success -> {
+            // Note: WRITING_PRACTICE is no longer supported in BE
+            // This will be empty until exercises are properly handled separately from questions
             val exercises = state.lessonWithChallenges?.challenges?.filter { 
-                it.challenge.type == com.seoulhankuko.app.domain.model.ChallengeType.WRITING_PRACTICE
+                false // WRITING_PRACTICE removed, exercises should come from exercises list, not challenges
             } ?: emptyList()
             
             if (exercises.isNotEmpty()) {

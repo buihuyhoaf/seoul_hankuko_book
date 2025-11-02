@@ -7,10 +7,9 @@ import com.seoulhankuko.app.data.repository.AuthRepository
 import com.seoulhankuko.app.data.repository.LessonRepository
 import com.seoulhankuko.app.data.repository.UserProgressRepository
 import com.seoulhankuko.app.domain.model.AnswerStatus
-import com.seoulhankuko.app.domain.model.ChallengeType
 import com.seoulhankuko.app.domain.model.ChallengeWithOptions
-import com.seoulhankuko.app.domain.model.Constants
 import com.seoulhankuko.app.domain.model.LessonWithChallenges
+import com.seoulhankuko.app.presentation.components.TTSManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +24,8 @@ class LessonViewModel @Inject constructor(
     private val lessonRepository: LessonRepository,
     private val authRepository: AuthRepository,
     private val accountRepository: AccountRepository,
-    private val userProgressRepository: UserProgressRepository
+    private val userProgressRepository: UserProgressRepository,
+    val ttsManager: TTSManager
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow<LessonUiState>(LessonUiState.Loading)

@@ -6,7 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.seoulhankuko.app.data.database.AppDatabase
 import com.seoulhankuko.app.data.database.daos.*
 import com.seoulhankuko.app.data.database.entities.*
-import com.seoulhankuko.app.domain.model.ChallengeType
+import com.seoulhankuko.app.domain.model.QuestionType
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -171,7 +171,7 @@ class DatabaseTest {
         lessonDao.insertLesson(lesson)
 
         // Create challenge linked to lesson
-        val challenge = Challenge(id = 1, lessonId = 1, type = ChallengeType.SELECT, question = "Test?", order = 1)
+        val challenge = Challenge(id = 1, lessonId = 1, type = QuestionType.MULTIPLE_CHOICE, question = "Test?", order = 1)
         challengeDao.insertChallenge(challenge)
 
         // Verify all exist

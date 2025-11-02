@@ -47,7 +47,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seoulhankuko.app.domain.model.ChallengeWithOptions
 import com.seoulhankuko.app.presentation.components.rememberSoundManager
-import com.seoulhankuko.app.presentation.components.rememberTTSManager
+import com.seoulhankuko.app.presentation.components.TTSManager
 import com.seoulhankuko.app.presentation.viewmodel.LessonUiState
 import com.seoulhankuko.app.presentation.viewmodel.LessonViewModel
 import com.seoulhankuko.app.presentation.utils.LessonFlowColors
@@ -159,40 +159,26 @@ fun QuizPagerFlow(
     // Sound manager for playing correct/incorrect sounds
     val soundManager = rememberSoundManager()
     
-    // TTS Manager for reading question content
-    val ttsManager = rememberTTSManager()
+    // TTS Manager for reading question content - injected via ViewModel
+    val ttsManager = viewModel.ttsManager
     
     // Cleanup managers when composable is disposed
     DisposableEffect(Unit) {
         onDispose {
             soundManager.cleanup()
-            ttsManager.cleanup()
         }
     }
     
     // Check if user is on the last question
     val isLastQuestion = pagerState.currentPage == challenges.size - 1
     
-    // Read first question when screen loads
-    LaunchedEffect(Unit) {
-        if (challenges.isNotEmpty()) {
-            delay(300) // Wait for TTS to initialize
-            if (ttsManager.isAvailable()) {
-                val firstQuestionText = challenges[0].challenge.question
-                if (firstQuestionText.isNotBlank()) {
-                    ttsManager.speak(firstQuestionText, speed = 0.8f)
-                }
-            }
-        }
-    }
-    
     LaunchedEffect(pagerState.currentPage) {
         // Reset answer status when page changes
         currentAnswerStatus = AnswerStatus.NONE
         selectedOption = null
         
-        // Read the question content using TTS when page changes (skip first page as it's already read)
-        if (pagerState.currentPage > 0) {
+        // Read the question content using TTS (no delay needed, TTS is already initialized)
+        if (challenges.isNotEmpty()) {
             val currentChallenge = challenges[pagerState.currentPage]
             val questionText = currentChallenge.challenge.question
             if (questionText.isNotBlank() && ttsManager.isAvailable()) {

@@ -7,7 +7,7 @@ import com.seoulhankuko.app.data.api.model.ExerciseSubmissionRequest
 import com.seoulhankuko.app.data.api.service.ApiService
 import com.seoulhankuko.app.domain.model.ChallengeLite
 import com.seoulhankuko.app.domain.model.ChallengeOptionLite
-import com.seoulhankuko.app.domain.model.ChallengeType
+import com.seoulhankuko.app.domain.model.QuestionType
 import com.seoulhankuko.app.domain.model.ChallengeWithOptions
 import com.seoulhankuko.app.domain.model.LessonLite
 import com.seoulhankuko.app.domain.model.LessonWithChallenges
@@ -22,6 +22,39 @@ class LessonRepository @Inject constructor(
     private val apiService: ApiService,
     private val authRepository: AuthRepository
 ) {
+    /**
+     * Map question_type_id to QuestionType enum
+     * Mapping based on BE question_types table:
+     * ID 1 -> MULTIPLE_CHOICE
+     * ID 2 -> BLANK
+     * ID 3 -> MATCHING
+     * ID 4 -> AUDIO_COMPREHENSION
+     * ID 5 -> PRONUNCIATION
+     * ID 6 -> SENTENCE_ORDER
+     * ID 7 -> IMAGE_SELECTION
+     */
+    private fun getQuestionType(questionTypeId: Int?): QuestionType {
+        return when (questionTypeId) {
+            1 -> QuestionType.MULTIPLE_CHOICE
+            2 -> QuestionType.BLANK
+            3 -> QuestionType.MATCHING
+            4 -> QuestionType.AUDIO_COMPREHENSION
+            5 -> QuestionType.PRONUNCIATION
+            6 -> QuestionType.SENTENCE_ORDER
+            7 -> QuestionType.IMAGE_SELECTION
+            else -> {
+                Timber.w("Unknown question_type_id: $questionTypeId, defaulting to MULTIPLE_CHOICE")
+                QuestionType.MULTIPLE_CHOICE
+            }
+        }
+    }
+    
+    /**
+     * Map question_type_id to QuestionType string name for logging
+     */
+    private fun getQuestionTypeName(questionTypeId: Int?): String {
+        return getQuestionType(questionTypeId).name
+    }
     suspend fun getLessonWithChallenges(lessonId: Int, userId: String, token: String? = null): LessonWithChallenges? {
         return try {
             Timber.d("Fetching lesson $lessonId for user $userId")
@@ -38,11 +71,27 @@ class LessonRepository @Inject constructor(
                 val lessonDetail = response.body()
                 if (lessonDetail != null) {
                     Timber.d("Successfully received lesson data: ${lessonDetail.title}")
-                    Timber.d("Lesson has ${lessonDetail.questions.size} questions")
-                    Timber.d("Lesson has ${lessonDetail.exercises.size} exercises from API")
-                    lessonDetail.exercises.forEachIndexed { index, exercise ->
-                        Timber.d("Exercise $index: type=${exercise.type}, title=${exercise.title}, id=${exercise.id}")
+                    
+                    // Log lesson summary
+                    Timber.d("=== Lesson Summary ===")
+                    Timber.d("Lesson ID: ${lessonDetail.id}")
+                    Timber.d("Lesson Title: ${lessonDetail.title}")
+                    Timber.d("Total Questions: ${lessonDetail.questions.size}")
+                    Timber.d("Total Exercises: ${lessonDetail.exercises.size}")
+                    
+                    // Log each question with type
+                    Timber.d("=== Questions ===")
+                    lessonDetail.questions.forEach { question ->
+                        val typeName = getQuestionTypeName(question.questionTypeId)
+                        Timber.d("Question ID ${question.id}: ${question.content} - type: $typeName (question_type_id: ${question.questionTypeId})")
                     }
+                    
+                    // Log each exercise
+                    Timber.d("=== Exercises ===")
+                    lessonDetail.exercises.forEachIndexed { index, exercise ->
+                        Timber.d("Exercise $index: id=${exercise.id}, type=${exercise.type}, title=${exercise.title}")
+                    }
+                    
                     convertApiResponseToLessonWithChallenges(lessonDetail, userId)
                 } else {
                     Timber.w("Lesson API response body is null")
@@ -154,51 +203,15 @@ class LessonRepository @Inject constructor(
                     Timber.d("Question ${question.id} Option $index: id=${option.id}, text='${option.optionText}', correct=${option.isCorrect}")
                 }
                 
-                // Determine challenge type based on question type
-                val challengeType = when {
-                    question.questionType.lowercase().contains("multiple") -> {
-                        Timber.d("Question ${question.id}: Mapped to MULTIPLE_CHOICE")
-                        ChallengeType.MULTIPLE_CHOICE
-                    }
-                    question.questionType.lowercase().contains("fill") -> {
-                        Timber.d("Question ${question.id}: Mapped to FILL_IN_BLANK")
-                        ChallengeType.FILL_IN_BLANK
-                    }
-                    question.questionType.lowercase().contains("true") -> {
-                        Timber.d("Question ${question.id}: Mapped to TRUE_FALSE")
-                        ChallengeType.TRUE_FALSE
-                    }
-                    question.questionType.lowercase().contains("audio") -> {
-                        Timber.d("Question ${question.id}: Mapped to AUDIO_COMPREHENSION")
-                        ChallengeType.AUDIO_COMPREHENSION
-                    }
-                    question.questionType.lowercase().contains("writing") -> {
-                        Timber.d("Question ${question.id}: Mapped to WRITING_PRACTICE")
-                        ChallengeType.WRITING_PRACTICE
-                    }
-                    question.questionType.lowercase().contains("reading") -> {
-                        Timber.d("Question ${question.id}: Mapped to READING_COMPREHENSION")
-                        ChallengeType.READING_COMPREHENSION
-                    }
-                    question.questionType.lowercase().contains("matching") -> {
-                        Timber.d("Question ${question.id}: Mapped to MATCHING")
-                        ChallengeType.MATCHING
-                    }
-                    question.questionType.lowercase().contains("pronunciation") -> {
-                        Timber.d("Question ${question.id}: Mapped to PRONUNCIATION")
-                        ChallengeType.PRONUNCIATION
-                    }
-                    else -> {
-                        Timber.w("Question ${question.id}: Unknown question type '${question.questionType}', defaulting to MULTIPLE_CHOICE")
-                        ChallengeType.MULTIPLE_CHOICE
-                    }
-                }
+                // Determine challenge type based on question_type_id
+                val questionType = getQuestionType(question.questionTypeId)
+                Timber.d("Question ${question.id}: question_type_id=${question.questionTypeId} mapped to ${questionType.name}")
                 
                 val challenge = ChallengeLite(
                     id = question.id,
                     lessonId = lessonDetail.id,
                     question = question.content,
-                    type = challengeType,
+                    type = questionType,
                     order = question.orderIndex
                 )
                 

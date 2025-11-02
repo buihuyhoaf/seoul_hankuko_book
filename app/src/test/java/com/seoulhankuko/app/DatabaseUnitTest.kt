@@ -1,7 +1,7 @@
 package com.seoulhankuko.app
 
 import com.seoulhankuko.app.data.database.entities.*
-import com.seoulhankuko.app.domain.model.ChallengeType
+import com.seoulhankuko.app.domain.model.QuestionType
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -57,14 +57,14 @@ class DatabaseUnitTest {
         val challenge = Challenge(
             id = 1,
             lessonId = 1,
-            type = ChallengeType.SELECT,
+            type = QuestionType.MULTIPLE_CHOICE,
             question = "What does 안녕하세요 mean?",
             order = 1
         )
         
         assertEquals(1, challenge.id)
         assertEquals(1, challenge.lessonId)
-        assertEquals(ChallengeType.SELECT, challenge.type)
+        assertEquals(QuestionType.MULTIPLE_CHOICE, challenge.type)
         assertEquals("What does 안녕하세요 mean?", challenge.question)
         assertEquals(1, challenge.order)
     }
@@ -142,12 +142,18 @@ class DatabaseUnitTest {
     }
 
     @Test
-    fun testChallengeTypeEnum() {
-        assertEquals(ChallengeType.SELECT, ChallengeType.valueOf("SELECT"))
-        assertEquals(ChallengeType.ASSIST, ChallengeType.valueOf("ASSIST"))
+    fun testQuestionTypeEnum() {
+        assertEquals(QuestionType.MULTIPLE_CHOICE, QuestionType.valueOf("MULTIPLE_CHOICE"))
+        assertEquals(QuestionType.BLANK, QuestionType.valueOf("BLANK"))
+        assertEquals(QuestionType.MATCHING, QuestionType.valueOf("MATCHING"))
+        assertEquals(QuestionType.AUDIO_COMPREHENSION, QuestionType.valueOf("AUDIO_COMPREHENSION"))
+        assertEquals(QuestionType.PRONUNCIATION, QuestionType.valueOf("PRONUNCIATION"))
+        assertEquals(QuestionType.SENTENCE_ORDER, QuestionType.valueOf("SENTENCE_ORDER"))
+        assertEquals(QuestionType.IMAGE_SELECTION, QuestionType.valueOf("IMAGE_SELECTION"))
         
-        assertEquals("SELECT", ChallengeType.SELECT.name)
-        assertEquals("ASSIST", ChallengeType.ASSIST.name)
+        assertEquals("MULTIPLE_CHOICE", QuestionType.MULTIPLE_CHOICE.name)
+        assertEquals("BLANK", QuestionType.BLANK.name)
+        assertEquals("IMAGE_SELECTION", QuestionType.IMAGE_SELECTION.name)
     }
 }
 
