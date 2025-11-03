@@ -57,7 +57,7 @@ class EntryTestRepository @Inject constructor(
      */
     suspend fun saveEntryTestResult(
         hasCompletedEntryTest: Boolean,
-        currentCourseId: Int?,
+        currentCourseId: String?,
         currentCourseName: String?,
         entryTestScore: Int?
     ) {
@@ -79,7 +79,7 @@ class EntryTestRepository @Inject constructor(
     /**
      * Get current course ID
      */
-    suspend fun getCurrentCourseId(): Int? {
+    suspend fun getCurrentCourseId(): String? {
         return userPreferencesManager.getCurrentCourseId()
     }
     
@@ -118,7 +118,7 @@ class EntryTestRepository @Inject constructor(
      */
     suspend fun saveEntryTestResultOffline(
         score: Int,
-        courseId: Int?,
+        courseId: String?,
         courseName: String?
     ) {
         userPreferencesManager.saveEntryTestResultOffline(

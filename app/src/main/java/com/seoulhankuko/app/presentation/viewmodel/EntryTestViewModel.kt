@@ -14,7 +14,7 @@ data class EntryTestUiState(
     val error: String? = null,
     val questions: List<EntryTestQuestionResponse> = emptyList(),
     val currentQuestionIndex: Int = 0,
-    val selectedAnswers: Map<Int, Int?> = emptyMap(), // questionId -> selectedOptionId
+    val selectedAnswers: Map<String, String?> = emptyMap(), // questionId -> selectedOptionId
     val isCompleted: Boolean = false,
     val submissionResult: EntryTestSubmissionResponse? = null
 )
@@ -27,8 +27,8 @@ class EntryTestViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(EntryTestUiState())
     val uiState: StateFlow<EntryTestUiState> = _uiState.asStateFlow()
 
-    private val _questionsMap = mutableMapOf<Int, EntryTestQuestionResponse>()
-    private val _selectedAnswersMap = mutableMapOf<Int, Int?>() // questionId -> optionId
+    private val _questionsMap = mutableMapOf<String, EntryTestQuestionResponse>()
+    private val _selectedAnswersMap = mutableMapOf<String, String?>() // questionId -> optionId
 
     fun loadEntryTestQuestions(allowOffline: Boolean = false) {
         viewModelScope.launch {
@@ -114,7 +114,7 @@ class EntryTestViewModel @Inject constructor(
         }
     }
 
-    fun selectAnswer(questionId: Int, optionId: Int) {
+    fun selectAnswer(questionId: String, optionId: String) {
         _selectedAnswersMap[questionId] = optionId
         
         _uiState.update { currentState ->

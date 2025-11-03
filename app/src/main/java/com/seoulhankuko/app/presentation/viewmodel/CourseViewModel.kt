@@ -47,7 +47,7 @@ class CourseViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
-    fun loadCourse(courseId: Int) {
+    fun loadCourse(courseId: String) {
         viewModelScope.launch {
             _uiState.value = CourseUiState.Loading
             
@@ -111,7 +111,7 @@ class CourseViewModel @Inject constructor(
         }
     }
 
-    fun refreshCourse(courseId: Int) {
+    fun refreshCourse(courseId: String) {
         viewModelScope.launch {
             _isRefreshing.value = true
             

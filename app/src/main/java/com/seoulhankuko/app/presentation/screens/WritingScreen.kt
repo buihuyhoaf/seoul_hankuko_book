@@ -49,7 +49,7 @@ import com.seoulhankuko.app.presentation.utils.AppColors
  */
 @Composable
 fun WritingScreen(
-    lessonId: Int,
+    lessonId: String,
     onNavigateBack: () -> Unit,
     viewModel: LessonViewModel = hiltViewModel()
 ) {

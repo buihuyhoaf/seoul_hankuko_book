@@ -37,14 +37,14 @@ class UserPreferencesManager @Inject constructor(
         
         // Entry test related keys
         private val HAS_COMPLETED_ENTRY_TEST_KEY = booleanPreferencesKey("has_completed_entry_test")
-        private val CURRENT_COURSE_ID_KEY = intPreferencesKey("current_course_id")
+        private val CURRENT_COURSE_ID_KEY = stringPreferencesKey("current_course_id")
         private val CURRENT_COURSE_NAME_KEY = stringPreferencesKey("current_course_name")
         private val ENTRY_TEST_SCORE_KEY = intPreferencesKey("entry_test_score")
         
         // Offline entry test tracking
         private val HAS_COMPLETED_ENTRY_TEST_OFFLINE_KEY = booleanPreferencesKey("has_completed_entry_test_offline")
         private val ENTRY_TEST_SCORE_OFFLINE_KEY = intPreferencesKey("entry_test_score_offline")
-        private val CURRENT_COURSE_ID_OFFLINE_KEY = intPreferencesKey("current_course_id_offline")
+        private val CURRENT_COURSE_ID_OFFLINE_KEY = stringPreferencesKey("current_course_id_offline")
         private val CURRENT_COURSE_NAME_OFFLINE_KEY = stringPreferencesKey("current_course_name_offline")
         private val ENTRY_TEST_NEEDS_SYNC_KEY = booleanPreferencesKey("entry_test_needs_sync")
         
@@ -208,7 +208,7 @@ class UserPreferencesManager @Inject constructor(
      */
     suspend fun saveEntryTestResult(
         hasCompletedEntryTest: Boolean,
-        currentCourseId: Int?,
+        currentCourseId: String?,
         currentCourseName: String?,
         entryTestScore: Int?
     ) {
@@ -230,7 +230,7 @@ class UserPreferencesManager @Inject constructor(
     /**
      * Get current course ID
      */
-    suspend fun getCurrentCourseId(): Int? {
+    suspend fun getCurrentCourseId(): String? {
         return context.dataStore.data.first()[CURRENT_COURSE_ID_KEY]
     }
     
@@ -258,7 +258,7 @@ class UserPreferencesManager @Inject constructor(
     /**
      * Flow for current course ID
      */
-    val currentCourseIdFlow: Flow<Int?> = context.dataStore.data.map { preferences ->
+    val currentCourseIdFlow: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[CURRENT_COURSE_ID_KEY]
     }
     
@@ -269,7 +269,7 @@ class UserPreferencesManager @Inject constructor(
      */
     suspend fun saveEntryTestResultOffline(
         score: Int,
-        courseId: Int?,
+        courseId: String?,
         courseName: String?
     ) {
         context.dataStore.edit { preferences ->
@@ -298,7 +298,7 @@ class UserPreferencesManager @Inject constructor(
     /**
      * Get offline entry test data
      */
-    suspend fun getOfflineEntryTestData(): Triple<Int, Int?, String?> {
+    suspend fun getOfflineEntryTestData(): Triple<Int, String?, String?> {
         val prefs = context.dataStore.data.first()
         return Triple(
             prefs[ENTRY_TEST_SCORE_OFFLINE_KEY] ?: 0,

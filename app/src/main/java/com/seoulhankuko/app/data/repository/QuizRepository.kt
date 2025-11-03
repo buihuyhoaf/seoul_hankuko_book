@@ -23,7 +23,7 @@ class QuizRepository @Inject constructor(
     private val _lastQuizResult = MutableStateFlow<QuizAttemptResponse?>(null)
     val lastQuizResult: StateFlow<QuizAttemptResponse?> = _lastQuizResult.asStateFlow()
     
-    suspend fun getQuiz(quizId: Int, token: String): Result<QuizDetailResponse> {
+    suspend fun getQuiz(quizId: String, token: String): Result<QuizDetailResponse> {
         return try {
             val response = apiService.getQuiz(quizId, token)
             
@@ -46,7 +46,7 @@ class QuizRepository @Inject constructor(
     }
     
     suspend fun submitQuizAttempt(
-        quizId: Int, 
+        quizId: String, 
         answers: Map<String, String>, 
         token: String
     ): Result<QuizAttemptResponse> {
@@ -98,7 +98,7 @@ class QuizRepository @Inject constructor(
         }
     }
     
-    suspend fun getListeningExercise(exerciseId: Int, token: String): Result<ListeningExerciseResponse> {
+    suspend fun getListeningExercise(exerciseId: String, token: String): Result<ListeningExerciseResponse> {
         return try {
             val response = apiService.getListeningExercise(exerciseId, token)
             
@@ -119,7 +119,7 @@ class QuizRepository @Inject constructor(
         }
     }
     
-    suspend fun getSpeakingExercise(exerciseId: Int, token: String): Result<SpeakingExerciseResponse> {
+    suspend fun getSpeakingExercise(exerciseId: String, token: String): Result<SpeakingExerciseResponse> {
         return try {
             val response = apiService.getSpeakingExercise(exerciseId, token)
             
@@ -140,7 +140,7 @@ class QuizRepository @Inject constructor(
         }
     }
     
-    suspend fun getWritingExercise(exerciseId: Int, token: String): Result<WritingExerciseResponse> {
+    suspend fun getWritingExercise(exerciseId: String, token: String): Result<WritingExerciseResponse> {
         return try {
             val response = apiService.getWritingExercise(exerciseId, token)
             

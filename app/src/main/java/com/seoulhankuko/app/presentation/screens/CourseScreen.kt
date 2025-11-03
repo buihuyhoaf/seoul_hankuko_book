@@ -42,8 +42,8 @@ import com.seoulhankuko.app.presentation.utils.UnitColors
 @OptIn(ExperimentalMaterialApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun CourseScreen(
-    courseId: Int,
-    onNavigateToUnit: (unitId: Int) -> Unit,
+    courseId: String,
+    onNavigateToUnit: (unitId: String) -> Unit,
     onNavigateBack: () -> Unit,
     viewModel: CourseViewModel = hiltViewModel()
 ) {
@@ -157,7 +157,7 @@ private fun LoadingContent() {
 @Composable
 private fun SuccessContent(
     units: List<UnitResponse>,
-    onNavigateToUnit: (Int) -> Unit
+    onNavigateToUnit: (String) -> Unit
 ) {
     Column(
         modifier = Modifier

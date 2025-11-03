@@ -18,7 +18,7 @@ import com.seoulhankuko.app.presentation.utils.MiscColors
 @Composable
 fun EntryTestResultScreen(
     score: Float,
-    courseId: Int,
+    courseId: String,
     courseName: String,
     onContinue: () -> Unit,
     viewModel: EntryTestFlowViewModel = hiltViewModel()

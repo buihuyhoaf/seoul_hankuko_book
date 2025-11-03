@@ -3,14 +3,14 @@ package com.seoulhankuko.app.domain.model
 import com.seoulhankuko.app.data.api.model.ExerciseResponse
 
 data class LessonLite(
-    val id: Int,
+    val id: String,
     val title: String,
-    val unitId: Int,
+    val unitId: String,
     val order: Int
 )
 
 data class ExerciseLite(
-    val id: Int,
+    val id: String,
     val type: String, // "listening", "speaking", "writing", "pronunciation"
     val title: String?,
     val content: String?,

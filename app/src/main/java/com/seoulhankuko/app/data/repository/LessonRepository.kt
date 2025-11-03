@@ -33,29 +33,47 @@ class LessonRepository @Inject constructor(
      * ID 6 -> SENTENCE_ORDER
      * ID 7 -> IMAGE_SELECTION
      */
-    private fun getQuestionType(questionTypeId: Int?): QuestionType {
-        return when (questionTypeId) {
-            1 -> QuestionType.MULTIPLE_CHOICE
-            2 -> QuestionType.BLANK
-            3 -> QuestionType.MATCHING
-            4 -> QuestionType.AUDIO_COMPREHENSION
-            5 -> QuestionType.PRONUNCIATION
-            6 -> QuestionType.SENTENCE_ORDER
-            7 -> QuestionType.IMAGE_SELECTION
-            else -> {
-                Timber.w("Unknown question_type_id: $questionTypeId, defaulting to MULTIPLE_CHOICE")
-                QuestionType.MULTIPLE_CHOICE
+    private fun getQuestionType(questionTypeId: String?, questionTypeCode: String?): QuestionType {
+        // Prefer explicit code from API if provided; fallback to legacy numeric mapping if present in id string
+        when (questionTypeCode?.uppercase()) {
+            "MULTIPLE_CHOICE" -> return QuestionType.MULTIPLE_CHOICE
+            "BLANK" -> return QuestionType.BLANK
+            "MATCHING" -> return QuestionType.MATCHING
+            "AUDIO_COMPREHENSION" -> return QuestionType.AUDIO_COMPREHENSION
+            "PRONUNCIATION" -> return QuestionType.PRONUNCIATION
+            "SENTENCE_ORDER" -> return QuestionType.SENTENCE_ORDER
+            "IMAGE_SELECTION" -> return QuestionType.IMAGE_SELECTION
+        }
+
+        // Legacy fallback: if BE still sends numeric-like ids as strings
+        val numericId = questionTypeId?.toIntOrNull()
+        if (numericId != null) {
+            return when (numericId) {
+                1 -> QuestionType.MULTIPLE_CHOICE
+                2 -> QuestionType.BLANK
+                3 -> QuestionType.MATCHING
+                4 -> QuestionType.AUDIO_COMPREHENSION
+                5 -> QuestionType.PRONUNCIATION
+                6 -> QuestionType.SENTENCE_ORDER
+                7 -> QuestionType.IMAGE_SELECTION
+                else -> {
+                    Timber.w("Unknown question_type_id: $questionTypeId, defaulting to MULTIPLE_CHOICE")
+                    QuestionType.MULTIPLE_CHOICE
+                }
             }
         }
+
+        Timber.w("Unknown question type. id=$questionTypeId code=$questionTypeCode. Defaulting to MULTIPLE_CHOICE")
+        return QuestionType.MULTIPLE_CHOICE
     }
     
     /**
      * Map question_type_id to QuestionType string name for logging
      */
-    private fun getQuestionTypeName(questionTypeId: Int?): String {
-        return getQuestionType(questionTypeId).name
+    private fun getQuestionTypeName(questionTypeId: String?, questionTypeCode: String?): String {
+        return getQuestionType(questionTypeId, questionTypeCode).name
     }
-    suspend fun getLessonWithChallenges(lessonId: Int, userId: String, token: String? = null): LessonWithChallenges? {
+    suspend fun getLessonWithChallenges(lessonId: String, userId: String, token: String? = null): LessonWithChallenges? {
         return try {
             Timber.d("Fetching lesson $lessonId for user $userId")
             Timber.d("Using token: ${token?.take(20)}...")
@@ -82,7 +100,7 @@ class LessonRepository @Inject constructor(
                     // Log each question with type
                     Timber.d("=== Questions ===")
                     lessonDetail.questions.forEach { question ->
-                        val typeName = getQuestionTypeName(question.questionTypeId)
+                        val typeName = getQuestionTypeName(question.questionTypeId, question.questionType)
                         Timber.d("Question ID ${question.id}: ${question.content} - type: $typeName (question_type_id: ${question.questionTypeId})")
                     }
                     
@@ -109,10 +127,10 @@ class LessonRepository @Inject constructor(
     }
     
     suspend fun submitPracticeQuestion(
-        lessonId: Int,
-        questionId: Int,
+        lessonId: String,
+        questionId: String,
         token: String,
-        selectedOptionId: Int? = null,
+        selectedOptionId: String? = null,
         textAnswer: String? = null
     ): Result<Map<String, Any>> {
         return try {
@@ -148,11 +166,11 @@ class LessonRepository @Inject constructor(
     }
 
     suspend fun submitExercise(
-        exerciseId: Int,
+        exerciseId: String,
         token: String,
         response: String? = null,
         audioUrl: String? = null,
-        selectedAnswers: Map<Int, Int>? = null
+        selectedAnswers: Map<String, String>? = null
     ): Result<Map<String, Any>> {
         return try {
             val authHeader = "Bearer $token"
@@ -204,7 +222,7 @@ class LessonRepository @Inject constructor(
                 }
                 
                 // Determine challenge type based on question_type_id
-                val questionType = getQuestionType(question.questionTypeId)
+                val questionType = getQuestionType(question.questionTypeId, question.questionType)
                 Timber.d("Question ${question.id}: question_type_id=${question.questionTypeId} mapped to ${questionType.name}")
                 
                 val challenge = ChallengeLite(
@@ -275,7 +293,7 @@ class LessonRepository @Inject constructor(
         return LessonWithChallenges(lesson, challengesWithOptions, exercises, exercisesResponse, progressPercent)
     }
     
-    suspend fun updateLessonProgress(lessonId: Int, token: String? = null): Result<Map<String, Any>> {
+    suspend fun updateLessonProgress(lessonId: String, token: String? = null): Result<Map<String, Any>> {
         return try {
             val authToken = if (token != null && token.isNotBlank()) "Bearer $token" else null
             val response = apiService.updateLessonProgress(lessonId, authToken)

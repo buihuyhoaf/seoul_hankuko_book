@@ -3,6 +3,7 @@ package com.seoulhankuko.app.presentation.screens
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -20,14 +21,31 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.viewinterop.AndroidView
+import android.text.Html
+import android.text.TextUtils
+import android.widget.TextView
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.res.painterResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.text.HtmlCompat
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.seoulhankuko.app.data.api.model.CourseResponse
 import com.seoulhankuko.app.presentation.viewmodel.HomeViewModel
 import com.seoulhankuko.app.presentation.components.ModernBottomNavigationBar
@@ -40,7 +58,7 @@ import kotlin.math.floor
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ModernHomeScreen(
-    onCourseSelected: (courseId: Int) -> Unit,
+    onCourseSelected: (courseId: String) -> Unit,
     onNavigateToNotification: () -> Unit = {},
     onNavigateToProfile: () -> Unit = {},
     homeViewModel: HomeViewModel = hiltViewModel()
@@ -52,7 +70,8 @@ fun ModernHomeScreen(
     val isLoading by homeViewModel.isLoading.collectAsStateWithLifecycle()
     val authState by homeViewModel.authState.collectAsStateWithLifecycle()
     val userName by homeViewModel.currentUserName.collectAsStateWithLifecycle()
-    
+    val popupCourseId by homeViewModel.popupCourseId.collectAsStateWithLifecycle()
+
     LaunchedEffect(Unit) {
         delay(300) // Delay for smooth entrance
         isVisible = true
@@ -114,7 +133,10 @@ fun ModernHomeScreen(
                 CourseGrid(
                     courses = courses,
                     onCourseSelected = onCourseSelected,
-                    isVisible = isVisible
+                    isVisible = isVisible,
+                    popupCourseId = popupCourseId,
+                    onShowPopup = { homeViewModel.showCoursePopup(it) },
+                    onHidePopup = { homeViewModel.hideCoursePopup() }
                 )
             }
         }
@@ -230,8 +252,11 @@ fun WelcomeSection(
 @Composable
 fun CourseGrid(
     courses: List<CourseResponse>,
-    onCourseSelected: (courseId: Int) -> Unit,
-    isVisible: Boolean
+    onCourseSelected: (courseId: String) -> Unit,
+    isVisible: Boolean,
+    popupCourseId: String?,
+    onShowPopup: (String) -> Unit,
+    onHidePopup: () -> Unit
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
@@ -248,7 +273,10 @@ fun CourseGrid(
                 course = course,
                 onClick = { onCourseSelected(course.id) },
                 isVisible = isVisible,
-                index = courses.indexOf(course)
+                index = courses.indexOf(course),
+                isPopupVisible = popupCourseId == course.id,
+                onShowPopup = { onShowPopup(course.id) },
+                onHidePopup = onHidePopup
             )
         }
     }
@@ -259,12 +287,15 @@ fun CourseCard(
     course: CourseResponse,
     onClick: () -> Unit,
     isVisible: Boolean,
-    index: Int
+    index: Int,
+    isPopupVisible: Boolean,
+    onShowPopup: () -> Unit,
+    onHidePopup: () -> Unit
 ) {
     val context = LocalContext.current
     var isPressed by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.97f else 1f,
+        targetValue = if (isPressed) 0.96f else 1f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessHigh
@@ -280,33 +311,20 @@ fun CourseCard(
         ),
         label = "card_elevation"
     )
-    
-    // Get course icon based on course title
-    val courseIcon = when {
-        course.title.contains("Fundamentals", ignoreCase = true) -> "alphabet_korean"
-        course.title.contains("Intermediate", ignoreCase = true) -> "book"
-        course.title.contains("Advanced", ignoreCase = true) -> "graduation_cap"
-        course.title.contains("Culture", ignoreCase = true) || course.title.contains("Literature", ignoreCase = true) -> "kr"
-        course.title.contains("Business", ignoreCase = true) -> "business"
-        course.title.contains("Hangul", ignoreCase = true) -> "alphabet_korean"
-        course.title.contains("Giao Tiếp", ignoreCase = true) -> "book"
-        course.title.contains("Ngữ Pháp", ignoreCase = true) -> "graduation_cap"
-        course.title.contains("Văn Hóa", ignoreCase = true) -> "kr"
-        course.title.contains("Nghe", ignoreCase = true) -> "book"
-        course.title.contains("Từ Vựng", ignoreCase = true) -> "book"
-        else -> "book"
-    }
+
     
     // Get gradient colors based on course ID
-    val gradientColors = when (course.id % 6) {
-        1 -> MiscColors.Gradient1
-        2 -> MiscColors.Gradient2
-        3 -> MiscColors.Gradient3
-        4 -> MiscColors.Gradient4
-        5 -> MiscColors.Gradient5
-        else -> MiscColors.Gradient6
-    }
     
+    val gradient = remember {
+        Brush.verticalGradient(
+            colors = listOf(Color.Transparent, Color(0x99000000))
+        )
+    }
+
+    val descriptionPlain = remember(course.description) {
+        HtmlCompat.fromHtml(course.description ?: "", HtmlCompat.FROM_HTML_MODE_LEGACY).toString()
+    }
+
     AnimatedVisibility(
         visible = isVisible,
         enter = slideInVertically(
@@ -320,74 +338,86 @@ fun CourseCard(
         ),
         modifier = Modifier
             .scale(scale)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {
-                isPressed = true
-                onClick()
-            }
     ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(220.dp)
-                .shadow(
-                    elevation = elevation,
-                    shape = RoundedCornerShape(20.dp)
-                ),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                // Background Gradient
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colors = gradientColors
-                            )
-                        )
-                )
-                
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(20.dp),
-                    verticalArrangement = Arrangement.SpaceBetween
-                ) {
-                    // Top Section - Icon and Badges
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top
+        Box {
+            var cardRect by remember { mutableStateOf<Rect?>(null) }
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp)
+                    .shadow(
+                        elevation = elevation,
+                        shape = RoundedCornerShape(16.dp),
+                        clip = false
+                    )
+                    .onGloballyPositioned { coordinates ->
+                        cardRect = coordinates.boundsInWindow()
+                    }
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
                     ) {
-                        // Course Icon
-                        Surface(
-                            modifier = Modifier.size(48.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color.White.copy(alpha = 0.9f),
-                            shadowElevation = 2.dp
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center
+                        isPressed = true
+                        onShowPopup()
+                    },
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    // Image section (top 2/3)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(2f)
+                            .padding(12.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                    ) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(course.imageUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = course.title,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                        // Gradient overlay for readability
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(gradient)
+                        )
+
+                        // Progress chip (top-right) from API
+                        val progressText = if (course.progress == null) "0%" else course.progress.progressPercent.let { "$it%" }
+                        if (progressText.isNotBlank()) {
+                            Surface(
+                                color = Color.White.copy(alpha = 0.9f),
+                                shadowElevation = 2.dp,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(10.dp)
                             ) {
-                                Icon(
-                                    painter = painterResource(id = getDrawableResourceId(context, courseIcon)),
-                                    contentDescription = null,
-                                    tint = HomeColors.DuolingoGreen,
-                                    modifier = Modifier.size(24.dp)
+                                Text(
+                                    text = progressText,
+                                    color = HomeColors.DuolingoDarkGreen,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                 )
                             }
                         }
                     }
-                    
-                    // Bottom Section - Content
-                    Column {
-                        // Course Title
+
+                    // Text section (bottom 1/3) - title only
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
                         Text(
                             text = course.title,
                             style = MaterialTheme.typography.titleMedium,
@@ -396,69 +426,109 @@ fun CourseCard(
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
-                        
-                        Spacer(modifier = Modifier.height(4.dp))
-                        
-                        // Course Description
-                        Text(
-                            text = course.description ?: "",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = HomeColors.DuolingoGray,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
+                    }
+                }
+            }
+
+            // Popup with outside dismiss using overlay
+            // Popup with outside dismiss, positioned to the right of the card
+            if (isPopupVisible) {
+                AnimatedVisibility(
+                    visible = isPopupVisible,
+                    enter = fadeIn() + scaleIn(initialScale = 0.9f),
+                    exit = fadeOut() + scaleOut()
+                ) {
+                    Box(modifier = Modifier.fillMaxSize().zIndex(1f)) {
+                        // outside tap to dismiss
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Transparent)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) { onHidePopup() }
                         )
-                        
-                        Spacer(modifier = Modifier.height(12.dp))
-                        
-                        // Progress Section
-                        Column {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "${(course.progress?.progressPercent ?: 0.0).toInt()}%",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.Medium,
-                                    color = HomeColors.DuolingoGreen
-                                )
-                                Text(
-                                    text = run {
-                                        val percentVal = (course.progress?.progressPercent ?: 0)
-                                        val unitsInt: Int = course.unitsCount
-                                        val completedUnits = (percentVal * unitsInt) / 100
-                                        "$completedUnits/$unitsInt bài"
-                                    },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = HomeColors.DuolingoGray
-                                )
-                            }
-                            
-                            Spacer(modifier = Modifier.height(6.dp))
-                            
-                            // Progress Bar
-                            LinearProgressIndicator(
-                                progress = {
-                                    val fraction = ((course.progress?.progressPercent ?: 0) / 100).toFloat()
-                                    fraction.coerceIn(0f, 1f)
-                                },
+
+                        val density = LocalDensity.current
+                        val popupWidth = 180.dp
+                        val popupHeightGuess = 100.dp
+                        val offset = cardRect?.let { rect ->
+                            val offsetX = (rect.left + with(density) { 8.dp.toPx() }).toInt()
+                            val offsetY = (rect.top - with(density) { popupHeightGuess.toPx() } + with(density) { 8.dp.toPx() }).toInt()
+                            IntOffset(offsetX, offsetY)
+                        } ?: IntOffset(0, 0)
+
+                        Popup(
+                            alignment = Alignment.TopStart,
+                            offset = offset,
+                            properties = PopupProperties(focusable = false)
+                        ) {
+                            Surface(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(6.dp)
-                                    .clip(RoundedCornerShape(3.dp)),
-                                color = HomeColors.DuolingoGreen,
-                                trackColor = HomeColors.DuolingoLightGreen
-                            )
+                                    .width(popupWidth)
+                                    .shadow(8.dp, RoundedCornerShape(12.dp)),
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color.White.copy(alpha = 0.95f)
+                            ) {
+                                var expanded by remember { mutableStateOf(false) }
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    // HTML description only
+                                    if (descriptionPlain.isNotBlank()) {
+                                        AndroidView(
+                                            factory = { ctx ->
+                                                TextView(ctx).apply {
+                                                    text = Html.fromHtml(descriptionPlain, Html.FROM_HTML_MODE_LEGACY)
+                                                    ellipsize = TextUtils.TruncateAt.END
+                                                    maxLines = if (expanded) Int.MAX_VALUE else 2
+                                                }
+                                            },
+                                            update = { tv ->
+                                                tv.text = Html.fromHtml(descriptionPlain, Html.FROM_HTML_MODE_LEGACY)
+                                                tv.maxLines = if (expanded) Int.MAX_VALUE else 2
+                                                tv.ellipsize = TextUtils.TruncateAt.END
+                                            },
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                        if (!expanded) {
+                                            Spacer(Modifier.height(6.dp))
+                                            Text(
+                                                text = "xem thêm",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = HomeColors.DuolingoGreen,
+                                                modifier = Modifier.clickable(
+                                                    interactionSource = remember { MutableInteractionSource() },
+                                                    indication = null
+                                                ) { expanded = true }
+                                            )
+                                        }
+                                    }
+                                    Spacer(Modifier.height(10.dp))
+                                    Surface(
+                                        onClick = {
+                                            onHidePopup()
+                                            onClick()
+                                        },
+                                        color = HomeColors.DuolingoGreen,
+                                        shape = RoundedCornerShape(10.dp),
+                                        shadowElevation = 1.dp
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                        ) {
+                                            Text("Start", color = Color.White, style = MaterialTheme.typography.labelLarge)
+                                            Spacer(Modifier.width(4.dp))
+                                            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
         }
     }
-}
-
-// Helper function to get drawable resource ID
-private fun getDrawableResourceId(context: android.content.Context, drawableName: String): Int {
-    return context.resources.getIdentifier(drawableName, "drawable", context.packageName)
 }
 

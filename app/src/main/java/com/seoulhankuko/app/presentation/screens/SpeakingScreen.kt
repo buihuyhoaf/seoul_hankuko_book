@@ -45,7 +45,7 @@ import com.seoulhankuko.app.presentation.utils.AppColors
  */
 @Composable
 fun SpeakingScreen(
-    lessonId: Int,
+    lessonId: String,
     onNavigateBack: () -> Unit,
     viewModel: LessonViewModel = hiltViewModel()
 ) {

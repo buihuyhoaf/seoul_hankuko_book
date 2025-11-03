@@ -61,9 +61,9 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun LessonFlowScreen(
-    lessonId: Int,
+    lessonId: String,
     onNavigateBack: () -> Unit,
-    onNavigateToListening: (exerciseId: Int) -> Unit,
+    onNavigateToListening: (exerciseId: String) -> Unit,
     viewModel: LessonViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -143,7 +143,7 @@ fun LessonFlowScreen(
  */
 @Composable
 fun QuizPagerFlow(
-    lessonId: Int,
+    lessonId: String,
     challenges: List<ChallengeWithOptions>,
     viewModel: LessonViewModel,
     onNavigateBack: () -> Unit,
@@ -153,7 +153,7 @@ fun QuizPagerFlow(
     val pagerState = rememberPagerState(pageCount = { challenges.size })
     val coroutineScope = rememberCoroutineScope() // Move here to composable scope
     var currentAnswerStatus by remember { mutableStateOf<AnswerStatus>(AnswerStatus.NONE) }
-    var selectedOption by remember { mutableStateOf<Int?>(null) }
+    var selectedOption by remember { mutableStateOf<String?>(null) }
     var showCompletionPrompt by remember { mutableStateOf(false) }
     
     // Sound manager for playing correct/incorrect sounds
@@ -247,7 +247,7 @@ fun QuizPagerFlow(
                             viewModel.submitPracticeCorrectAnswer(
                                 lessonId = lessonId,
                                 questionId = challenge.challenge.id,
-                                selectedOptionId = selectedOption!!
+                                selectedOptionId = selectedOption ?: ""
                             )
                         }
                         
@@ -275,9 +275,9 @@ fun QuizPagerFlow(
 @Composable
 fun QuizQuestionCard(
     challenge: ChallengeWithOptions,
-    selectedOption: Int?,
+    selectedOption: String?,
     answerStatus: AnswerStatus,
-    onOptionSelected: (Int) -> Unit,
+    onOptionSelected: (String) -> Unit,
     onAnswerSubmitted: (Boolean) -> Unit
 ) {
     val isAnswered = answerStatus != AnswerStatus.NONE
@@ -472,7 +472,7 @@ fun ProgressIndicator(currentPage: Int, totalPages: Int) {
  */
 @Composable
 fun CompletionPrompt(
-    lessonId: Int,
+    lessonId: String,
     viewModel: LessonViewModel,
     onYes: () -> Unit,
     onNo: () -> Unit

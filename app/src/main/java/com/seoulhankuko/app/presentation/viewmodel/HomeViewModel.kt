@@ -41,6 +41,10 @@ class HomeViewModel @Inject constructor(
     private val _currentUserName = MutableStateFlow("Học viên")
     val currentUserName: StateFlow<String> = _currentUserName.asStateFlow()
     
+    // Popup state for CourseCard (store selected courseId)
+    private val _popupCourseId = MutableStateFlow<String?>(null)
+    val popupCourseId: StateFlow<String?> = _popupCourseId.asStateFlow()
+    
     init {
         loadCourses()
         loadCurrentUserName()
@@ -72,6 +76,14 @@ class HomeViewModel @Inject constructor(
                 _isLoading.value = false
             }
         }
+    }
+    
+    fun showCoursePopup(courseId: String) {
+        _popupCourseId.value = courseId
+    }
+    
+    fun hideCoursePopup() {
+        _popupCourseId.value = null
     }
     
     private fun loadCurrentUserName() {

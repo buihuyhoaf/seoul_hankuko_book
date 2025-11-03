@@ -24,7 +24,7 @@ import com.seoulhankuko.app.presentation.utils.EntryTestColors
 
 @Composable
 fun EntryTestScreen(
-    onNavigateToResult: (score: Float, courseId: Int, courseName: String) -> Unit,
+    onNavigateToResult: (score: Float, courseId: String, courseName: String) -> Unit,
     onNavigateToLogin: () -> Unit = {}, // New callback for login navigation
     onNavigateBack: () -> Unit,
     allowOfflineMode: Boolean = true, // Allow entry test without login

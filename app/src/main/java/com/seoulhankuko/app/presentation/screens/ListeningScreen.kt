@@ -57,12 +57,12 @@ import timber.log.Timber
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListeningScreen(
-    exerciseId: Int,
-    lessonId: Int? = null,
+    modifier: Modifier = Modifier,
+    exerciseId: String,
+    lessonId: String? = null,
     onNavigateBack: () -> Unit,
     onNextExercise: (() -> Unit)? = null,
     viewModel: LessonViewModel = hiltViewModel(),
-    modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     
@@ -125,7 +125,7 @@ fun ListeningScreen(
         exerciseResponse != null -> {
             // Use full ExerciseResponse with all data (audioUrl, transcript, etc.)
             ListeningScreenContent(
-                exercise = exerciseResponse!!,
+                exercise = exerciseResponse,
                 lessonId = effectiveLessonId,
                 viewModel = viewModel,
                 onNavigateBack = onNavigateBack,
@@ -244,7 +244,7 @@ fun ListeningScreen(
 @Composable
 private fun ListeningScreenContent(
     exercise: ExerciseResponse,
-    lessonId: Int?,
+    lessonId: String?,
     viewModel: LessonViewModel,
     onNavigateBack: () -> Unit,
     onNextExercise: (() -> Unit)? = null,
@@ -283,9 +283,9 @@ private fun ListeningScreenContent(
     } else null
     
     // Map of questionId to selectedOptionId
-    var selectedAnswers by remember { mutableStateOf<Map<Int, Int>>(emptyMap()) }
+    var selectedAnswers by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     // Map of questionId to whether answer was checked (for sound feedback)
-    var checkedQuestions by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var checkedQuestions by remember { mutableStateOf<Set<String>>(emptySet()) }
     // All questions completed
     val allQuestionsAnswered = exercise.questions.isNotEmpty() && 
                                selectedAnswers.keys.size == exercise.questions.size &&
@@ -940,9 +940,9 @@ private fun SingleQuestionCard(
     question: ExerciseQuestionResponse,
     questionNumber: Int,
     totalQuestions: Int,
-    selectedOptionId: Int?,
+    selectedOptionId: String?,
     isChecked: Boolean,
-    onOptionSelected: (Int) -> Unit,
+    onOptionSelected: (String) -> Unit,
     onCheckAnswer: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1163,9 +1163,9 @@ private fun SingleQuestionOptionCard(
 @Composable
 private fun QuestionsCard(
         questions: List<ExerciseQuestionResponse>,
-        selectedAnswers: Map<Int, Int>,
-        submittedQuestions: Set<Int>,
-        onOptionSelected: (questionId: Int, optionId: Int) -> Unit,
+        selectedAnswers: Map<String, String>,
+        submittedQuestions: Set<String>,
+        onOptionSelected: (questionId: String, optionId: String) -> Unit,
         onSubmitAnswers: () -> Unit,
         modifier: Modifier = Modifier
     ) {
@@ -1249,9 +1249,9 @@ private fun QuestionsCard(
 private fun QuestionItem(
         question: ExerciseQuestionResponse,
         questionNumber: Int,
-        selectedOptionId: Int?,
+        selectedOptionId: String?,
         isSubmitted: Boolean,
-        onOptionSelected: (Int) -> Unit
+        onOptionSelected: (String) -> Unit
     ) {
         val correctOptionId = question.options.find { it.isCorrect }?.id
 
@@ -1488,7 +1488,7 @@ private fun AnswerCard(
 @Composable
 fun FeedbackCard(
     questions: List<ExerciseQuestionResponse>,
-    selectedAnswers: Map<Int, Int>,
+    selectedAnswers: Map<String, String>,
     transcript: String?,
     onListenAgain: () -> Unit,
     onNextExercise: () -> Unit,

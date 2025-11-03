@@ -19,7 +19,7 @@ import timber.log.Timber
 @Composable
 fun useCompletionHandler(
     isCompleted: Boolean,
-    lessonId: Int?,
+    lessonId: String?,
     onNavigateBack: () -> Unit,
     delayMs: Long = 2000L,
     lessonViewModel: LessonViewModel = hiltViewModel()

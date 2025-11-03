@@ -33,7 +33,7 @@ class UnitViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(UnitUiState())
     val uiState: StateFlow<UnitUiState> = _uiState.asStateFlow()
 
-    fun loadUnit(unitId: Int) {
+    fun loadUnit(unitId: String) {
         viewModelScope.launch {
             _uiState.value = UnitUiState(isLoading = true)
             

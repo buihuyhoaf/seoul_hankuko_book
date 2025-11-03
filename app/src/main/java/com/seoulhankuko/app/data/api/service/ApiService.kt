@@ -87,41 +87,41 @@ interface ApiService {
     
     @GET("v1/courses/{course_id}")
     suspend fun getCourse(
-        @Path("course_id") courseId: Int,
+        @Path("course_id") courseId: String,
         @Header("Authorization") token: String? = null
     ): Response<CourseDetailResponse>
     
     @GET("v1/units/{unit_id}")
     suspend fun getUnit(
-        @Path("unit_id") unitId: Int,
+        @Path("unit_id") unitId: String,
         @Header("Authorization") token: String? = null
     ): Response<UnitDetailResponse>
     
     @GET("v1/lessons/{lesson_id}")
     suspend fun getLesson(
-        @Path("lesson_id") lessonId: Int,
+        @Path("lesson_id") lessonId: String,
         @Header("Authorization") token: String? = null
     ): Response<LessonDetailResponse>
     
     @POST("v1/lessons/{lesson_id}/progress/update")
     suspend fun updateLessonProgress(
-        @Path("lesson_id") lessonId: Int,
+        @Path("lesson_id") lessonId: String,
         @Header("Authorization") token: String? = null
     ): Response<Map<String, Any>>
     
     // Practice question submit endpoints (increment lesson progress on correct answers)
     @POST("v1/lessons/{lesson_id}/practice-questions/{question_id}/submit")
     suspend fun submitPracticeQuestionSelectedOption(
-        @Path("lesson_id") lessonId: Int,
-        @Path("question_id") questionId: Int,
+        @Path("lesson_id") lessonId: String,
+        @Path("question_id") questionId: String,
         @Header("Authorization") token: String,
         @Body body: PracticeSelectedOptionRequest
     ): Response<Map<String, Any>>
 
     @POST("v1/lessons/{lesson_id}/practice-questions/{question_id}/submit")
     suspend fun submitPracticeQuestionTextAnswer(
-        @Path("lesson_id") lessonId: Int,
-        @Path("question_id") questionId: Int,
+        @Path("lesson_id") lessonId: String,
+        @Path("question_id") questionId: String,
         @Header("Authorization") token: String,
         @Body body: PracticeTextAnswerRequest
     ): Response<Map<String, Any>>
@@ -129,13 +129,13 @@ interface ApiService {
     // Quiz management endpoints
     @GET("v1/quizzes/{quiz_id}")
     suspend fun getQuiz(
-        @Path("quiz_id") quizId: Int,
+        @Path("quiz_id") quizId: String,
         @Header("Authorization") token: String
     ): Response<QuizDetailResponse>
     
     @POST("v1/quizzes/{quiz_id}/attempt")
     suspend fun submitQuizAttempt(
-        @Path("quiz_id") quizId: Int,
+        @Path("quiz_id") quizId: String,
         @Header("Authorization") token: String,
         @Body answers: Map<String, String>
     ): Response<QuizAttemptResponse>
@@ -151,25 +151,25 @@ interface ApiService {
     // Exercise endpoints
     @GET("v1/exercises/listening/{exercise_id}")
     suspend fun getListeningExercise(
-        @Path("exercise_id") exerciseId: Int,
+        @Path("exercise_id") exerciseId: String,
         @Header("Authorization") token: String
     ): Response<ListeningExerciseResponse>
     
     @GET("v1/exercises/speaking/{exercise_id}")
     suspend fun getSpeakingExercise(
-        @Path("exercise_id") exerciseId: Int,
+        @Path("exercise_id") exerciseId: String,
         @Header("Authorization") token: String
     ): Response<SpeakingExerciseResponse>
     
     @GET("v1/exercises/writing/{exercise_id}")
     suspend fun getWritingExercise(
-        @Path("exercise_id") exerciseId: Int,
+        @Path("exercise_id") exerciseId: String,
         @Header("Authorization") token: String
     ): Response<WritingExerciseResponse>
     
     @POST("v1/exercises/{exercise_id}/submit")
     suspend fun submitExercise(
-        @Path("exercise_id") exerciseId: Int,
+        @Path("exercise_id") exerciseId: String,
         @Header("Authorization") token: String,
         @Body body: ExerciseSubmissionRequest
     ): Response<Map<String, Any>>

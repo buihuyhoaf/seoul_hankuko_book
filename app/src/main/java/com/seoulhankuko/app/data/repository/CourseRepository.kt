@@ -58,7 +58,7 @@ class CourseRepository @Inject constructor(
         }
     }
     
-    suspend fun getCourse(courseId: Int, token: String? = null): Result<CourseDetailResponse> {
+    suspend fun getCourse(courseId: String, token: String? = null): Result<CourseDetailResponse> {
         return try {
             // Note: Token is now handled by AuthInterceptor automatically
             // We only pass token manually if it's provided for backward compatibility
@@ -96,7 +96,7 @@ class CourseRepository @Inject constructor(
         }
     }
     
-    suspend fun getUnit(unitId: Int, token: String? = null): Result<UnitDetailResponse> {
+    suspend fun getUnit(unitId: String, token: String? = null): Result<UnitDetailResponse> {
         return try {
             val formattedToken = token?.let { "Bearer $it" }
             val response = apiService.getUnit(unitId, formattedToken)
@@ -119,7 +119,7 @@ class CourseRepository @Inject constructor(
         }
     }
     
-    suspend fun getLesson(lessonId: Int, token: String? = null): Result<LessonDetailResponse> {
+    suspend fun getLesson(lessonId: String, token: String? = null): Result<LessonDetailResponse> {
         return try {
             val formattedToken = token?.let { "Bearer $it" }
             val response = apiService.getLesson(lessonId, formattedToken)

@@ -34,8 +34,8 @@ import com.seoulhankuko.app.presentation.utils.UnitColors
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UnitScreen(
-    unitId: Int,
-    onNavigateToLesson: (lessonId: Int) -> Unit,
+    unitId: String,
+    onNavigateToLesson: (lessonId: String) -> Unit,
     onNavigateBack: () -> Unit,
     viewModel: UnitViewModel = hiltViewModel()
 ) {

@@ -147,7 +147,7 @@ fun AppNavigation(
         // Home Screen (formerly Courses) - Now using Modern Design
         composable("courses") {
             ModernHomeScreen(
-                onCourseSelected = { courseId: Int ->
+                onCourseSelected = { courseId: String ->
                     navController.navigate("course/$courseId")
                 },
                 onNavigateToNotification = {
@@ -195,11 +195,11 @@ fun AppNavigation(
         
         // Course Screen
         composable("course/{courseId}") { backStackEntry ->
-            val courseId = backStackEntry.arguments?.getString("courseId")?.toIntOrNull()
+            val courseId = backStackEntry.arguments?.getString("courseId")
             courseId?.let { id ->
                 CourseScreen(
                     courseId = id,
-                    onNavigateToUnit = { unitId: Int ->
+                    onNavigateToUnit = { unitId: String ->
                         navController.navigate("unit/$unitId")
                     },
                     onNavigateBack = { navController.popBackStack() }
@@ -209,11 +209,11 @@ fun AppNavigation(
         
         // Unit Screen
         composable("unit/{unitId}") { backStackEntry ->
-            val unitId = backStackEntry.arguments?.getString("unitId")?.toIntOrNull()
+            val unitId = backStackEntry.arguments?.getString("unitId")
             unitId?.let { id ->
                 UnitScreen(
                     unitId = id,
-                    onNavigateToLesson = { lessonId: Int ->
+                    onNavigateToLesson = { lessonId: String ->
                         navController.navigate("lesson/$lessonId")
                     },
                     onNavigateBack = { navController.popBackStack() }
@@ -223,7 +223,7 @@ fun AppNavigation(
         
         // Lesson Screen
         composable("lesson/{lessonId}") { backStackEntry ->
-            val lessonId = backStackEntry.arguments?.getString("lessonId")?.toIntOrNull()
+            val lessonId = backStackEntry.arguments?.getString("lessonId")
             lessonId?.let { id ->
                 LessonScreen(
                     lessonId = id,
@@ -233,7 +233,7 @@ fun AppNavigation(
                     },
                     onNavigateToListening = { exerciseId ->
                         // Pass both lessonId and exerciseId to ensure we can reload if needed
-                        val currentLessonId = (navController.currentBackStackEntry?.arguments?.getString("lessonId")?.toIntOrNull()) ?: id
+                        val currentLessonId = (navController.currentBackStackEntry?.arguments?.getString("lessonId")) ?: id
                         navController.navigate("listening/$exerciseId/lesson/$currentLessonId")
                     },
                     onNavigateToSpeaking = { exerciseId ->
@@ -254,7 +254,7 @@ fun AppNavigation(
         
         // Lesson Flow Screen (Practice Questions)
         composable("lesson-flow/{lessonId}") { backStackEntry ->
-            val lessonId = backStackEntry.arguments?.getString("lessonId")?.toIntOrNull()
+            val lessonId = backStackEntry.arguments?.getString("lessonId")
             lessonId?.let { id ->
                 LessonFlowScreen(
                     lessonId = id,
@@ -274,8 +274,8 @@ fun AppNavigation(
                 navArgument("lessonId") { type = NavType.IntType }
             )
         ) { backStackEntry ->
-            val exerciseId = backStackEntry.arguments?.getInt("exerciseId")
-            val lessonId = backStackEntry.arguments?.getInt("lessonId")
+            val exerciseId = backStackEntry.arguments?.getString("exerciseId")
+            val lessonId = backStackEntry.arguments?.getString("lessonId")
             if (exerciseId != null && lessonId != null) {
                 ListeningScreen(
                     exerciseId = exerciseId,
@@ -287,7 +287,7 @@ fun AppNavigation(
         
         // Speaking Screen - TODO: Update to receive exerciseId like ListeningScreen
         composable("speaking/{lessonId}") { backStackEntry ->
-            val lessonId = backStackEntry.arguments?.getString("lessonId")?.toIntOrNull()
+            val lessonId = backStackEntry.arguments?.getString("lessonId")
             lessonId?.let { id ->
                 SpeakingScreen(
                     lessonId = id,
@@ -298,7 +298,7 @@ fun AppNavigation(
         
         // Writing Screen - TODO: Update to receive exerciseId like ListeningScreen
         composable("writing/{lessonId}") { backStackEntry ->
-            val lessonId = backStackEntry.arguments?.getString("lessonId")?.toIntOrNull()
+            val lessonId = backStackEntry.arguments?.getString("lessonId")
             lessonId?.let { id ->
                 WritingScreen(
                     lessonId = id,
@@ -352,7 +352,7 @@ fun AppNavigation(
         composable("entry-test-result") { backStackEntry ->
             // Get data from saved state handle, fallback to defaults if not found
             val score = backStackEntry.savedStateHandle.get<Float>("entryTestScore") ?: 0f
-            val courseId = backStackEntry.savedStateHandle.get<Int>("entryTestCourseId") ?: 1
+            val courseId = backStackEntry.savedStateHandle.get<String>("entryTestCourseId") ?: ""
             val courseName = backStackEntry.savedStateHandle.get<String>("entryTestCourseName") ?: "Course"
             
             EntryTestResultScreen(

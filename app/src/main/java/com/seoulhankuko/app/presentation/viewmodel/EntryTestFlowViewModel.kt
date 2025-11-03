@@ -25,13 +25,13 @@ class EntryTestFlowViewModel @Inject constructor(
         return entryTestRepository.hasCompletedEntryTest()
     }
 
-    suspend fun getCurrentCourseId(): Int? {
+    suspend fun getCurrentCourseId(): String? {
         return entryTestRepository.getCurrentCourseId()
     }
 
     suspend fun saveEntryTestResult(
         hasCompletedEntryTest: Boolean,
-        currentCourseId: Int?,
+        currentCourseId: String?,
         currentCourseName: String?,
         entryTestScore: Int?
     ) {
@@ -59,7 +59,7 @@ class EntryTestFlowViewModel @Inject constructor(
     
     suspend fun saveEntryTestResultOffline(
         score: Int,
-        courseId: Int?,
+        courseId: String?,
         courseName: String?
     ) {
         entryTestRepository.saveEntryTestResultOffline(

@@ -69,12 +69,12 @@ import timber.log.Timber
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LessonScreen(
-    lessonId: Int,
+    lessonId: String,
     onNavigateBack: () -> Unit,
     onNavigateToLessonFlow: () -> Unit,
-    onNavigateToListening: (exerciseId: Int) -> Unit = {},
-    onNavigateToSpeaking: (exerciseId: Int) -> Unit = {},
-    onNavigateToWriting: (exerciseId: Int) -> Unit = {},
+    onNavigateToListening: (exerciseId: String) -> Unit = {},
+    onNavigateToSpeaking: (exerciseId: String) -> Unit = {},
+    onNavigateToWriting: (exerciseId: String) -> Unit = {},
     viewModel: LessonViewModel = hiltViewModel()
 ) {
     var isLoading by remember { mutableStateOf(true) }
@@ -190,9 +190,9 @@ private fun LessonTimelineContent(
     listState: LazyListState,
     progressPercent: Int,
     onNavigateToLessonFlow: () -> Unit,
-    onNavigateToListening: (exerciseId: Int) -> Unit,
-    onNavigateToSpeaking: (exerciseId: Int) -> Unit,
-    onNavigateToWriting: (exerciseId: Int) -> Unit,
+    onNavigateToListening: (exerciseId: String) -> Unit,
+    onNavigateToSpeaking: (exerciseId: String) -> Unit,
+    onNavigateToWriting: (exerciseId: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Prepare timeline items
@@ -332,7 +332,7 @@ private data class TimelineItem(
     val title: String,
     val description: String,
     val isCompleted: Boolean = false,
-    val exerciseId: Int? = null // Store exerciseId for navigation
+    val exerciseId: String? = null // Store exerciseId for navigation
 )
         
 /**

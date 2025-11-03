@@ -4,9 +4,11 @@ import com.google.gson.annotations.SerializedName
 
 // Course Management Models
 data class CourseResponse(
-    val id: Int,
+    val id: String,
     val title: String,
     val description: String?,
+    @SerializedName("image_url")
+    val imageUrl: String?,
     @SerializedName("order_index")
     val orderIndex: Int,
     @SerializedName("created_at")
@@ -17,11 +19,11 @@ data class CourseResponse(
 )
 
 data class CourseProgress(
-    val id: Int,
+    val id: String,
     @SerializedName("course_id")
-    val courseId: Int,
+    val courseId: String,
     @SerializedName("user_id")
-    val userId: Int,
+    val userId: String,
     @SerializedName("is_completed")
     val isCompleted: Boolean,
     @SerializedName("progress_percent")
@@ -33,9 +35,11 @@ data class CourseProgress(
 )
 
 data class CourseDetailResponse(
-    val id: Int,
+    val id: String,
     val title: String,
     val description: String?,
+    @SerializedName("image_url")
+    val imageUrl: String?,
     @SerializedName("order_index")
     val orderIndex: Int,
     @SerializedName("created_at")
@@ -45,9 +49,9 @@ data class CourseDetailResponse(
 )
 
 data class UnitResponse(
-    val id: Int,
+    val id: String,
     @SerializedName("course_id")
-    val courseId: Int,
+    val courseId: String,
     val title: String,
     val description: String?,
     @SerializedName("order_index")
@@ -60,11 +64,11 @@ data class UnitResponse(
 )
 
 data class UnitProgress(
-    val id: Int,
+    val id: String,
     @SerializedName("unit_id")
-    val unitId: Int,
+    val unitId: String,
     @SerializedName("user_id")
-    val userId: Int,
+    val userId: String,
     @SerializedName("is_completed")
     val isCompleted: Boolean,
     @SerializedName("progress_percent")
@@ -76,9 +80,9 @@ data class UnitProgress(
 )
 
 data class UnitDetailResponse(
-    val id: Int,
+    val id: String,
     @SerializedName("course_id")
-    val courseId: Int,
+    val courseId: String,
     val title: String,
     val description: String?,
     @SerializedName("order_index")
@@ -90,9 +94,9 @@ data class UnitDetailResponse(
 )
 
 data class LessonResponse(
-    val id: Int,
+    val id: String,
     @SerializedName("unit_id")
-    val unitId: Int,
+    val unitId: String,
     val title: String,
     val description: String?,
     @SerializedName("order_index")
@@ -107,11 +111,11 @@ data class LessonResponse(
 )
 
 data class LessonProgress(
-    val id: Int,
+    val id: String,
     @SerializedName("lesson_id")
-    val lessonId: Int,
+    val lessonId: String,
     @SerializedName("user_id")
-    val userId: Int,
+    val userId: String,
     @SerializedName("is_completed")
     val isCompleted: Boolean,
     @SerializedName("progress_percent")
@@ -123,9 +127,9 @@ data class LessonProgress(
 )
 
 data class LessonDetailResponse(
-    val id: Int,
+    val id: String,
     @SerializedName("unit_id")
-    val unitId: Int,
+    val unitId: String,
     val title: String,
     val description: String?,
     @SerializedName("order_index")
@@ -139,7 +143,7 @@ data class LessonDetailResponse(
 
 // Quiz Management Models
 data class QuizResponse(
-    val id: Int,
+    val id: String,
     val title: String,
     val description: String?,
     val type: String,
@@ -152,9 +156,9 @@ data class QuizResponse(
 )
 
 data class QuizDetailResponse(
-    val id: Int,
+    val id: String,
     @SerializedName("lesson_id")
-    val lessonId: Int,
+    val lessonId: String,
     val title: String,
     val description: String?,
     val type: String,
@@ -166,7 +170,7 @@ data class QuizDetailResponse(
 )
 
 data class QuestionResponse(
-    val id: Int,
+    val id: String,
     val content: String,
     @SerializedName("audio_url")
     val audioUrl: String?,
@@ -178,18 +182,18 @@ data class QuestionResponse(
     @SerializedName("question_type")
     val questionType: String,
     @SerializedName("question_type_id")
-    val questionTypeId: Int? = null,
+    val questionTypeId: String? = null,
     val options: List<QuestionOptionResponse>
 )
 
 data class QuestionTypeResponse(
-    val id: Int,
+    val id: String,
     val name: String,
     val description: String?
 )
 
 data class QuestionOptionResponse(
-    val id: Int,
+    val id: String,
     @SerializedName("option_text")
     val optionText: String,
     @SerializedName("is_correct")
@@ -197,9 +201,9 @@ data class QuestionOptionResponse(
 )
 
 data class QuizAttemptResponse(
-    val id: Int,
+    val id: String,
     @SerializedName("quiz_id")
-    val quizId: Int,
+    val quizId: String,
     @SerializedName("quiz_title")
     val quizTitle: String?,
     val score: Double,
@@ -213,7 +217,7 @@ data class QuizAttemptResponse(
 
 data class QuestionResultResponse(
     @SerializedName("question_id")
-    val questionId: Int,
+    val questionId: String,
     @SerializedName("user_answer")
     val userAnswer: String,
     @SerializedName("is_correct")
@@ -222,9 +226,9 @@ data class QuestionResultResponse(
 
 // Exercise Question Models
 data class ExerciseQuestionOptionResponse(
-    val id: Int,
+    val id: String,
     @SerializedName("question_id")
-    val questionId: Int,
+    val questionId: String,
     @SerializedName("option_text")
     val optionText: String,
     @SerializedName("is_correct")
@@ -236,9 +240,9 @@ data class ExerciseQuestionOptionResponse(
 )
 
 data class ExerciseQuestionResponse(
-    val id: Int,
+    val id: String,
     @SerializedName("exercise_id")
-    val exerciseId: Int,
+    val exerciseId: String,
     @SerializedName("question_text")
     val questionText: String,
     val explanation: String?,
@@ -251,7 +255,7 @@ data class ExerciseQuestionResponse(
 
 // Exercise Models
 data class ExerciseResponse(
-    val id: Int,
+    val id: String,
     val type: String,
     val title: String?,
     val content: String?,
@@ -272,9 +276,9 @@ data class ExerciseResponse(
 
 // Legacy exercise models for backward compatibility
 data class ListeningExerciseResponse(
-    val id: Int,
+    val id: String,
     @SerializedName("lesson_id")
-    val lessonId: Int,
+    val lessonId: String,
     @SerializedName("audio_url")
     val audioUrl: String,
     val transcript: String?,
@@ -284,9 +288,9 @@ data class ListeningExerciseResponse(
 )
 
 data class SpeakingExerciseResponse(
-    val id: Int,
+    val id: String,
     @SerializedName("lesson_id")
-    val lessonId: Int,
+    val lessonId: String,
     val prompt: String,
     @SerializedName("sample_answer")
     val sampleAnswer: String?,
@@ -295,9 +299,9 @@ data class SpeakingExerciseResponse(
 )
 
 data class WritingExerciseResponse(
-    val id: Int,
+    val id: String,
     @SerializedName("lesson_id")
-    val lessonId: Int,
+    val lessonId: String,
     val prompt: String,
     @SerializedName("sample_answer")
     val sampleAnswer: String?,
@@ -308,7 +312,7 @@ data class WritingExerciseResponse(
 // User Progress Models
 data class UserProgressResponse(
     @SerializedName("user_id")
-    val userId: Int,
+    val userId: String,
     val username: String,
     @SerializedName("total_exp")
     val totalExp: Int,
@@ -337,9 +341,9 @@ data class QuizStats(
 )
 
 data class CourseProgressResponse(
-    val id: Int,
+    val id: String,
     @SerializedName("course_id")
-    val courseId: Int,
+    val courseId: String,
     @SerializedName("course_title")
     val courseTitle: String?,
     @SerializedName("is_completed")
@@ -353,7 +357,7 @@ data class CourseProgressResponse(
 )
 
 data class ExpLogResponse(
-    val id: Int,
+    val id: String,
     val source: String,
     val amount: Int,
     @SerializedName("created_at")
@@ -399,7 +403,7 @@ data class DailyGoalsUpdateResponse(
 
 // Badge Models
 data class BadgeResponse(
-    val id: Int,
+    val id: String,
     val name: String,
     val description: String?,
     val icon_url: String?,
@@ -421,7 +425,7 @@ data class LeaderboardEntryResponse(
 
 // Friend Models
 data class FriendResponse(
-    val id: Int,
+    val id: String,
     val username: String,
     val status: String, // "accepted", "pending", "blocked"
     @SerializedName("profile_image_url")
@@ -432,7 +436,7 @@ data class FriendResponse(
 
 // Entry Test Models
 data class EntryTestQuestionOptionResponse(
-    val id: Int,
+    val id: String,
     @SerializedName("option_text")
     val optionText: String,
     @SerializedName("is_correct")
@@ -440,7 +444,7 @@ data class EntryTestQuestionOptionResponse(
 )
 
 data class EntryTestQuestionResponse(
-    val id: Int,
+    val id: String,
     val content: String,
     @SerializedName("audio_url")
     val audioUrl: String?,
@@ -455,11 +459,11 @@ data class EntryTestQuestionResponse(
 )
 
 data class EntryTestResponse(
-    val id: Int,
+    val id: String,
     val name: String,
     val description: String,
     @SerializedName("related_course_id")
-    val relatedCourseId: Int,
+    val relatedCourseId: String,
     @SerializedName("created_at")
     val createdAt: String,
     val questions: List<EntryTestQuestionResponse>
@@ -467,9 +471,9 @@ data class EntryTestResponse(
 
 data class EntryTestAnswerRequest(
     @SerializedName("question_id")
-    val questionId: Int,
+    val questionId: String,
     @SerializedName("selected_option_id")
-    val selectedOptionId: Int
+    val selectedOptionId: String
 )
 
 data class EntryTestSubmissionRequest(
@@ -479,28 +483,28 @@ data class EntryTestSubmissionRequest(
 data class EntryTestSubmissionResponse(
     val score: Float,
     @SerializedName("recommended_course_id")
-    val recommendedCourseId: Int,
+    val recommendedCourseId: String,
     @SerializedName("recommended_course_title")
     val recommendedCourseTitle: String,
     val message: String
 )
 
 data class EntryTestResultResponse(
-    val id: Int,
+    val id: String,
     @SerializedName("user_id")
-    val userId: Int,
+    val userId: String,
     @SerializedName("entry_test_id")
-    val entryTestId: Int,
+    val entryTestId: String,
     val score: Float,
     @SerializedName("recommended_course_id")
-    val recommendedCourseId: Int,
+    val recommendedCourseId: String,
     @SerializedName("completed_at")
     val completedAt: String
 )
 
 // Practice question submission requests
 data class PracticeSelectedOptionRequest(
-    @SerializedName("selected_option_id") val selectedOptionId: Int
+    @SerializedName("selected_option_id") val selectedOptionId: String
 )
 
 data class PracticeTextAnswerRequest(
@@ -511,5 +515,5 @@ data class PracticeTextAnswerRequest(
 data class ExerciseSubmissionRequest(
     @SerializedName("response") val response: String? = null,
     @SerializedName("audio_url") val audioUrl: String? = null,
-    @SerializedName("selected_answers") val selectedAnswers: Map<Int, Int>? = null // Map of questionId to optionId for listening exercises with questions
+    @SerializedName("selected_answers") val selectedAnswers: Map<String, String>? = null // Map of questionId to optionId for listening exercises with questions
 )

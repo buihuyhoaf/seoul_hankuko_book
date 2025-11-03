@@ -31,7 +31,7 @@ class LessonViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<LessonUiState>(LessonUiState.Loading)
     val uiState: StateFlow<LessonUiState> = _uiState.asStateFlow()
     
-    fun loadLesson(lessonId: Int) {
+    fun loadLesson(lessonId: String) {
         _uiState.update { LessonUiState.Loading }
         
         viewModelScope.launch {
@@ -104,11 +104,11 @@ class LessonViewModel @Inject constructor(
         }
     }
 
-    fun submitPracticeCorrectAnswer(lessonId: Int, questionId: Int, selectedOptionId: Int) {
+    fun submitPracticeCorrectAnswer(lessonId: String, questionId: String, selectedOptionId: String) {
         viewModelScope.launch {
             try {
                 val token = authRepository.getCurrentToken()
-                if (!token.isNullOrBlank() && lessonId > 0 && questionId > 0) {
+                if (!token.isNullOrBlank() && lessonId.isNotEmpty() && questionId.isNotEmpty()) {
                     val result = lessonRepository.submitPracticeQuestion(
                         lessonId = lessonId,
                         questionId = questionId,
@@ -138,16 +138,16 @@ class LessonViewModel @Inject constructor(
     }
 
     fun submitExercise(
-        exerciseId: Int,
-        lessonId: Int,
-        selectedAnswers: Map<Int, Int>? = null,
+        exerciseId: String,
+        lessonId: String,
+        selectedAnswers: Map<String, String>? = null,
         response: String? = null,
         audioUrl: String? = null
     ) {
         viewModelScope.launch {
             try {
                 val token = authRepository.getCurrentToken()
-                if (!token.isNullOrBlank() && exerciseId > 0 && lessonId > 0) {
+                if (!token.isNullOrBlank() && exerciseId.isNotEmpty() && lessonId.isNotEmpty()) {
                     val result = lessonRepository.submitExercise(
                         exerciseId = exerciseId,
                         token = token,
@@ -197,7 +197,7 @@ class LessonViewModel @Inject constructor(
      * Also reloads lesson data to get updated progress
      * Updates streak if lesson is newly completed
      */
-    fun updateLessonProgress(lessonId: Int, onComplete: () -> Unit) {
+    fun updateLessonProgress(lessonId: String, onComplete: () -> Unit) {
         viewModelScope.launch {
             try {
                 val token = authRepository.getCurrentToken()
@@ -209,7 +209,7 @@ class LessonViewModel @Inject constructor(
                     // Check if lesson was completed and update streak
                     val wasCompletedBefore = (_uiState.value as? LessonUiState.Success)?.isLessonCompleted ?: false
                     val progressPercent = (responseBody as? Map<*, *>)?.get("progress_percent") as? Number
-                    val isNowCompleted = progressPercent?.toFloat() ?: 0f >= 80f
+                    val isNowCompleted = (progressPercent?.toFloat() ?: 0f) >= 80f
                     
                     // Update streak if lesson was newly completed
                     if (!wasCompletedBefore && isNowCompleted && token != null) {

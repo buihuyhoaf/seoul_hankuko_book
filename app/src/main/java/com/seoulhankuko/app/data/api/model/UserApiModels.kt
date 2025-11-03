@@ -87,7 +87,7 @@ data class UserReadResponse(
     @SerializedName("has_completed_entry_test")
     val hasCompletedEntryTest: Boolean,
     @SerializedName("current_course_id")
-    val currentCourseId: Int?,
+    val currentCourseId: String?,
     @SerializedName("entry_test_score")
     val entryTestScore: Int?
 )
