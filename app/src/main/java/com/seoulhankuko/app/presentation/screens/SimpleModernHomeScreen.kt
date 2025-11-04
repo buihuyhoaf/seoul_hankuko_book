@@ -94,49 +94,64 @@ fun ModernHomeScreen(
         },
         containerColor = HomeColors.DuolingoLightGray
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            // Welcome Section
-            WelcomeSection(
-                userName = userName,
-                isVisible = isVisible
-            )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            // Courses Grid
-            if (isLoading) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        color = HomeColors.DuolingoGreen,
-                        modifier = Modifier.size(48.dp)
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                // Welcome Section
+                WelcomeSection(
+                    userName = userName,
+                    isVisible = isVisible
+                )
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                // Courses Grid
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            color = HomeColors.DuolingoGreen,
+                            modifier = Modifier.size(48.dp)
+                        )
+                    }
+                } else if (courses.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Không có khóa học nào",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = HomeColors.DuolingoGray
+                        )
+                    }
+                } else {
+                    CourseGrid(
+                        courses = courses,
+                        onCourseSelected = onCourseSelected,
+                        isVisible = isVisible,
+                        popupCourseId = popupCourseId,
+                        onShowPopup = { homeViewModel.showCoursePopup(it) },
+                        onHidePopup = { homeViewModel.hideCoursePopup() }
                     )
                 }
-            } else if (courses.isEmpty()) {
+            }
+            
+            // Full-screen overlay to catch outside taps when popup is visible
+            if (popupCourseId != null) {
                 Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Không có khóa học nào",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = HomeColors.DuolingoGray
-                    )
-                }
-            } else {
-                CourseGrid(
-                    courses = courses,
-                    onCourseSelected = onCourseSelected,
-                    isVisible = isVisible,
-                    popupCourseId = popupCourseId,
-                    onShowPopup = { homeViewModel.showCoursePopup(it) },
-                    onHidePopup = { homeViewModel.hideCoursePopup() }
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Transparent)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { homeViewModel.hideCoursePopup() }
                 )
             }
         }
@@ -430,97 +445,87 @@ fun CourseCard(
                 }
             }
 
-            // Popup with outside dismiss using overlay
-            // Popup with outside dismiss, positioned to the right of the card
+            // Popup positioned to the right of the card
             if (isPopupVisible) {
                 AnimatedVisibility(
                     visible = isPopupVisible,
                     enter = fadeIn() + scaleIn(initialScale = 0.9f),
                     exit = fadeOut() + scaleOut()
                 ) {
-                    Box(modifier = Modifier.fillMaxSize().zIndex(1f)) {
-                        // outside tap to dismiss
-                        Box(
+                    val density = LocalDensity.current
+                    val popupWidth = 180.dp
+                    val popupHeightGuess = 100.dp
+                    val offset = cardRect?.let { rect ->
+                        val offsetX = (rect.left + with(density) { 8.dp.toPx() }).toInt()
+                        val offsetY = (rect.top - with(density) { popupHeightGuess.toPx() } + with(density) { 8.dp.toPx() }).toInt()
+                        IntOffset(offsetX, offsetY)
+                    } ?: IntOffset(0, 0)
+
+                    Popup(
+                        alignment = Alignment.TopStart,
+                        offset = offset,
+                        properties = PopupProperties(focusable = false)
+                    ) {
+                        Surface(
                             modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Transparent)
+                                .width(popupWidth)
+                                .shadow(8.dp, RoundedCornerShape(12.dp))
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null
-                                ) { onHidePopup() }
-                        )
-
-                        val density = LocalDensity.current
-                        val popupWidth = 180.dp
-                        val popupHeightGuess = 100.dp
-                        val offset = cardRect?.let { rect ->
-                            val offsetX = (rect.left + with(density) { 8.dp.toPx() }).toInt()
-                            val offsetY = (rect.top - with(density) { popupHeightGuess.toPx() } + with(density) { 8.dp.toPx() }).toInt()
-                            IntOffset(offsetX, offsetY)
-                        } ?: IntOffset(0, 0)
-
-                        Popup(
-                            alignment = Alignment.TopStart,
-                            offset = offset,
-                            properties = PopupProperties(focusable = false)
+                                ) { /* Consume clicks to prevent propagation */ },
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color.White.copy(alpha = 0.95f)
                         ) {
-                            Surface(
-                                modifier = Modifier
-                                    .width(popupWidth)
-                                    .shadow(8.dp, RoundedCornerShape(12.dp)),
-                                shape = RoundedCornerShape(12.dp),
-                                color = Color.White.copy(alpha = 0.95f)
-                            ) {
-                                var expanded by remember { mutableStateOf(false) }
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    // HTML description only
-                                    if (descriptionPlain.isNotBlank()) {
-                                        AndroidView(
-                                            factory = { ctx ->
-                                                TextView(ctx).apply {
-                                                    text = Html.fromHtml(descriptionPlain, Html.FROM_HTML_MODE_LEGACY)
-                                                    ellipsize = TextUtils.TruncateAt.END
-                                                    maxLines = if (expanded) Int.MAX_VALUE else 2
-                                                }
-                                            },
-                                            update = { tv ->
-                                                tv.text = Html.fromHtml(descriptionPlain, Html.FROM_HTML_MODE_LEGACY)
-                                                tv.maxLines = if (expanded) Int.MAX_VALUE else 2
-                                                tv.ellipsize = TextUtils.TruncateAt.END
-                                            },
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
-                                        if (!expanded) {
-                                            Spacer(Modifier.height(6.dp))
-                                            Text(
-                                                text = "xem thêm",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = HomeColors.DuolingoGreen,
-                                                modifier = Modifier.clickable(
-                                                    interactionSource = remember { MutableInteractionSource() },
-                                                    indication = null
-                                                ) { expanded = true }
-                                            )
-                                        }
-                                    }
-                                    Spacer(Modifier.height(10.dp))
-                                    Surface(
-                                        onClick = {
-                                            onHidePopup()
-                                            onClick()
+                            var expanded by remember { mutableStateOf(false) }
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                // HTML description only
+                                if (descriptionPlain.isNotBlank()) {
+                                    AndroidView(
+                                        factory = { ctx ->
+                                            TextView(ctx).apply {
+                                                text = Html.fromHtml(descriptionPlain, Html.FROM_HTML_MODE_LEGACY)
+                                                ellipsize = TextUtils.TruncateAt.END
+                                                maxLines = if (expanded) Int.MAX_VALUE else 2
+                                            }
                                         },
-                                        color = HomeColors.DuolingoGreen,
-                                        shape = RoundedCornerShape(10.dp),
-                                        shadowElevation = 1.dp
+                                        update = { tv ->
+                                            tv.text = Html.fromHtml(descriptionPlain, Html.FROM_HTML_MODE_LEGACY)
+                                            tv.maxLines = if (expanded) Int.MAX_VALUE else 2
+                                            tv.ellipsize = TextUtils.TruncateAt.END
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    if (!expanded) {
+                                        Spacer(Modifier.height(6.dp))
+                                        Text(
+                                            text = "xem thêm",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = HomeColors.DuolingoGreen,
+                                            modifier = Modifier.clickable(
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                indication = null
+                                            ) { expanded = true }
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.height(10.dp))
+                                Surface(
+                                    onClick = {
+                                        onHidePopup()
+                                        onClick()
+                                    },
+                                    color = HomeColors.DuolingoGreen,
+                                    shape = RoundedCornerShape(10.dp),
+                                    shadowElevation = 1.dp
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                                     ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                        ) {
-                                            Text("Start", color = Color.White, style = MaterialTheme.typography.labelLarge)
-                                            Spacer(Modifier.width(4.dp))
-                                            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
-                                        }
+                                        Text("Start", color = Color.White, style = MaterialTheme.typography.labelLarge)
+                                        Spacer(Modifier.width(4.dp))
+                                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
                                     }
                                 }
                             }
