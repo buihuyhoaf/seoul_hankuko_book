@@ -118,11 +118,11 @@ fun ModernBottomNavigationBar(
             icon = {
                 Icon(
                     imageVector = Icons.Default.Notifications,
-                    contentDescription = "Notification"
+                    contentDescription = "Alphabet"
                 )
             },
-            label = { Text("Thông báo") },
-            selected = currentRoute == "notification",
+            label = { Text("Alphabet") },
+            selected = currentRoute == "alphabet_list",
             onClick = onNavigateToNotification,
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = HomeColors.DuolingoGreen,

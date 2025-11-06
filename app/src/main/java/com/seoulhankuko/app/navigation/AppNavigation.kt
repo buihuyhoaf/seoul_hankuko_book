@@ -20,8 +20,10 @@ import com.seoulhankuko.app.presentation.screens.WritingScreen
 import com.seoulhankuko.app.presentation.screens.LoggedAccountsScreen
 import com.seoulhankuko.app.presentation.screens.LoginScreen
 import com.seoulhankuko.app.presentation.screens.ModernHomeScreen
-import com.seoulhankuko.app.presentation.screens.NotificationScreen
+import com.seoulhankuko.app.presentation.screens.HangulAlphabetScreen
 import com.seoulhankuko.app.presentation.screens.ProfileScreen
+import com.seoulhankuko.app.presentation.screens.CanvasScreen
+import com.seoulhankuko.app.ui.screen.canvas.HangulCanvasScreen
 import com.seoulhankuko.app.presentation.screens.QuestsScreen
 import com.seoulhankuko.app.presentation.screens.ShopScreen
 import com.seoulhankuko.app.presentation.screens.UnitScreen
@@ -151,7 +153,7 @@ fun AppNavigation(
                     navController.navigate("course/$courseId")
                 },
                 onNavigateToNotification = {
-                    navController.navigate("notification")
+                    navController.navigate("alphabet_list")
                 },
                 onNavigateToProfile = {
                     navController.navigate("profile")
@@ -159,16 +161,41 @@ fun AppNavigation(
             )
         }
         
-        // Notification Screen
-        composable("notification") {
-            NotificationScreen(
+        // Hangul Alphabet Selection Screen
+        composable("alphabet_list") {
+            HangulAlphabetScreen(
                 onNavigateToHome = {
                     navController.navigate("courses")
                 },
-                onNavigateToNotification = { /* Current screen */ },
+                onNavigateToAlphabet = { /* Current screen */ },
                 onNavigateToProfile = {
                     navController.navigate("profile")
+                },
+                onNavigateBack = { navController.popBackStack() },
+                onSelectChar = { charSymbol ->
+                    val encodedChar = URLEncoder.encode(charSymbol, StandardCharsets.UTF_8.toString())
+                    navController.navigate("canvas/$encodedChar")
                 }
+            )
+        }
+
+        // Canvas Screen for drawing/learning Hangul character
+        composable("canvas/{char}") { backStackEntry ->
+            val encodedChar = backStackEntry.arguments?.getString("char") ?: ""
+            val charSymbol = java.net.URLDecoder.decode(encodedChar, StandardCharsets.UTF_8.toString())
+            HangulCanvasScreen(
+                character = charSymbol,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        
+        // Stroke Practice Screen (guided practice with auto-correction)
+        composable("practice/{char}") { backStackEntry ->
+            val encodedChar = backStackEntry.arguments?.getString("char") ?: ""
+            val charSymbol = java.net.URLDecoder.decode(encodedChar, StandardCharsets.UTF_8.toString())
+            com.seoulhankuko.app.ui.screen.canvas.StrokePracticeScreen(
+                character = charSymbol,
+                onBack = { navController.popBackStack() }
             )
         }
         
@@ -184,7 +211,7 @@ fun AppNavigation(
                     navController.navigate("courses")
                 },
                 onNavigateToNotification = {
-                    navController.navigate("notification")
+                    navController.navigate("alphabet_list")
                 },
                 onNavigateToProfile = { /* Current screen */ },
                 onNavigateBack = {

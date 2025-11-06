@@ -20,7 +20,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         // Custom BuildConfig fields
-        buildConfigField("String", "BASE_URL", "\"http://192.168.1.23:8000/api/\"")
+        buildConfigField("String", "BASE_URL", "\"https://korean-learning-api-8fdv.onrender.com/api/\"")
         buildConfigField("String", "APP_NAME", "\"Seoul Hankuko Book\"")
         buildConfigField("int", "TIMEOUT_SECONDS", "30")
         buildConfigField("boolean", "ENABLE_LOGGING", "true")

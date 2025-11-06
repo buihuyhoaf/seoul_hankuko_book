@@ -126,6 +126,18 @@ interface ApiService {
         @Body body: PracticeTextAnswerRequest
     ): Response<Map<String, Any>>
     
+    // ML Prediction endpoints
+    @POST("v1/predict/stroke")
+    suspend fun predictStroke(
+        @Body request: com.seoulhankuko.app.data.api.model.PredictStrokeRequest
+    ): Response<com.seoulhankuko.app.data.api.model.PredictStrokeResponse>
+    
+    // Stroke Analysis endpoints (new Phase 3 API)
+    @POST("stroke/analyze")
+    suspend fun analyzeStroke(
+        @Body request: com.seoulhankuko.app.data.api.model.StrokeAnalysisRequest
+    ): Response<com.seoulhankuko.app.data.api.model.StrokeAnalysisResponse>
+    
     // Quiz management endpoints
     @GET("v1/quizzes/{quiz_id}")
     suspend fun getQuiz(
