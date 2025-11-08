@@ -63,6 +63,8 @@ class LessonViewModel @Inject constructor(
                             currentChallengeIndex = 0
                         )
                     }
+
+                    persistCurrentLesson(lessonWithChallenges)
                 } else {
                     Timber.w("Lesson not found for ID: $lessonId")
                     _uiState.update { 
@@ -81,6 +83,32 @@ class LessonViewModel @Inject constructor(
                     else -> "Failed to load lesson: ${e.message ?: "Unknown error"}"
                 }
                 _uiState.update { LessonUiState.Error(errorMessage) }
+            }
+        }
+    }
+
+    private fun persistCurrentLesson(lessonWithChallenges: LessonWithChallenges) {
+        viewModelScope.launch {
+            try {
+                val courseId = userPreferencesManager.getCurrentCourseId()
+                userPreferencesManager.saveCurrentLesson(
+                    lessonId = lessonWithChallenges.lesson.id,
+                    lessonTitle = lessonWithChallenges.lesson.title,
+                    unitId = lessonWithChallenges.lesson.unitId,
+                    courseId = courseId
+                )
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to persist current lesson")
+            }
+        }
+    }
+
+    fun clearCurrentLesson() {
+        viewModelScope.launch {
+            try {
+                userPreferencesManager.clearCurrentLesson()
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to clear current lesson")
             }
         }
     }

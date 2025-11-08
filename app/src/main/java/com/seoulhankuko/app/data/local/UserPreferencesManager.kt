@@ -12,6 +12,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -61,6 +62,13 @@ class UserPreferencesManager @Inject constructor(
 
         // Celebration tracking
         private val STREAK_SCREEN_LAST_SHOWN_KEY = stringPreferencesKey("streak_screen_last_shown_date")
+
+        // Current lesson tracking
+        private val CURRENT_LESSON_ID_KEY = stringPreferencesKey("current_lesson_id")
+        private val CURRENT_LESSON_TITLE_KEY = stringPreferencesKey("current_lesson_title")
+        private val CURRENT_LESSON_UNIT_ID_KEY = stringPreferencesKey("current_lesson_unit_id")
+        private val CURRENT_LESSON_COURSE_ID_KEY = stringPreferencesKey("current_lesson_course_id")
+        private val CURRENT_LESSON_SAVED_AT_KEY = stringPreferencesKey("current_lesson_saved_at")
     }
 
     /**
@@ -120,6 +128,11 @@ class UserPreferencesManager @Inject constructor(
             preferences.remove(ENTRY_TEST_POPUP_DISMISSED_KEY) // Reset popup dismissal on logout
             preferences.remove(STREAK_DAYS_KEY)
             preferences.remove(EXP_KEY)
+            preferences.remove(CURRENT_LESSON_ID_KEY)
+            preferences.remove(CURRENT_LESSON_TITLE_KEY)
+            preferences.remove(CURRENT_LESSON_UNIT_ID_KEY)
+            preferences.remove(CURRENT_LESSON_COURSE_ID_KEY)
+            preferences.remove(CURRENT_LESSON_SAVED_AT_KEY)
             preferences[IS_LOGGED_IN_KEY] = false
             preferences[IS_PREMIUM_KEY] = false
         }
@@ -198,14 +211,78 @@ class UserPreferencesManager @Inject constructor(
             exp = preferences[EXP_KEY] ?: 0
         )
     }
-    
+
+    val currentLesson: Flow<CurrentLessonData?> = context.dataStore.data.map { preferences ->
+        val lessonId = preferences[CURRENT_LESSON_ID_KEY] ?: return@map null
+        CurrentLessonData(
+            lessonId = lessonId,
+            lessonTitle = preferences[CURRENT_LESSON_TITLE_KEY],
+            unitId = preferences[CURRENT_LESSON_UNIT_ID_KEY],
+            courseId = preferences[CURRENT_LESSON_COURSE_ID_KEY],
+            savedAtIso = preferences[CURRENT_LESSON_SAVED_AT_KEY]
+        )
+    }
+ 
     /**
      * Get current access token synchronously
      */
     suspend fun getCurrentAccessToken(): String? {
         return context.dataStore.data.first()[ACCESS_TOKEN_KEY]
     }
-    
+
+    suspend fun saveCurrentLesson(
+        lessonId: String,
+        lessonTitle: String?,
+        unitId: String?,
+        courseId: String?
+    ) {
+        context.dataStore.edit { preferences ->
+            preferences[CURRENT_LESSON_ID_KEY] = lessonId
+
+            if (lessonTitle.isNullOrBlank()) {
+                preferences.remove(CURRENT_LESSON_TITLE_KEY)
+            } else {
+                preferences[CURRENT_LESSON_TITLE_KEY] = lessonTitle
+            }
+
+            if (unitId.isNullOrBlank()) {
+                preferences.remove(CURRENT_LESSON_UNIT_ID_KEY)
+            } else {
+                preferences[CURRENT_LESSON_UNIT_ID_KEY] = unitId
+            }
+
+            if (courseId.isNullOrBlank()) {
+                preferences.remove(CURRENT_LESSON_COURSE_ID_KEY)
+            } else {
+                preferences[CURRENT_LESSON_COURSE_ID_KEY] = courseId
+            }
+
+            preferences[CURRENT_LESSON_SAVED_AT_KEY] = Instant.now().toString()
+        }
+    }
+
+    suspend fun clearCurrentLesson() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(CURRENT_LESSON_ID_KEY)
+            preferences.remove(CURRENT_LESSON_TITLE_KEY)
+            preferences.remove(CURRENT_LESSON_UNIT_ID_KEY)
+            preferences.remove(CURRENT_LESSON_COURSE_ID_KEY)
+            preferences.remove(CURRENT_LESSON_SAVED_AT_KEY)
+        }
+    }
+
+    suspend fun getCurrentLesson(): CurrentLessonData? {
+        val preferences = context.dataStore.data.first()
+        val lessonId = preferences[CURRENT_LESSON_ID_KEY] ?: return null
+        return CurrentLessonData(
+            lessonId = lessonId,
+            lessonTitle = preferences[CURRENT_LESSON_TITLE_KEY],
+            unitId = preferences[CURRENT_LESSON_UNIT_ID_KEY],
+            courseId = preferences[CURRENT_LESSON_COURSE_ID_KEY],
+            savedAtIso = preferences[CURRENT_LESSON_SAVED_AT_KEY]
+        )
+    }
+ 
     /**
      * Save entry test completion data
      */
@@ -455,5 +532,13 @@ data class UserData(
     val isPremium: Boolean,
     val streakDays: Int = 0,
     val exp: Int = 0
+)
+
+data class CurrentLessonData(
+    val lessonId: String,
+    val lessonTitle: String?,
+    val unitId: String?,
+    val courseId: String?,
+    val savedAtIso: String?
 )
 

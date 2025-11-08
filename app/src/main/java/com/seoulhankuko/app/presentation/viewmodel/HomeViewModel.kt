@@ -3,6 +3,8 @@ package com.seoulhankuko.app.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.seoulhankuko.app.data.api.model.CourseResponse
+import com.seoulhankuko.app.data.local.UserData
+import com.seoulhankuko.app.data.local.UserPreferencesManager
 import com.seoulhankuko.app.data.repository.AuthRepository
 import com.seoulhankuko.app.data.repository.CourseRepository
 import com.seoulhankuko.app.data.repository.AccountRepository
@@ -22,7 +24,8 @@ import javax.inject.Inject
 class HomeViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val courseRepository: CourseRepository,
-    private val accountRepository: AccountRepository
+    private val accountRepository: AccountRepository,
+    private val userPreferencesManager: UserPreferencesManager
 ) : ViewModel() {
     
     val authState: StateFlow<AuthState> = authRepository.authState
@@ -44,7 +47,27 @@ class HomeViewModel @Inject constructor(
     // Popup state for CourseCard (store selected courseId)
     private val _popupCourseId = MutableStateFlow<String?>(null)
     val popupCourseId: StateFlow<String?> = _popupCourseId.asStateFlow()
-    
+
+    private val initialUserData = UserData(
+        userId = null,
+        email = null,
+        name = null,
+        avatarUrl = null,
+        accessToken = null,
+        refreshToken = null,
+        isLoggedIn = false,
+        isPremium = false,
+        streakDays = 0,
+        exp = 0
+    )
+
+    val userData: StateFlow<UserData> = userPreferencesManager.userData
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = initialUserData
+        )
+ 
     init {
         loadCourses()
         loadCurrentUserName()

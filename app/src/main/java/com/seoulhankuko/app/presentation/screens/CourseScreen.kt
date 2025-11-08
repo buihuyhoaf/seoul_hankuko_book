@@ -10,8 +10,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
@@ -30,12 +28,13 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.seoulhankuko.app.R
 import com.seoulhankuko.app.data.api.model.UnitResponse
+import com.seoulhankuko.app.presentation.components.MainScaffold
+import com.seoulhankuko.app.presentation.components.TopBarState
 import com.seoulhankuko.app.presentation.viewmodel.CourseUiState
 import com.seoulhankuko.app.presentation.viewmodel.CourseViewModel
+import com.seoulhankuko.app.presentation.viewmodel.MainUiViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seoulhankuko.app.presentation.utils.UnitColors
 import com.seoulhankuko.app.presentation.utils.CourseColors
@@ -45,7 +44,11 @@ import com.seoulhankuko.app.presentation.utils.CourseColors
 fun CourseScreen(
     courseId: String,
     onNavigateToUnit: (unitId: String) -> Unit,
+    onNavigateToHome: () -> Unit,
+    onNavigateToNotification: () -> Unit,
+    onNavigateToProfile: () -> Unit,
     onNavigateBack: () -> Unit,
+    onAvatarClick: (() -> Unit)? = null,
     viewModel: CourseViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -64,37 +67,30 @@ fun CourseScreen(
         viewModel.loadCourse(courseId)
     }
     
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = when (val currentState = uiState) {
-                            is CourseUiState.Success -> currentState.course.title
-                            else -> "Khóa học"
-                        },
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = CourseColors.TextPrimary
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.back),
-                            tint = UnitColors.SoftIndigo
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    titleContentColor = CourseColors.TextPrimary,
-                    navigationIconContentColor = CourseColors.Accent
-                ),
-                modifier = Modifier.shadow(elevation = 4.dp, shape = RoundedCornerShape(0.dp))
-            )
-        },
+    val mainUiViewModel: MainUiViewModel = hiltViewModel()
+    val userData by mainUiViewModel.userData.collectAsStateWithLifecycle()
+
+    val courseTitleForTopBar = when (val currentState = uiState) {
+        is CourseUiState.Success -> currentState.course.title
+        else -> null
+    }
+    val courseThumbnailForTopBar = (uiState as? CourseUiState.Success)?.course?.imageUrl
+
+    MainScaffold(
+        topBarState = TopBarState(
+            userName = userData.name ?: userData.email ?: "Học viên",
+            streakDays = userData.streakDays,
+            exp = userData.exp,
+            courseTitle = courseTitleForTopBar,
+            courseThumbnailUrl = courseThumbnailForTopBar,
+            isVisible = true,
+            isShown = true
+        ),
+        currentRoute = "courses",
+        onNavigateToHome = onNavigateToHome,
+        onNavigateToNotification = onNavigateToNotification,
+        onNavigateToProfile = onNavigateToProfile,
+        onAvatarClick = onAvatarClick ?: onNavigateToProfile,
         containerColor = CourseColors.Background
     ) { paddingValues ->
         Box(

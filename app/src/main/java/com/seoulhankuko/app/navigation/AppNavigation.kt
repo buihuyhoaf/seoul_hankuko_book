@@ -1,12 +1,14 @@
 package com.seoulhankuko.app.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.seoulhankuko.app.core.Logger
+import com.seoulhankuko.app.data.local.CurrentLessonData
 import com.seoulhankuko.app.presentation.screens.CourseScreen
 import com.seoulhankuko.app.presentation.screens.EntryTestResultScreen
 import com.seoulhankuko.app.presentation.screens.EntryTestScreen
@@ -32,7 +34,9 @@ import java.nio.charset.StandardCharsets
 
 @Composable
 fun AppNavigation(
-    initialDestination: String = "home"
+    initialDestination: String = "home",
+    resumeLesson: CurrentLessonData? = null,
+    onResumeLessonConsumed: () -> Unit = {}
 ) {
     val navController = rememberNavController()
     
@@ -208,14 +212,24 @@ fun AppNavigation(
                     }
                 },
                 onNavigateToHome = {
-                    navController.navigate("courses")
+                    navController.navigate("courses") {
+                        popUpTo("courses") { inclusive = false }
+                        launchSingleTop = true
+                    }
                 },
                 onNavigateToNotification = {
-                    navController.navigate("alphabet_list")
+                    navController.navigate("alphabet_list") {
+                        launchSingleTop = true
+                    }
                 },
-                onNavigateToProfile = { /* Current screen */ },
+                onNavigateToProfile = { /* Already here */ },
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onAvatarClick = {
+                    navController.navigate("profile") {
+                        launchSingleTop = true
+                    }
                 }
             )
         }
@@ -228,6 +242,22 @@ fun AppNavigation(
                     courseId = id,
                     onNavigateToUnit = { unitId: String ->
                         navController.navigate("unit/$unitId")
+                    },
+                    onNavigateToHome = {
+                        navController.navigate("courses") {
+                            popUpTo("courses") { inclusive = false }
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateToNotification = {
+                        navController.navigate("alphabet_list") {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateToProfile = {
+                        navController.navigate("profile") {
+                            launchSingleTop = true
+                        }
                     },
                     onNavigateBack = { navController.popBackStack() }
                 )
@@ -242,6 +272,22 @@ fun AppNavigation(
                     unitId = id,
                     onNavigateToLesson = { lessonId: String ->
                         navController.navigate("lesson/$lessonId")
+                    },
+                    onNavigateToHome = {
+                        navController.navigate("courses") {
+                            popUpTo("courses") { inclusive = false }
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateToNotification = {
+                        navController.navigate("alphabet_list") {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateToProfile = {
+                        navController.navigate("profile") {
+                            launchSingleTop = true
+                        }
                     },
                     onNavigateBack = { navController.popBackStack() }
                 )
@@ -288,6 +334,22 @@ fun AppNavigation(
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToListening = { exerciseId ->
                         navController.navigate("listening/$exerciseId/lesson/$id")
+                    },
+                    onNavigateToHome = {
+                        navController.navigate("courses") {
+                            popUpTo("courses") { inclusive = false }
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateToNotification = {
+                        navController.navigate("alphabet_list") {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateToProfile = {
+                        navController.navigate("profile") {
+                            launchSingleTop = true
+                        }
                     }
                 )
             }
@@ -393,5 +455,32 @@ fun AppNavigation(
                 }
             )
         }
+    }
+
+    LaunchedEffect(resumeLesson) {
+        val lesson = resumeLesson ?: return@LaunchedEffect
+
+        navController.navigate("courses") {
+            popUpTo("courses") { inclusive = false }
+            launchSingleTop = true
+        }
+
+        lesson.courseId?.let { courseId ->
+            navController.navigate("course/$courseId") {
+                launchSingleTop = true
+            }
+        }
+
+        lesson.unitId?.let { unitId ->
+            navController.navigate("unit/$unitId") {
+                launchSingleTop = true
+            }
+        }
+
+        navController.navigate("lesson-flow/${lesson.lessonId}") {
+            launchSingleTop = true
+        }
+
+        onResumeLessonConsumed()
     }
 }

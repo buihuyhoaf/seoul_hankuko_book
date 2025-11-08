@@ -1,58 +1,95 @@
 package com.seoulhankuko.app.presentation.screens
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import android.text.Html
+import android.text.TextUtils
+import android.widget.TextView
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
-import androidx.compose.ui.viewinterop.AndroidView
-import android.text.Html
-import android.text.TextUtils
-import android.widget.TextView
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.res.painterResource
+import androidx.core.text.HtmlCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.platform.LocalContext
-import androidx.core.text.HtmlCompat
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.seoulhankuko.app.R
 import com.seoulhankuko.app.data.api.model.CourseResponse
-import com.seoulhankuko.app.presentation.viewmodel.HomeViewModel
-import com.seoulhankuko.app.presentation.components.ModernBottomNavigationBar
+import com.seoulhankuko.app.presentation.components.MainScaffold
+import com.seoulhankuko.app.presentation.components.TopBarState
 import com.seoulhankuko.app.presentation.utils.HomeColors
-import com.seoulhankuko.app.presentation.utils.MiscColors
+import com.seoulhankuko.app.presentation.viewmodel.HomeViewModel
 import kotlinx.coroutines.delay
-import kotlin.math.floor
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -70,27 +107,34 @@ fun ModernHomeScreen(
     val isLoading by homeViewModel.isLoading.collectAsStateWithLifecycle()
     val userName by homeViewModel.currentUserName.collectAsStateWithLifecycle()
     val popupCourseId by homeViewModel.popupCourseId.collectAsStateWithLifecycle()
+    val userData by homeViewModel.userData.collectAsStateWithLifecycle()
+
+    val streakDays = userData.streakDays
+    val expPoints = userData.exp
+    val featuredCourse = courses.firstOrNull()
+    val courseThumbnailUrl = featuredCourse?.imageUrl
+    val courseTitle = featuredCourse?.title
 
     LaunchedEffect(Unit) {
         delay(300) // Delay for smooth entrance
         isVisible = true
     }
     
-    Scaffold(
-        topBar = {
-            AppBarSection(
-                userName = userName,
-                onAvatarClick = { onNavigateToProfile() }
-            )
-        },
-        bottomBar = {
-            ModernBottomNavigationBar(
-                currentRoute = "courses",
-                onNavigateToHome = {},
-                onNavigateToNotification = onNavigateToNotification,
-                onNavigateToProfile = onNavigateToProfile
-            )
-        },
+    MainScaffold(
+        topBarState = TopBarState(
+            userName = userName,
+            streakDays = streakDays,
+            exp = expPoints,
+            courseTitle = courseTitle,
+            courseThumbnailUrl = courseThumbnailUrl,
+            isVisible = isVisible,
+            isShown = true
+        ),
+        currentRoute = "courses",
+        onNavigateToHome = {},
+        onNavigateToNotification = onNavigateToNotification,
+        onNavigateToProfile = onNavigateToProfile,
+        onAvatarClick = onNavigateToProfile,
         containerColor = HomeColors.DuolingoLightGray
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize()) {
@@ -155,72 +199,6 @@ fun ModernHomeScreen(
             }
         }
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AppBarSection(
-    userName: String,
-    onAvatarClick: () -> Unit
-) {
-    CenterAlignedTopAppBar(
-        title = {
-            Text(
-                text = "Korean Learning",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = HomeColors.DuolingoDarkGreen
-            )
-        },
-        actions = {
-            // Avatar with animation
-            var isPressed by remember { mutableStateOf(false) }
-            val scale by animateFloatAsState(
-                targetValue = if (isPressed) 0.95f else 1f,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessLow
-                ),
-                label = "avatar_scale"
-            )
-            
-            Box(
-                modifier = Modifier
-                    .scale(scale)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        isPressed = true
-                        onAvatarClick()
-                    }
-            ) {
-                Surface(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape),
-                    color = HomeColors.DuolingoGreen,
-                    shadowElevation = 4.dp
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = userName.take(1).uppercase(),
-                            color = Color.White,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        },
-        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-            containerColor = Color.White,
-            titleContentColor = HomeColors.DuolingoDarkGreen
-        ),
-        modifier = Modifier.shadow(elevation = 2.dp)
-    )
 }
 
 @Composable

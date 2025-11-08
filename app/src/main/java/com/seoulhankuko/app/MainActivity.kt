@@ -23,6 +23,7 @@ import com.seoulhankuko.app.presentation.viewmodel.GoogleSignInViewModel
 import com.seoulhankuko.app.presentation.viewmodel.EntryTestFlowViewModel
 import com.seoulhankuko.app.presentation.viewmodel.LoggedAccountsViewModel
 import com.seoulhankuko.app.presentation.viewmodel.AuthViewModel
+import com.seoulhankuko.app.presentation.viewmodel.MainUiViewModel
 import com.seoulhankuko.app.domain.model.AuthState
 import dagger.hilt.android.AndroidEntryPoint
 import com.seoulhankuko.app.core.Logger
@@ -62,13 +63,16 @@ fun AppNavigationWithAutoLogin(
     viewModel: GoogleSignInViewModel = hiltViewModel(),
     entryTestViewModel: EntryTestFlowViewModel = hiltViewModel(),
     loggedAccountsViewModel: LoggedAccountsViewModel = hiltViewModel(),
-    authViewModel: AuthViewModel = hiltViewModel()
+    authViewModel: AuthViewModel = hiltViewModel(),
+    mainUiViewModel: MainUiViewModel = hiltViewModel()
 ) {
     val loggedAccounts by authViewModel.loggedAccounts.collectAsStateWithLifecycle()
     val authState by authViewModel.authState.collectAsStateWithLifecycle()
-    
+    val currentLesson by mainUiViewModel.currentLesson.collectAsStateWithLifecycle()
+
     // State để track initial destination
     var initialDestination by remember { mutableStateOf<String?>(null) }
+    var resumeHandled by remember { mutableStateOf(false) }
     
     // Effect để xác định initial destination
     LaunchedEffect(authState, loggedAccounts) {
@@ -128,8 +132,19 @@ fun AppNavigationWithAutoLogin(
     
     // Render AppNavigation khi đã xác định destination
     initialDestination?.let { destination ->
+        val resumeLessonForNav = if (!resumeHandled && destination == "courses") currentLesson else null
+
         AppNavigation(
-            initialDestination = destination
+            initialDestination = destination,
+            resumeLesson = resumeLessonForNav,
+            onResumeLessonConsumed = { resumeHandled = true }
         )
+    }
+
+    LaunchedEffect(initialDestination) {
+        val destination = initialDestination
+        if (destination != null && destination != "courses") {
+            resumeHandled = false
+        }
     }
 }

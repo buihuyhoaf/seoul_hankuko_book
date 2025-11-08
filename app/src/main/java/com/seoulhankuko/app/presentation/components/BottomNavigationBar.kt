@@ -12,7 +12,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.seoulhankuko.app.R
 import com.seoulhankuko.app.presentation.utils.HomeColors
 import com.seoulhankuko.app.presentation.utils.BottomNavColors
 
@@ -99,7 +101,7 @@ fun ModernBottomNavigationBar(
         NavigationBarItem(
             icon = {
                 Icon(
-                    imageVector = Icons.Default.Home,
+                    painter = painterResource(id = R.drawable.home_tabler_outline),
                     contentDescription = "Home"
                 )
             },
@@ -117,11 +119,11 @@ fun ModernBottomNavigationBar(
         NavigationBarItem(
             icon = {
                 Icon(
-                    imageVector = Icons.Default.Notifications,
+                    painter = painterResource(id = R.drawable.alphabet_korean),
                     contentDescription = "Alphabet"
                 )
             },
-            label = { Text("Alphabet") },
+            label = { Text("Bảng chữ cái") },
             selected = currentRoute == "alphabet_list",
             onClick = onNavigateToNotification,
             colors = NavigationBarItemDefaults.colors(
@@ -135,7 +137,7 @@ fun ModernBottomNavigationBar(
         NavigationBarItem(
             icon = {
                 Icon(
-                    imageVector = Icons.Default.Person,
+                    painter = painterResource(id = R.drawable.profile_icomoon),
                     contentDescription = "Profile"
                 )
             },

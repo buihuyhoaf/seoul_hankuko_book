@@ -22,22 +22,16 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -68,6 +62,9 @@ import com.seoulhankuko.app.domain.model.QuestionType
 import com.seoulhankuko.app.presentation.components.MatchingQuestion
 import com.seoulhankuko.app.presentation.components.MatchingQuestionCard
 import com.seoulhankuko.app.presentation.components.rememberSoundManager
+import com.seoulhankuko.app.presentation.components.MainScaffold
+import com.seoulhankuko.app.presentation.components.TopBarState
+import com.seoulhankuko.app.presentation.viewmodel.MainUiViewModel
 import com.seoulhankuko.app.presentation.utils.AppColors
 import com.seoulhankuko.app.presentation.utils.LessonColors
 import com.seoulhankuko.app.presentation.utils.LessonFlowColors
@@ -88,10 +85,17 @@ fun LessonFlowScreen(
     lessonId: String,
     onNavigateBack: () -> Unit,
     onNavigateToListening: (exerciseId: String) -> Unit,
+    onNavigateToHome: () -> Unit,
+    onNavigateToNotification: () -> Unit,
+    onNavigateToProfile: () -> Unit,
+    onAvatarClick: (() -> Unit)? = null,
     viewModel: LessonViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showExitDialog by remember { mutableStateOf(false) }
+
+    val mainUiViewModel: MainUiViewModel = hiltViewModel()
+    val userData by mainUiViewModel.userData.collectAsStateWithLifecycle()
 
     BackHandler(enabled = true) {
         showExitDialog = true
@@ -102,40 +106,26 @@ fun LessonFlowScreen(
         viewModel.loadLesson(lessonId)
     }
 
-    Scaffold(
-        topBar = {
-            val lessonTitle = (uiState as? LessonUiState.Success)
-                ?.lessonWithChallenges
-                ?.lesson
-                ?.title
-                ?: "Bài học"
+    val lessonTitle = (uiState as? LessonUiState.Success)
+        ?.lessonWithChallenges
+        ?.lesson
+        ?.title
 
-            TopAppBar(
-                title = {
-                    Text(
-                        text = lessonTitle,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = LessonColors.TextPrimary
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = { showExitDialog = true }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Quay lại",
-                            tint = LessonColors.Accent
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    titleContentColor = LessonColors.TextPrimary,
-                    navigationIconContentColor = LessonColors.Accent
-                ),
-                modifier = Modifier.shadow(elevation = 4.dp)
-            )
-        },
+    MainScaffold(
+        topBarState = TopBarState(
+            userName = userData.name ?: userData.email ?: "Học viên",
+            streakDays = userData.streakDays,
+            exp = userData.exp,
+            courseTitle = lessonTitle,
+            courseThumbnailUrl = null,
+            isVisible = true,
+            isShown = true
+        ),
+        currentRoute = "courses",
+        onNavigateToHome = onNavigateToHome,
+        onNavigateToNotification = onNavigateToNotification,
+        onNavigateToProfile = onNavigateToProfile,
+        onAvatarClick = onAvatarClick ?: onNavigateToProfile,
         containerColor = LessonColors.BackgroundWhite
     ) { innerPadding ->
         when (val state = uiState) {
@@ -207,6 +197,7 @@ fun LessonFlowScreen(
             onDismiss = { showExitDialog = false },
             onConfirmExit = {
                 showExitDialog = false
+                viewModel.clearCurrentLesson()
                 onNavigateBack()
             }
         )
@@ -268,6 +259,9 @@ fun QuizPagerFlow(
     }
 
     LaunchedEffect(challenges) {
+        if (showResultScreen || showStreakScreen) {
+            return@LaunchedEffect
+        }
         showResultScreen = false
         showStreakScreen = false
         correctCount = 0
@@ -279,6 +273,7 @@ fun QuizPagerFlow(
         isUpdatingProgress = false
         pendingNavigation = false
         shouldNavigateAfterStreak = false
+        streakEventToShow = null
     }
 
     LaunchedEffect(streakCelebration) {

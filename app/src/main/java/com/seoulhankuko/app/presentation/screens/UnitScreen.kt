@@ -11,8 +11,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,15 +19,16 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.seoulhankuko.app.R
 import com.seoulhankuko.app.presentation.viewmodel.UnitViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.seoulhankuko.app.presentation.components.MainScaffold
+import com.seoulhankuko.app.presentation.components.TopBarState
+import com.seoulhankuko.app.presentation.viewmodel.MainUiViewModel
 import com.seoulhankuko.app.presentation.utils.UnitColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,7 +36,11 @@ import com.seoulhankuko.app.presentation.utils.UnitColors
 fun UnitScreen(
     unitId: String,
     onNavigateToLesson: (lessonId: String) -> Unit,
+    onNavigateToHome: () -> Unit,
+    onNavigateToNotification: () -> Unit,
+    onNavigateToProfile: () -> Unit,
     onNavigateBack: () -> Unit,
+    onAvatarClick: (() -> Unit)? = null,
     viewModel: UnitViewModel = hiltViewModel()
 ) {
     // Collect unit data from ViewModel
@@ -46,35 +49,25 @@ fun UnitScreen(
     LaunchedEffect(unitId) {
         viewModel.loadUnit(unitId)
     }
+ 
+    val mainUiViewModel: MainUiViewModel = hiltViewModel()
+    val userData by mainUiViewModel.userData.collectAsStateWithLifecycle()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = uiState.unitTitle ?: "Unit",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = UnitColors.TextPrimary
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.back),
-                            tint = UnitColors.SoftIndigo
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    titleContentColor = UnitColors.TextPrimary,
-                    navigationIconContentColor = UnitColors.SoftIndigo
-                ),
-                modifier = Modifier.shadow(elevation = 4.dp, shape = RoundedCornerShape(0.dp))
-            )
-        },
+    MainScaffold(
+        topBarState = TopBarState(
+            userName = userData.name ?: userData.email ?: "Học viên",
+            streakDays = userData.streakDays,
+            exp = userData.exp,
+            courseTitle = uiState.unitTitle,
+            courseThumbnailUrl = null,
+            isVisible = true,
+            isShown = true
+        ),
+        currentRoute = "courses",
+        onNavigateToHome = onNavigateToHome,
+        onNavigateToNotification = onNavigateToNotification,
+        onNavigateToProfile = onNavigateToProfile,
+        onAvatarClick = onAvatarClick ?: onNavigateToProfile,
         containerColor = UnitColors.BackgroundLight
     ) { paddingValues ->
         Box(

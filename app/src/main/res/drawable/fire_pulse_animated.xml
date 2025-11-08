@@ -1,0 +1,6 @@
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/fire_svgrepo_com">
+    <target
+        android:name="pulseGroup"
+        android:animation="@animator/pulse_scale" />
+</animated-vector>
