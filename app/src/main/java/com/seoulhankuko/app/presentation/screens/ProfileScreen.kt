@@ -80,8 +80,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.seoulhankuko.app.R
-import com.seoulhankuko.app.presentation.components.MainScaffold
-import com.seoulhankuko.app.presentation.components.TopBarState
+import com.seoulhankuko.app.presentation.components.ModernBottomNavigationBar
 import com.seoulhankuko.app.presentation.utils.MiscColors
 import com.seoulhankuko.app.presentation.utils.ProfileColors
 import com.seoulhankuko.app.presentation.viewmodel.GoogleSignInViewModel
@@ -107,21 +106,21 @@ fun ProfileScreen(
 
     var showLogoutDialog by remember { mutableStateOf(false) }
 
-    MainScaffold(
-        topBarState = TopBarState(
-            userName = userData?.name ?: userData?.email ?: "Người học",
-            streakDays = userData?.streakDays ?: 0,
-            exp = userData?.exp ?: 0,
-            courseTitle = null,
-            courseThumbnailUrl = userData?.avatarUrl,
-            isVisible = true,
-            isShown = true
-        ),
-        currentRoute = "profile",
-        onNavigateToHome = onNavigateToHome,
-        onNavigateToNotification = onNavigateToNotification,
-        onNavigateToProfile = onNavigateToProfile,
-        onAvatarClick = onAvatarClick ?: onNavigateToProfile,
+    Scaffold(
+        topBar = {
+            ProfileTopBar(
+                onNavigateBack = onNavigateBack,
+                onSettingsClick = onNavigateToSettings
+            )
+        },
+        bottomBar = {
+            ModernBottomNavigationBar(
+                currentRoute = "profile",
+                onNavigateToHome = onNavigateToHome,
+                onNavigateToNotification = onNavigateToNotification,
+                onNavigateToProfile = { /* Already here */ }
+            )
+        },
         containerColor = ProfileColors.BackgroundLight
     ) { innerPadding ->
         LazyColumn(
@@ -178,6 +177,56 @@ fun ProfileScreen(
             }
         )
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ProfileTopBar(
+    onNavigateBack: () -> Unit,
+    onSettingsClick: (() -> Unit)?
+) {
+    val gradient = Brush.linearGradient(
+        colors = listOf(ProfileColors.PrimaryGreen, ProfileColors.SecondaryGreen)
+    )
+
+    TopAppBar(
+        title = {
+            Text(
+                text = "Profile",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+        },
+        navigationIcon = {
+            IconButton(onClick = onNavigateBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Quay lại",
+                    tint = Color.White
+                )
+            }
+        },
+        actions = {
+            onSettingsClick?.let { onSettings ->
+                IconButton(onClick = onSettings) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Cài đặt",
+                        tint = Color.White
+                    )
+                }
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = Color.Transparent,
+            titleContentColor = Color.White,
+            navigationIconContentColor = Color.White
+        ),
+        modifier = Modifier
+            .background(gradient)
+            .statusBarsPadding()
+    )
 }
 
 @Composable

@@ -334,22 +334,6 @@ fun AppNavigation(
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToListening = { exerciseId ->
                         navController.navigate("listening/$exerciseId/lesson/$id")
-                    },
-                    onNavigateToHome = {
-                        navController.navigate("courses") {
-                            popUpTo("courses") { inclusive = false }
-                            launchSingleTop = true
-                        }
-                    },
-                    onNavigateToNotification = {
-                        navController.navigate("alphabet_list") {
-                            launchSingleTop = true
-                        }
-                    },
-                    onNavigateToProfile = {
-                        navController.navigate("profile") {
-                            launchSingleTop = true
-                        }
                     }
                 )
             }
