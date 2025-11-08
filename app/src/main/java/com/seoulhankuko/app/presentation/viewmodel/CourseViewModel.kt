@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -49,10 +50,26 @@ class CourseViewModel @Inject constructor(
 
     fun loadCourse(courseId: String) {
         viewModelScope.launch {
-            _uiState.value = CourseUiState.Loading
+            // First, try to get cached data immediately (synchronous, fast)
+            val cachedCourse = try {
+                courseRepository.getCachedCourse(courseId)
+            } catch (e: Exception) {
+                null
+            }
+            
+            if (cachedCourse != null) {
+                // Show cached data immediately - no loading state
+                _uiState.value = CourseUiState.Success(
+                    course = cachedCourse,
+                    units = cachedCourse.units.sortedBy { it.orderIndex }
+                )
+            } else {
+                // No cache - show loading state
+                _uiState.value = CourseUiState.Loading
+            }
             
             try {
-                // First ensure we have a valid token
+                // Then ensure we have a valid token
                 val tokenResult = authRepository.ensureValidToken()
                 val token = if (tokenResult.isSuccess) {
                     tokenResult.getOrNull()
@@ -61,40 +78,11 @@ class CourseViewModel @Inject constructor(
                     authRepository.getCurrentToken() ?: null
                 }
                 
-                // Try to load course details from repository
-                courseRepository.getCourse(courseId, token).fold(
-                    onSuccess = { courseDetail ->
-                        _uiState.value = CourseUiState.Success(
-                            course = courseDetail,
-                            units = courseDetail.units.sortedBy { it.orderIndex }
-                        )
-                    },
-                    onFailure = { exception ->
-                        // If we get a token expiry error, try to refresh and retry once
-                        if (exception is AppException.AuthException.TokenExpired) {
-                            val refreshResult = authRepository.refreshCurrentToken()
-                            if (refreshResult.isSuccess) {
-                                // Retry with new token
-                                val newToken = refreshResult.getOrNull()
-                                courseRepository.getCourse(courseId, newToken).fold(
-                                    onSuccess = { courseDetail ->
-                                        _uiState.value = CourseUiState.Success(
-                                            course = courseDetail,
-                                            units = courseDetail.units.sortedBy { it.orderIndex }
-                                        )
-                                    },
-                                    onFailure = { retryException ->
-                                        val errorMessage = when (retryException) {
-                                            is AppException -> retryException.message ?: "Unknown error occurred"
-                                            else -> retryException.message ?: "Unknown error occurred"
-                                        }
-                                        _uiState.value = CourseUiState.Error(errorMessage)
-                                    }
-                                )
-                            } else {
-                                _uiState.value = CourseUiState.Error("Session expired. Please login again.")
-                            }
-                        } else {
+                // Use Flow-based approach - will emit cached data first (if not already shown), then fresh data
+                courseRepository.getCourseFlow(courseId, token)
+                    .catch { exception ->
+                        // Only show error if we don't have cached data
+                        if (cachedCourse == null) {
                             val errorMessage = when (exception) {
                                 is AppException -> exception.message ?: "Unknown error occurred"
                                 else -> exception.message ?: "Unknown error occurred"
@@ -102,11 +90,67 @@ class CourseViewModel @Inject constructor(
                             _uiState.value = CourseUiState.Error(errorMessage)
                         }
                     }
-                )
+                    .collect { result ->
+                        result.fold(
+                            onSuccess = { courseDetail ->
+                                // Always update with fresh data from API
+                                _uiState.value = CourseUiState.Success(
+                                    course = courseDetail,
+                                    units = courseDetail.units.sortedBy { it.orderIndex }
+                                )
+                            },
+                            onFailure = { exception ->
+                                // If we get a token expiry error, try to refresh and retry once
+                                if (exception is AppException.AuthException.TokenExpired) {
+                                    val refreshResult = authRepository.refreshCurrentToken()
+                                    if (refreshResult.isSuccess) {
+                                        // Retry with new token - use suspend function for retry
+                                        val newToken = refreshResult.getOrNull()
+                                        val retryResult = courseRepository.getCourse(courseId, newToken)
+                                        retryResult.fold(
+                                            onSuccess = { courseDetail ->
+                                                _uiState.value = CourseUiState.Success(
+                                                    course = courseDetail,
+                                                    units = courseDetail.units.sortedBy { it.orderIndex }
+                                                )
+                                            },
+                                            onFailure = { retryException ->
+                                                // Only show error if we don't have cached data
+                                                if (cachedCourse == null) {
+                                                    val errorMessage = when (retryException) {
+                                                        is AppException -> retryException.message ?: "Unknown error occurred"
+                                                        else -> retryException.message ?: "Unknown error occurred"
+                                                    }
+                                                    _uiState.value = CourseUiState.Error(errorMessage)
+                                                }
+                                            }
+                                        )
+                                    } else {
+                                        // Only show error if we don't have cached data
+                                        if (cachedCourse == null) {
+                                            _uiState.value = CourseUiState.Error("Session expired. Please login again.")
+                                        }
+                                    }
+                                } else {
+                                    // Only show error if we don't have cached data
+                                    if (cachedCourse == null) {
+                                        val errorMessage = when (exception) {
+                                            is AppException -> exception.message ?: "Unknown error occurred"
+                                            else -> exception.message ?: "Unknown error occurred"
+                                        }
+                                        _uiState.value = CourseUiState.Error(errorMessage)
+                                    }
+                                }
+                            }
+                        )
+                    }
             } catch (e: Exception) {
-                _uiState.value = CourseUiState.Error(
-                    e.message ?: "Failed to load course"
-                )
+                // Only show error if we don't have cached data
+                if (cachedCourse == null) {
+                    _uiState.value = CourseUiState.Error(
+                        e.message ?: "Failed to load course"
+                    )
+                }
             }
         }
     }

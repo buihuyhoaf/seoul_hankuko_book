@@ -1,5 +1,9 @@
 package com.seoulhankuko.app.presentation.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -15,22 +19,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.ui.res.painterResource
-import com.seoulhankuko.app.R
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -46,8 +48,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -55,17 +59,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.seoulhankuko.app.domain.model.QuestionType
+import com.seoulhankuko.app.R
 import com.seoulhankuko.app.domain.model.LessonWithChallenges
 import com.seoulhankuko.app.presentation.utils.LessonColors
 import com.seoulhankuko.app.presentation.viewmodel.LessonUiState
 import com.seoulhankuko.app.presentation.viewmodel.LessonViewModel
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import kotlinx.coroutines.delay
-import timber.log.Timber
+import kotlin.math.max
+import kotlin.math.roundToInt
 
-/**
- * Modern LessonScreen with timeline
- */
+private const val ITEM_ANIMATION_DELAY = 80L
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LessonScreen(
@@ -77,103 +85,92 @@ fun LessonScreen(
     onNavigateToWriting: (exerciseId: String) -> Unit = {},
     viewModel: LessonViewModel = hiltViewModel()
 ) {
-    var isLoading by remember { mutableStateOf(true) }
-    var visible by remember { mutableStateOf(false) }
-    val listState = rememberLazyListState()
-    
-    // Load lesson data
     LaunchedEffect(lessonId) {
-        isLoading = true
         viewModel.loadLesson(lessonId)
     }
     
-    // Observe UI state
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    
-    // Update local state
-    LaunchedEffect(uiState) {
-        when (val currentState = uiState) {
-            is LessonUiState.Loading -> {
-                isLoading = true
-            }
-            is LessonUiState.Success -> {
-                isLoading = false
-                delay(300)
-                visible = true
-            }
-            is LessonUiState.Error -> {
-                isLoading = false
-                Timber.e("Error loading lesson: ${currentState.message}")
-            }
-        }
-    }
-    
-    val lessonInfo = (uiState as? LessonUiState.Success)?.lessonWithChallenges
+    val lessonTitle = (uiState as? LessonUiState.Success)?.lessonWithChallenges?.lesson?.title
+    val topBarTitle = lessonTitle?.takeIf { it.isNotBlank() }
+        ?.let { "Bài học: $it" }
+        ?: "Bài học: $lessonId"
     
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
                     Text(
-                        text = lessonInfo?.lesson?.title ?: "Lesson $lessonId",
-                        style = MaterialTheme.typography.titleLarge,
+                            text = topBarTitle,
+                            fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
+                            color = LessonColors.TextPrimary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    }
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
+                            contentDescription = "Quay lại",
+                            tint = LessonColors.Accent
             )
                     }
         },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
+                    containerColor = Color.White,
+                    titleContentColor = LessonColors.TextPrimary,
+                    navigationIconContentColor = LessonColors.Accent
                 ),
-                modifier = Modifier
-                    .background(
-                        brush = Brush.horizontalGradient(
-                            colors = listOf(LessonColors.TopBarGradientStart, LessonColors.TopBarGradientEnd)
-                        )
-                    )
-                    .shadow(elevation = 4.dp, shape = RoundedCornerShape(0.dp))
+                modifier = Modifier.shadow(elevation = 4.dp, shape = RoundedCornerShape(0.dp))
             )
         },
         containerColor = LessonColors.BackgroundWhite
     ) { paddingValues ->
-        when {
-            isLoading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = LessonColors.QuestionColor)
-                }
+        when (val state = uiState) {
+            is LessonUiState.Loading -> {
+                LessonLoadingState(modifier = Modifier
+                    .padding(paddingValues)
+                    .fillMaxSize())
             }
-            else -> {
-                lessonInfo?.let { lesson ->
-                    LessonTimelineContent(
-                        lessonInfo = lesson,
-                        listState = listState,
-                        progressPercent = lesson.progressPercent,
+
+            is LessonUiState.Error -> {
+                LessonErrorState(
+                    modifier = Modifier
+                        .padding(paddingValues)
+                        .fillMaxSize(),
+                    onRetry = { viewModel.loadLesson(lessonId) },
+                    onNavigateBack = onNavigateBack
+                )
+                }
+
+            is LessonUiState.Success -> {
+                val lessonInfo = state.lessonWithChallenges
+                if (lessonInfo != null) {
+                    LessonContent(
+                modifier = Modifier
+                            .padding(paddingValues)
+                            .fillMaxSize(),
+                        lessonInfo = lessonInfo,
                         onNavigateToLessonFlow = onNavigateToLessonFlow,
                         onNavigateToListening = onNavigateToListening,
                         onNavigateToSpeaking = onNavigateToSpeaking,
-                        onNavigateToWriting = onNavigateToWriting,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues)
+                        onNavigateToWriting = onNavigateToWriting
                     )
-                } ?: run {
+                } else {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .padding(paddingValues)
+                            .fillMaxSize()
+                            .background(LessonColors.BackgroundWhite),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("Lesson not found", color = LessonColors.TextPrimary)
+                        LessonEmptyState()
                     }
                 }
             }
@@ -181,149 +178,433 @@ fun LessonScreen(
     }
 }
 
-/**
- * Main timeline content with header
- */
 @Composable
-private fun LessonTimelineContent(
+private fun LessonContent(
+    modifier: Modifier = Modifier,
     lessonInfo: LessonWithChallenges,
-    listState: LazyListState,
-    progressPercent: Int,
     onNavigateToLessonFlow: () -> Unit,
     onNavigateToListening: (exerciseId: String) -> Unit,
     onNavigateToSpeaking: (exerciseId: String) -> Unit,
-    onNavigateToWriting: (exerciseId: String) -> Unit,
-    modifier: Modifier = Modifier
+    onNavigateToWriting: (exerciseId: String) -> Unit
 ) {
-    // Prepare timeline items
     val timelineItems = remember(lessonInfo) {
         buildTimelineItems(lessonInfo)
     }
     
     LazyColumn(
-        state = listState,
-        modifier = modifier,
-        contentPadding = PaddingValues(bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(0.dp)
+        modifier = modifier.background(LessonColors.BackgroundWhite),
+        contentPadding = PaddingValues(bottom = 32.dp)
     ) {
-        // Lesson Header
         item {
-            LessonHeader(
+            LessonSummaryCard(
                 lessonTitle = lessonInfo.lesson.title,
-                lessonDescription = "Let's start learning Korean!",
-                progressPercent = progressPercent
+                lessonMeaning = lessonInfo.lesson.description,
+                progressPercent = lessonInfo.progressPercent
             )
         }
         
-        // Timeline items
-        itemsIndexed(
-            items = timelineItems,
-            key = { index, item -> item.id }
-        ) { index, item ->
-            TimelineNode(
+        if (timelineItems.isEmpty()) {
+            item { LessonEmptyState() }
+        } else {
+            itemsIndexed(timelineItems, key = { _, item -> item.id }) { index, item ->
+                LessonTimelineCard(
                 item = item,
-                isFirst = index == 0,
-                isLast = index == timelineItems.size - 1,
-                itemIndex = index,
-                onItemClick = {
+                    index = index,
+                    onClick = {
                     when (item.type) {
                         TimelineItemType.QUESTION -> onNavigateToLessonFlow()
-                        TimelineItemType.LISTENING -> {
-                            item.exerciseId?.let { onNavigateToListening(it) }
-                        }
-                        TimelineItemType.SPEAKING -> {
-                            item.exerciseId?.let { onNavigateToSpeaking(it) }
-                        }
-                        TimelineItemType.PRONUNCIATION -> {
-                            item.exerciseId?.let { onNavigateToSpeaking(it) }
-                        }
-                        TimelineItemType.WRITING -> {
-                            item.exerciseId?.let { onNavigateToWriting(it) }
-                        }
+                            TimelineItemType.LISTENING -> item.exerciseId?.let(onNavigateToListening)
+                            TimelineItemType.SPEAKING -> item.exerciseId?.let(onNavigateToSpeaking)
+                            TimelineItemType.PRONUNCIATION -> item.exerciseId?.let(onNavigateToSpeaking)
+                            TimelineItemType.WRITING -> item.exerciseId?.let(onNavigateToWriting)
                     }
                 }
             )
         }
     }
 }
+}
 
-/**
- * Fixed lesson header (no collapse functionality)
- */
 @Composable
-private fun LessonHeader(
+private fun LessonSummaryCard(
     lessonTitle: String,
-    lessonDescription: String,
+    lessonMeaning: String?,
     progressPercent: Int
 ) {
-    Box(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        LessonColors.HeaderGradientStart,
-                        LessonColors.HeaderGradientEnd
-                    )
-                )
-            )
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
+                .padding(horizontal = 20.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Title
                 Text(
                     text = lessonTitle,
-                    style = MaterialTheme.typography.headlineSmall,
+                fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                 color = LessonColors.TextPrimary,
                     textAlign = TextAlign.Center
                 )
                 
-                // Description
+            lessonMeaning?.takeIf { it.isNotBlank() }?.let { meaning ->
                 Text(
-                    text = lessonDescription,
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = "($meaning)",
+                    fontStyle = FontStyle.Italic,
+                    fontSize = 14.sp,
                 color = LessonColors.TextSecondary,
                     textAlign = TextAlign.Center
                 )
+            }
                 
-            // Progress Bar
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Tiến độ học",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = LessonColors.TextPrimary
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = "$progressPercent%",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = LessonColors.Accent
+                    )
+                }
+
                         LinearProgressIndicator(
-                            progress = { progressPercent / 100f },
+                    progress = { progressPercent.coerceIn(0, 100) / 100f },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(8.dp)
                                 .clip(RoundedCornerShape(4.dp)),
                     color = LessonColors.QuestionColor,
-                    trackColor = LessonColors.ConnectorLineColor
+                    trackColor = LessonColors.ConnectorLineColor.copy(alpha = 0.3f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LessonTimelineCard(
+    item: TimelineItem,
+    index: Int,
+    onClick: () -> Unit
+) {
+    var isVisible by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.96f else 1f,
+        animationSpec = tween(durationMillis = 150),
+        label = "cardScale"
+    )
+    val cardAlpha = if (item.status == LessonItemStatus.LOCKED) 0.6f else 1f
+
+    LaunchedEffect(Unit) {
+        delay(index * ITEM_ANIMATION_DELAY)
+        isVisible = true
+    }
+
+    AnimatedVisibility(
+        visible = isVisible,
+        enter = fadeIn() + slideInVertically(initialOffsetY = { it / 4 }),
+        exit = fadeOut()
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                }
+                .alpha(cardAlpha)
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = LessonColors.CardBackground),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                onClick = {
+                    if (item.status != LessonItemStatus.LOCKED) {
+                        onClick()
+                    }
+                },
+                enabled = item.status != LessonItemStatus.LOCKED,
+                interactionSource = interactionSource
+            ) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(64.dp)
+                                    .background(item.iconColor, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = item.iconRes),
+                                    contentDescription = item.title,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = item.title,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = LessonColors.TextPrimary,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                Text(
+                                    text = item.description,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = LessonColors.TextSecondary,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            when (item.status) {
+                                LessonItemStatus.COMPLETED -> {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(text = "✅", fontSize = 14.sp)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "Hoàn thành",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = LessonColors.CompletedGreen
+                                        )
+                                    }
+                                }
+
+                                LessonItemStatus.IN_PROGRESS -> {
+                                    Row(
+                                        modifier = Modifier
+                                            .background(LessonColors.AccentSoft, RoundedCornerShape(20.dp))
+                                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(text = "📈", fontSize = 12.sp)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "Đang học",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = LessonColors.Accent
+                                        )
+                                    }
+                                }
+
+                                LessonItemStatus.LOCKED -> {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(text = "🔒", fontSize = 14.sp)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "Chưa mở khóa",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = LessonColors.TextSecondary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (item.status == LessonItemStatus.COMPLETED) {
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .background(Color.Black.copy(alpha = 0.15f), RoundedCornerShape(16.dp))
                         )
-                        
-                        Text(
-                            text = "Progress: $progressPercent%",
-                            style = MaterialTheme.typography.bodySmall,
-                    color = LessonColors.TextSecondary,
-                    fontWeight = FontWeight.Medium
+
+                        Icon(
+                            imageVector = Icons.Rounded.CheckCircle,
+                            contentDescription = "Hoàn thành",
+                            tint = LessonColors.CompletedGreen,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(12.dp)
+                                .size(24.dp)
+                        )
+                    }
+
+                    if (item.status == LessonItemStatus.LOCKED) {
+                        Icon(
+                            imageVector = Icons.Outlined.Lock,
+                            contentDescription = "Chưa mở khóa",
+                            tint = LessonColors.TextSecondary,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(12.dp)
+                                .size(22.dp)
                         )
                     }
                 }
             }
         }
-        
-/**
- * Timeline item data structure
- */
+    }
+}
+
+@Composable
+private fun LessonLoadingState(modifier: Modifier = Modifier) {
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator(color = LessonColors.QuestionColor)
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Đang tải bài học…",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = LessonColors.TextSecondary
+                        )
+                    }
+                }
+            }
+
+@Composable
+private fun LessonErrorState(
+    modifier: Modifier = Modifier,
+    onRetry: () -> Unit,
+    onNavigateBack: () -> Unit
+) {
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text(
+                text = "Không thể tải bài học. Vui lòng thử lại.",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = LessonColors.TextPrimary,
+                textAlign = TextAlign.Center
+            )
+
+            Row(
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                LessonActionChip(
+                    text = "Thử lại",
+                    backgroundColor = LessonColors.Accent,
+                    contentColor = Color.White,
+                    onClick = onRetry
+                )
+
+                LessonActionChip(
+                    text = "Quay lại",
+                    backgroundColor = LessonColors.AccentSoft,
+                    contentColor = LessonColors.Accent,
+                    onClick = onNavigateBack
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LessonActionChip(
+    text: String,
+    backgroundColor: Color,
+    contentColor: Color,
+    onClick: () -> Unit
+) {
+    Text(
+        text = text,
+        fontSize = 14.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = contentColor,
+        modifier = Modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(backgroundColor)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 10.dp)
+    )
+}
+
+@Composable
+private fun LessonEmptyState() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Icon(
+            painter = painterResource(id = R.drawable.mascot_sad),
+            contentDescription = null,
+            tint = LessonColors.Accent,
+            modifier = Modifier.size(48.dp)
+        )
+
+        Text(
+            text = "Nội dung bài học đang được cập nhật.",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium,
+            color = LessonColors.TextPrimary,
+            textAlign = TextAlign.Center
+        )
+
+        Text(
+            text = "Hãy quay lại sau nhé!",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Normal,
+            color = LessonColors.TextSecondary,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
 private enum class TimelineItemType {
-    QUESTION, LISTENING, SPEAKING, PRONUNCIATION, WRITING
+    QUESTION,
+    LISTENING,
+    SPEAKING,
+    PRONUNCIATION,
+    WRITING
+}
+
+private enum class LessonItemStatus {
+    COMPLETED,
+    IN_PROGRESS,
+    LOCKED
 }
 
 private data class TimelineItem(
@@ -331,46 +612,33 @@ private data class TimelineItem(
     val type: TimelineItemType,
     val title: String,
     val description: String,
-    val isCompleted: Boolean = false,
-    val exerciseId: String? = null // Store exerciseId for navigation
+    val status: LessonItemStatus,
+    val iconRes: Int,
+    val iconColor: Color,
+    val exerciseId: String?
 )
         
-/**
- * Build timeline items from lesson data
- */
 private fun buildTimelineItems(
     lessonInfo: LessonWithChallenges
 ): List<TimelineItem> {
-    val items = mutableListOf<TimelineItem>()
+    val rawItems = mutableListOf<BaseTimelineItem>()
     
-    // Add Questions node (if questions exist)
-    val questionTypes = setOf(
-        QuestionType.MULTIPLE_CHOICE,
-        QuestionType.BLANK,
-        QuestionType.MATCHING,
-        QuestionType.AUDIO_COMPREHENSION,
-        QuestionType.SENTENCE_ORDER,
-        QuestionType.IMAGE_SELECTION
-    )
-    val hasQuestions = lessonInfo.challenges.any { it.challenge.type in questionTypes }
-    val allQuestionsCompleted = hasQuestions && lessonInfo.challenges
-        .filter { it.challenge.type in questionTypes }
-        .all { it.completed }
+    val questionCompleted = lessonInfo.challenges.isNotEmpty() && lessonInfo.challenges.all { it.completed }
     
-    if (hasQuestions) {
-        items.add(
-            TimelineItem(
+    if (lessonInfo.challenges.isNotEmpty()) {
+        rawItems.add(
+            BaseTimelineItem(
                 id = "questions",
                 type = TimelineItemType.QUESTION,
-                title = "Questions",
-                description = "Practice questions",
-                isCompleted = allQuestionsCompleted
+                exerciseId = null,
+                isCompleted = questionCompleted
             )
         )
     }
     
-    // Add Exercise nodes
-    lessonInfo.exercises.forEach { exercise ->
+    lessonInfo.exercises
+        .sortedBy { it.orderIndex }
+        .forEach { exercise ->
         val type = when (exercise.type.lowercase()) {
             "listening", "audio_comprehension" -> TimelineItemType.LISTENING
             "speaking" -> TimelineItemType.SPEAKING
@@ -380,218 +648,105 @@ private fun buildTimelineItems(
         }
         
         if (type != null) {
-            items.add(
-                TimelineItem(
+                rawItems.add(
+                    BaseTimelineItem(
                     id = "exercise_${exercise.id}",
                     type = type,
-                    title = exercise.title ?: exercise.type.replaceFirstChar { it.uppercaseChar() },
-                    description = exercise.content ?: "",
-                    isCompleted = false, // TODO: Get from progress tracking
-                    exerciseId = exercise.id
+                        exerciseId = exercise.id,
+                        isCompleted = false
+                    )
                 )
-            )
+            }
         }
-    }
-    
-    return items
-}
 
-/**
- * Timeline node component with centered vertical line
- */
-@Composable
-private fun TimelineNode(
-    item: TimelineItem,
-    isFirst: Boolean,
-    isLast: Boolean,
-    itemIndex: Int,
-    onItemClick: () -> Unit
-) {
-    val nodeColor = when (item.type) {
-        TimelineItemType.QUESTION -> LessonColors.QuestionColor
-        TimelineItemType.LISTENING -> LessonColors.ListeningColor
-        TimelineItemType.SPEAKING -> LessonColors.SpeakingColor
-        TimelineItemType.PRONUNCIATION -> LessonColors.PronunciationColor
-        TimelineItemType.WRITING -> LessonColors.SpeakingColor
+    if (rawItems.isEmpty()) {
+        return emptyList()
     }
-    
-    val iconDrawable = when (item.type) {
-        TimelineItemType.QUESTION -> R.drawable.question_awesome
-        TimelineItemType.LISTENING -> R.drawable.assistive_listening_systems
-        TimelineItemType.SPEAKING -> R.drawable.sharp_solid_microphone_stand
-        TimelineItemType.PRONUNCIATION -> R.drawable.sharp_solid_microphone_stand
-        TimelineItemType.WRITING -> R.drawable.writing
-    }
-    
-    // Animated entrance - only delay first few items to avoid long delays for later items
-    var isVisible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        // Only apply stagger delay for first 3 items, rest appear immediately when scrolled into view
-        if (itemIndex < 3) {
-            delay(itemIndex * 100L)
+
+    val totalItems = rawItems.size
+    val progressCompleted = ((lessonInfo.progressPercent / 100f) * totalItems)
+        .roundToInt()
+        .coerceIn(0, totalItems)
+    val dataCompleted = rawItems.count { it.isCompleted }
+    val completedCount = max(progressCompleted, dataCompleted)
+
+    var inProgressAssigned = false
+
+    return rawItems.mapIndexed { index, baseItem ->
+        val isCompleted = baseItem.isCompleted || index < completedCount
+        val status = when {
+            isCompleted -> LessonItemStatus.COMPLETED
+            !inProgressAssigned -> {
+                inProgressAssigned = true
+                LessonItemStatus.IN_PROGRESS
+            }
+            else -> LessonItemStatus.LOCKED
         }
-        isVisible = true
-    }
-    
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 16.dp),
-        horizontalArrangement = Arrangement.Center
-    ) {
-        // Left side - for even indices (0, 2, 4...)
-        if (itemIndex % 2 == 0) {
-            Box(
-                modifier = Modifier.weight(1f),
-                contentAlignment = if (itemIndex == 0) Alignment.Center else Alignment.CenterEnd
-            ) {
-                TimelineCircularNode(
-                    item = item,
-                    nodeColor = nodeColor,
-                    iconDrawable = iconDrawable,
-                    onClick = onItemClick,
-                    modifier = Modifier
-                        .padding(end = if (itemIndex == 0) 0.dp else 24.dp)
-                        .alpha(if (isVisible) 1f else 0f)
-            )
-            }
-            
-            // Center line and node indicator
-            Box(
-                modifier = Modifier.width(48.dp),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                // Vertical connector line
-                if (!isLast) {
-                    Box(
-                        modifier = Modifier
-                            .width(2.dp)
-                            .height(120.dp)
-                            .align(Alignment.TopCenter)
-                            .background(LessonColors.ConnectorLineColor)
-                    )
-                }
-                
-                // Circular indicator on line (at top, center horizontally)
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clip(CircleShape)
-                        .background(nodeColor)
-                        .align(Alignment.TopCenter)
-                )
-            }
-            
-            // Right side - empty for even indices
-            Spacer(modifier = Modifier.weight(1f))
-        } else {
-            // Right side - for odd indices (1, 3, 5...)
-            // Left side - empty for odd indices
-            Spacer(modifier = Modifier.weight(1f))
-            
-            // Center line and node indicator
-            Box(
-                modifier = Modifier.width(48.dp),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                // Vertical connector line
-                if (!isLast) {
-                    Box(
-                        modifier = Modifier
-                            .width(2.dp)
-                            .height(120.dp)
-                            .align(Alignment.TopCenter)
-                            .background(LessonColors.ConnectorLineColor)
-                    )
-                }
-                
-                // Circular indicator on line (at top, center horizontally)
-                Box(modifier = Modifier
-                        .size(24.dp)
-                        .clip(CircleShape)
-                        .background(nodeColor)
-                        .align(Alignment.TopCenter)
-                )
-            }
-            
-            Box(
-                modifier = Modifier.weight(1f),
-                contentAlignment = Alignment.CenterStart
-            ) {
-                TimelineCircularNode(
-                    item = item,
-                    nodeColor = nodeColor,
-                    iconDrawable = iconDrawable,
-                    onClick = onItemClick,
-                    modifier = Modifier
-                        .padding(start = 24.dp)
-                        .alpha(if (isVisible) 1f else 0f)
-                )
-            }
-        }
+
+        val (title, description, iconRes, iconColor) = timelineVisuals(baseItem.type)
+
+        TimelineItem(
+            id = baseItem.id,
+            type = baseItem.type,
+            title = title,
+            description = description,
+            status = status,
+            iconRes = iconRes,
+            iconColor = iconColor,
+            exerciseId = baseItem.exerciseId
+        )
     }
 }
 
-/**
- * Simple circular timeline node - just circle with icon, content below
- */
-@Composable
-private fun TimelineCircularNode(
-    item: TimelineItem,
-    nodeColor: Color,
-    iconDrawable: Int,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        // Simple circular icon button - no shadow, just colored circle
-        Box(
-            modifier = Modifier
-                .size(72.dp)
-                .clip(CircleShape)
-                .background(nodeColor)
-                .clickable(onClick = onClick),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painter = painterResource(id = iconDrawable),
-                contentDescription = item.title,
-                tint = Color.White,
-                modifier = Modifier.size(36.dp)
-            )
-            
-            // Completed overlay
-            if (item.isCompleted) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.2f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Completed",
-                        tint = LessonColors.CompletedGreen,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-            }
-        }
-        
-        // Content below circle
-        Text(
-            text = item.title,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = LessonColors.TextPrimary,
-            fontSize = 14.sp,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
+private data class BaseTimelineItem(
+    val id: String,
+    val type: TimelineItemType,
+    val exerciseId: String?,
+    val isCompleted: Boolean
+)
+
+private data class TimelineVisuals(
+    val title: String,
+    val description: String,
+    val iconRes: Int,
+    val iconColor: Color
+)
+
+private fun timelineVisuals(type: TimelineItemType): TimelineVisuals {
+    return when (type) {
+        TimelineItemType.QUESTION -> TimelineVisuals(
+            title = "Câu hỏi luyện tập",
+            description = "Làm quen với dạng câu hỏi, chọn đáp án đúng",
+            iconRes = R.drawable.question_awesome,
+            iconColor = LessonColors.QuestionColor
+        )
+
+        TimelineItemType.LISTENING -> TimelineVisuals(
+            title = "Luyện nghe",
+            description = "Nghe hội thoại và chọn đáp án đúng",
+            iconRes = R.drawable.headphone,
+            iconColor = LessonColors.ListeningColor
+        )
+
+        TimelineItemType.SPEAKING -> TimelineVisuals(
+            title = "Luyện nói",
+            description = "Lặp lại câu, luyện phát âm",
+            iconRes = R.drawable.sharp_solid_microphone_stand,
+            iconColor = LessonColors.SpeakingColor
+        )
+
+        TimelineItemType.PRONUNCIATION -> TimelineVisuals(
+            title = "Phát âm",
+            description = "Ghi âm và so sánh phát âm",
+            iconRes = R.drawable.sharp_solid_microphone_stand,
+            iconColor = LessonColors.PronunciationColor
+        )
+
+        TimelineItemType.WRITING -> TimelineVisuals(
+            title = "Luyện viết",
+            description = "Hoàn thiện câu tiếng Hàn đúng ngữ pháp",
+            iconRes = R.drawable.writing,
+            iconColor = LessonColors.WritingColor
         )
     }
 }

@@ -68,7 +68,6 @@ fun ModernHomeScreen(
     // Collect data from HomeViewModel
     val courses by homeViewModel.courses.collectAsStateWithLifecycle()
     val isLoading by homeViewModel.isLoading.collectAsStateWithLifecycle()
-    val authState by homeViewModel.authState.collectAsStateWithLifecycle()
     val userName by homeViewModel.currentUserName.collectAsStateWithLifecycle()
     val popupCourseId by homeViewModel.popupCourseId.collectAsStateWithLifecycle()
 

@@ -12,15 +12,19 @@ import com.seoulhankuko.app.data.database.entities.*
 
 @Database(
     entities = [
-        LoggedAccountEntity::class
+        LoggedAccountEntity::class,
+        CourseCacheEntity::class,
+        UnitCacheEntity::class,
+        LessonCacheEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     
     abstract fun loggedAccountDao(): LoggedAccountDao
+    abstract fun courseCacheDao(): CourseCacheDao
     
     companion object {
         @Volatile
@@ -54,7 +58,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "seoul_hankuko_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .build()
                 INSTANCE = instance
                 instance
@@ -156,6 +160,66 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL("DROP TABLE IF EXISTS `user_progress`")
                 database.execSQL("DROP TABLE IF EXISTS `challenge_progress`")
                 database.execSQL("DROP TABLE IF EXISTS `user_subscriptions`")
+            }
+        }
+
+        /**
+         * Migration 5->6: Add cache tables for courses, units, and lessons
+         */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Create courses_cache table
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `courses_cache` (
+                        `id` TEXT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `description` TEXT,
+                        `imageUrl` TEXT,
+                        `orderIndex` INTEGER NOT NULL,
+                        `createdAt` TEXT,
+                        `lastUpdated` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`)
+                    )
+                """.trimIndent())
+
+                // Create units_cache table
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `units_cache` (
+                        `id` TEXT NOT NULL,
+                        `courseId` TEXT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `description` TEXT,
+                        `orderIndex` INTEGER NOT NULL,
+                        `createdAt` TEXT,
+                        `lessonsCount` INTEGER NOT NULL DEFAULT 0,
+                        `lastUpdated` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`),
+                        FOREIGN KEY(`courseId`) REFERENCES `courses_cache`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                """.trimIndent())
+
+                // Create index on units_cache.courseId
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_units_cache_courseId` ON `units_cache`(`courseId`)")
+
+                // Create lessons_cache table
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `lessons_cache` (
+                        `id` TEXT NOT NULL,
+                        `unitId` TEXT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `description` TEXT,
+                        `orderIndex` INTEGER NOT NULL,
+                        `createdAt` TEXT,
+                        `quizzesCount` INTEGER NOT NULL DEFAULT 0,
+                        `exercisesCount` INTEGER NOT NULL DEFAULT 0,
+                        `lastUpdated` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`),
+                        FOREIGN KEY(`unitId`) REFERENCES `units_cache`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                """.trimIndent())
+
+                // Create index on lessons_cache.unitId
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_lessons_cache_unitId` ON `lessons_cache`(`unitId`)")
             }
         }
     }

@@ -2,6 +2,7 @@ package com.seoulhankuko.app.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.seoulhankuko.app.data.local.UserPreferencesManager
 import com.seoulhankuko.app.data.repository.AccountRepository
 import com.seoulhankuko.app.data.repository.AuthRepository
 import com.seoulhankuko.app.data.repository.LessonRepository
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.time.LocalDate
 import javax.inject.Inject
 
 @HiltViewModel
@@ -25,11 +27,15 @@ class LessonViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val accountRepository: AccountRepository,
     private val userProgressRepository: UserProgressRepository,
+    private val userPreferencesManager: UserPreferencesManager,
     val ttsManager: TTSManager
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow<LessonUiState>(LessonUiState.Loading)
     val uiState: StateFlow<LessonUiState> = _uiState.asStateFlow()
+
+    private val _streakCelebration = MutableStateFlow<StreakCelebrationEvent?>(null)
+    val streakCelebration: StateFlow<StreakCelebrationEvent?> = _streakCelebration.asStateFlow()
     
     fun loadLesson(lessonId: String) {
         _uiState.update { LessonUiState.Loading }
@@ -115,12 +121,14 @@ class LessonViewModel @Inject constructor(
                         token = token,
                         selectedOptionId = selectedOptionId
                     )
-                    result.onSuccess {
+                    result.onSuccess { responseMap ->
                         Timber.d("Practice submit API success for lesson=$lessonId question=$questionId")
+                        handleStreakInfoPayload((responseMap as? Map<*, *>)?.get("streak_info"))
                         // Optionally update backend progress immediately
                         val update = lessonRepository.updateLessonProgress(lessonId, token)
-                        update.onSuccess { 
+                        update.onSuccess { updateResponse ->
                             Timber.d("Progress updated after submit")
+                            handleStreakInfoPayload((updateResponse as? Map<*, *>)?.get("streak_info"))
                             // Update streak after quiz/question completed
                             updateStreakAfterActivity()
                         }
@@ -155,12 +163,14 @@ class LessonViewModel @Inject constructor(
                         audioUrl = audioUrl,
                         selectedAnswers = selectedAnswers
                     )
-                    result.onSuccess {
+                    result.onSuccess { responseMap ->
                         Timber.d("Exercise submit API success for exercise=$exerciseId lesson=$lessonId")
+                        handleStreakInfoPayload((responseMap as? Map<*, *>)?.get("streak_info"))
                         // Update backend progress after exercise submission
                         val update = lessonRepository.updateLessonProgress(lessonId, token)
-                        update.onSuccess { 
+                        update.onSuccess { updateResponse ->
                             Timber.d("Progress updated after exercise submit")
+                            handleStreakInfoPayload((updateResponse as? Map<*, *>)?.get("streak_info"))
                             // Update streak after exercise completed
                             updateStreakAfterActivity()
                             // Reload lesson data to get updated progress
@@ -205,6 +215,7 @@ class LessonViewModel @Inject constructor(
                 
                 result.onSuccess { responseBody ->
                     Timber.d("Successfully updated lesson progress for lesson $lessonId")
+                    handleStreakInfoPayload((responseBody as? Map<*, *>)?.get("streak_info"))
                     
                     // Check if lesson was completed and update streak
                     val wasCompletedBefore = (_uiState.value as? LessonUiState.Success)?.isLessonCompleted ?: false
@@ -265,6 +276,8 @@ class LessonViewModel @Inject constructor(
                 val result = userProgressRepository.updateUserStreak(username, token)
                 result.onSuccess { streakResponse ->
                     Timber.d("Successfully updated streak: ${streakResponse.newStreak}, bonus EXP: ${streakResponse.streakBonusExp}")
+                    val wasUpdated = streakResponse.message.contains("success", ignoreCase = true)
+                    maybeScheduleStreakCelebration(streakResponse.newStreak, streakResponse.streakBonusExp, wasUpdated)
                 }.onFailure { error ->
                     Timber.w(error, "Failed to update streak")
                 }
@@ -291,7 +304,69 @@ class LessonViewModel @Inject constructor(
         }
     }
     
+    private fun handleStreakInfoPayload(payload: Any?) {
+        val infoMap = payload as? Map<*, *> ?: return
+        val updated = when (val value = infoMap["streak_updated"]) {
+            is Boolean -> value
+            is Number -> value.toInt() == 1
+            is String -> value.equals("true", ignoreCase = true) || value == "1"
+            else -> false
+        }
+        val streakDays = (infoMap["current_streak"] as? Number)?.toInt()
+            ?: (infoMap["new_streak"] as? Number)?.toInt()
+        val bonusExp = (infoMap["streak_bonus_exp"] as? Number)?.toInt()
+        maybeScheduleStreakCelebration(streakDays, bonusExp, updated)
+    }
+
+    private fun maybeScheduleStreakCelebration(
+        streakDays: Int?,
+        bonusExp: Int?,
+        updated: Boolean
+    ) {
+        if (!updated) return
+        val days = streakDays ?: return
+        if (days <= 0) return
+
+        viewModelScope.launch {
+            val today = LocalDate.now()
+            val lastShownIso = userPreferencesManager.getStreakScreenLastShownDate()
+            val alreadyShownToday = lastShownIso == today.toString()
+            if (alreadyShownToday) {
+                Timber.d("Streak celebration already shown today ($today)")
+                return@launch
+            }
+
+            val pendingCelebration = _streakCelebration.value
+            if (pendingCelebration?.streakDays == days) {
+                return@launch
+            }
+
+            _streakCelebration.value = StreakCelebrationEvent(
+                streakDays = days,
+                bonusExp = bonusExp ?: 0,
+                celebrationDate = today
+            )
+        }
+    }
+
+    fun markStreakCelebrationDisplayed() {
+        viewModelScope.launch {
+            val today = LocalDate.now()
+            userPreferencesManager.setStreakScreenLastShownDate(today.toString())
+        }
+    }
+
+    fun clearStreakCelebration() {
+        _streakCelebration.value = null
+    }
+    
 }
+
+data class StreakCelebrationEvent(
+    val streakDays: Int,
+    val bonusExp: Int,
+    val celebrationDate: LocalDate
+)
 
 // UI State - exported for use in Composables
 sealed class LessonUiState {

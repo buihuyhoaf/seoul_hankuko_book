@@ -58,6 +58,9 @@ class UserPreferencesManager @Inject constructor(
         // User stats tracking
         private val STREAK_DAYS_KEY = intPreferencesKey("streak_days")
         private val EXP_KEY = intPreferencesKey("exp")
+
+        // Celebration tracking
+        private val STREAK_SCREEN_LAST_SHOWN_KEY = stringPreferencesKey("streak_screen_last_shown_date")
     }
 
     /**
@@ -408,6 +411,22 @@ class UserPreferencesManager @Inject constructor(
         context.dataStore.edit { preferences ->
             val current = preferences[GUEST_LESSONS_COMPLETED_KEY] ?: 0
             preferences[GUEST_LESSONS_COMPLETED_KEY] = current + 1
+        }
+    }
+
+    /**
+     * Get ISO date string when streak celebration screen was last shown
+     */
+    suspend fun getStreakScreenLastShownDate(): String? {
+        return context.dataStore.data.first()[STREAK_SCREEN_LAST_SHOWN_KEY]
+    }
+
+    /**
+     * Save ISO date string for the last streak celebration screen display
+     */
+    suspend fun setStreakScreenLastShownDate(dateIso: String) {
+        context.dataStore.edit { preferences ->
+            preferences[STREAK_SCREEN_LAST_SHOWN_KEY] = dateIso
         }
     }
     

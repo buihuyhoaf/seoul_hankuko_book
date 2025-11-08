@@ -11,6 +11,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -35,10 +37,28 @@ class UnitViewModel @Inject constructor(
 
     fun loadUnit(unitId: String) {
         viewModelScope.launch {
-            _uiState.value = UnitUiState(isLoading = true)
+            // First, try to get cached data immediately (synchronous, fast)
+            val cachedUnit = try {
+                courseRepository.getCachedUnit(unitId)
+            } catch (e: Exception) {
+                null
+            }
+            
+            if (cachedUnit != null) {
+                // Show cached data immediately - no loading state
+                _uiState.value = UnitUiState(
+                    isLoading = false,
+                    lessons = cachedUnit.lessons.sortedBy { it.orderIndex },
+                    unitTitle = cachedUnit.title,
+                    error = null
+                )
+            } else {
+                // No cache - show loading state
+                _uiState.value = UnitUiState(isLoading = true)
+            }
             
             try {
-                // Ensure we have a valid token
+                // Then ensure we have a valid token
                 val tokenResult = authRepository.ensureValidToken()
                 val token = if (tokenResult.isSuccess) {
                     tokenResult.getOrNull()
@@ -46,50 +66,11 @@ class UnitViewModel @Inject constructor(
                     authRepository.getCurrentToken() ?: null
                 }
                 
-                // Load unit details from repository
-                courseRepository.getUnit(unitId, token).fold(
-                    onSuccess = { unitDetail ->
-                        _uiState.value = UnitUiState(
-                            isLoading = false,
-                            lessons = unitDetail.lessons.sortedBy { it.orderIndex },
-                            unitTitle = unitDetail.title,
-                            error = null
-                        )
-                    },
-                    onFailure = { exception ->
-                        // If we get a token expiry error, try to refresh and retry once
-                        if (exception is AppException.AuthException.TokenExpired) {
-                            val refreshResult = authRepository.refreshCurrentToken()
-                            if (refreshResult.isSuccess) {
-                                // Retry with new token
-                                val newToken = refreshResult.getOrNull()
-                                courseRepository.getUnit(unitId, newToken).fold(
-                                    onSuccess = { unitDetail ->
-                                        _uiState.value = UnitUiState(
-                                            isLoading = false,
-                                            lessons = unitDetail.lessons.sortedBy { it.orderIndex },
-                                            unitTitle = unitDetail.title,
-                                            error = null
-                                        )
-                                    },
-                                    onFailure = { retryException ->
-                                        val errorMessage = when (retryException) {
-                                            is AppException -> retryException.message ?: "Unknown error occurred"
-                                            else -> retryException.message ?: "Unknown error occurred"
-                                        }
-                                        _uiState.value = UnitUiState(
-                                            isLoading = false,
-                                            error = errorMessage
-                                        )
-                                    }
-                                )
-                            } else {
-                                _uiState.value = UnitUiState(
-                                    isLoading = false,
-                                    error = "Session expired. Please login again."
-                                )
-                            }
-                        } else {
+                // Use Flow-based approach - will emit cached data first (if not already shown), then fresh data
+                courseRepository.getUnitFlow(unitId, token)
+                    .catch { exception ->
+                        // Only show error if we don't have cached data
+                        if (cachedUnit == null) {
                             val errorMessage = when (exception) {
                                 is AppException -> exception.message ?: "Unknown error occurred"
                                 else -> exception.message ?: "Unknown error occurred"
@@ -100,12 +81,81 @@ class UnitViewModel @Inject constructor(
                             )
                         }
                     }
-                )
+                    .collect { result ->
+                        result.fold(
+                            onSuccess = { unitDetail ->
+                                // Always update with fresh data from API
+                                _uiState.value = UnitUiState(
+                                    isLoading = false,
+                                    lessons = unitDetail.lessons.sortedBy { it.orderIndex },
+                                    unitTitle = unitDetail.title,
+                                    error = null
+                                )
+                            },
+                            onFailure = { exception ->
+                                // If we get a token expiry error, try to refresh and retry once
+                                if (exception is AppException.AuthException.TokenExpired) {
+                                    val refreshResult = authRepository.refreshCurrentToken()
+                                    if (refreshResult.isSuccess) {
+                                        // Retry with new token - use suspend function for retry
+                                        val newToken = refreshResult.getOrNull()
+                                        val retryResult = courseRepository.getUnit(unitId, newToken)
+                                        retryResult.fold(
+                                            onSuccess = { unitDetail ->
+                                                _uiState.value = UnitUiState(
+                                                    isLoading = false,
+                                                    lessons = unitDetail.lessons.sortedBy { it.orderIndex },
+                                                    unitTitle = unitDetail.title,
+                                                    error = null
+                                                )
+                                            },
+                                            onFailure = { retryException ->
+                                                // Only show error if we don't have cached data
+                                                if (cachedUnit == null) {
+                                                    val errorMessage = when (retryException) {
+                                                        is AppException -> retryException.message ?: "Unknown error occurred"
+                                                        else -> retryException.message ?: "Unknown error occurred"
+                                                    }
+                                                    _uiState.value = UnitUiState(
+                                                        isLoading = false,
+                                                        error = errorMessage
+                                                    )
+                                                }
+                                            }
+                                        )
+                                    } else {
+                                        // Only show error if we don't have cached data
+                                        if (cachedUnit == null) {
+                                            _uiState.value = UnitUiState(
+                                                isLoading = false,
+                                                error = "Session expired. Please login again."
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    // Only show error if we don't have cached data
+                                    if (cachedUnit == null) {
+                                        val errorMessage = when (exception) {
+                                            is AppException -> exception.message ?: "Unknown error occurred"
+                                            else -> exception.message ?: "Unknown error occurred"
+                                        }
+                                        _uiState.value = UnitUiState(
+                                            isLoading = false,
+                                            error = errorMessage
+                                        )
+                                    }
+                                }
+                            }
+                        )
+                    }
             } catch (e: Exception) {
-                _uiState.value = UnitUiState(
-                    isLoading = false,
-                    error = e.message ?: "Failed to load unit"
-                )
+                // Only show error if we don't have cached data
+                if (cachedUnit == null) {
+                    _uiState.value = UnitUiState(
+                        isLoading = false,
+                        error = e.message ?: "Failed to load unit"
+                    )
+                }
             }
         }
     }

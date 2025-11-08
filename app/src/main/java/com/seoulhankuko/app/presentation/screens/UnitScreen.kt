@@ -9,21 +9,22 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.seoulhankuko.app.R
@@ -84,21 +85,7 @@ fun UnitScreen(
         ) {
             when {
                 uiState.isLoading -> {
-                    // Loading state
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(48.dp),
-                            color = UnitColors.SoftIndigo
-                        )
-                    }
-                }
-                
-                uiState.error != null -> {
-                    // Error state
-                    val errorMessage = uiState.error
+                    // Loading state - Vietnamese
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -107,36 +94,67 @@ fun UnitScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Text(
-                                text = "Failed to load lessons",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = UnitColors.TextPrimary
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(48.dp),
+                                color = UnitColors.SoftIndigo
                             )
                             Text(
-                                text = errorMessage ?: "Unknown error",
+                                text = "Đang tải bài học...",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = UnitColors.TextSecondary
+                            )
+                        }
+                    }
+                }
+                
+                uiState.error != null -> {
+                    // Error state - Vietnamese
+                    val errorMessage = uiState.error
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.padding(24.dp)
+                        ) {
+                            Text(
+                                text = "Không thể tải danh sách bài học",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = UnitColors.TextPrimary,
+                                textAlign = TextAlign.Center
+                            )
+                            Text(
+                                text = errorMessage ?: "Lỗi không xác định",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = UnitColors.TextSecondary,
+                                textAlign = TextAlign.Center
                             )
                             Button(
                                 onClick = { viewModel.loadUnit(unitId) },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = UnitColors.SoftIndigo
-                                )
+                                ),
+                                shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text("Retry")
+                                Text(
+                                    text = "Thử lại",
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
                 }
                 
                 uiState.lessons.isEmpty() -> {
-                    // Empty state
+                    // Empty state - Vietnamese
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "No lessons available",
+                            text = "Chưa có bài học nào",
                             style = MaterialTheme.typography.bodyLarge,
                             color = UnitColors.TextSecondary
                         )
@@ -144,25 +162,26 @@ fun UnitScreen(
                 }
                 
                 else -> {
-                    // Success state
+                    // Success state - Vietnamese
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(16.dp)
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
-                        // Welcome text
+                        // Section header - Vietnamese
                         Text(
-                            text = "Select a lesson to start",
+                            text = "Chọn bài học để bắt đầu nhé 🎯",
                             style = MaterialTheme.typography.titleMedium,
                             color = UnitColors.TextSecondary,
-                            modifier = Modifier.padding(start = 8.dp, top = 8.dp, bottom = 16.dp)
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 16.dp)
                         )
 
                         // Lesson Grid
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(2),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
                             modifier = Modifier.fillMaxSize()
                         ) {
                             itemsIndexed(uiState.lessons) { index, lesson ->
@@ -189,22 +208,26 @@ fun LessonCard(
     var isPressed by remember { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
     
-    // Scale animation
+    // Scale animation - press feedback
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.95f else 1f,
+        targetValue = if (isPressed) 0.97f else 1f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
+            stiffness = Spring.StiffnessMedium
         ),
         label = "scale_animation"
     )
     
     // Fade-in animation with staggered delay
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(index * 80L)
+        visible = true
+    }
     val alpha by animateFloatAsState(
-        targetValue = 1f,
+        targetValue = if (visible) 1f else 0f,
         animationSpec = tween(
-            durationMillis = 600,
-            delayMillis = index * 100,
+            durationMillis = 400,
             easing = FastOutSlowInEasing
         ),
         label = "alpha_animation"
@@ -227,16 +250,24 @@ fun LessonCard(
         }
     }
 
+    // Determine CTA button text based on progress
+    val ctaText = if (lesson.progress?.isCompleted == true) {
+        "Tiếp tục học"
+    } else {
+        "Bắt đầu học"
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight()
+            .height(180.dp)
+            .alpha(alpha)
             .scale(scale)
             .shadow(
-                elevation = if (isPressed) 2.dp else 8.dp,
+                elevation = if (isPressed) 2.dp else 4.dp,
                 shape = RoundedCornerShape(16.dp),
-                ambientColor = UnitColors.SoftIndigo.copy(alpha = 0.1f),
-                spotColor = UnitColors.SoftIndigo.copy(alpha = 0.3f)
+                ambientColor = Color.Black.copy(alpha = 0.05f),
+                spotColor = Color.Black.copy(alpha = 0.1f)
             )
             .clickable(
                 onClick = onClick,
@@ -251,101 +282,82 @@ fun LessonCard(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(UnitColors.Lavender, UnitColors.LightGray)
-                    )
-                )
                 .padding(16.dp)
         ) {
+            // Order number badge - top left, circular, lavender background
+            Surface(
+                shape = CircleShape,
+                color = UnitColors.Lavender,
+                modifier = Modifier
+                    .size(32.dp)
+                    .align(Alignment.TopStart)
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "${lesson.orderIndex}",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = UnitColors.SoftIndigo,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
             Column(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = 8.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Lesson number badge with progress indicator if available
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = UnitColors.SoftIndigo.copy(alpha = 0.2f),
-                        modifier = Modifier
-                            .widthIn(max = 100.dp)
-                            .height(36.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Lesson ${lesson.orderIndex}",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = UnitColors.SoftIndigo,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
+                    Spacer(modifier = Modifier.height(24.dp)) // Space for badge
                     
-                    // Progress indicator
-                    lesson.progress?.let { progress ->
-                        if (progress.isCompleted) {
-                            Icon(
-                                imageVector = Icons.Default.PlayArrow,
-                                contentDescription = null,
-                                tint = UnitColors.WarmOrange,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Column {
-                    // Lesson title
+                    // Lesson title - bold, max 2 lines
                     Text(
                         text = lesson.title,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = UnitColors.TextPrimary,
-                        maxLines = 2
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        lineHeight = MaterialTheme.typography.titleSmall.lineHeight
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    // Lesson description or stats
+                    // Lesson description - 1 line max
                     Text(
                         text = lesson.description?.takeIf { it.isNotBlank() } 
-                            ?: "${lesson.quizzesCount} quizzes, ${lesson.exercisesCount} exercises",
-                        style = MaterialTheme.typography.bodyMedium,
+                            ?: "Bài học về từ vựng và ngữ pháp",
+                        style = MaterialTheme.typography.bodySmall,
                         color = UnitColors.TextSecondary,
-                        maxLines = 2
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
+                }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // CTA text with icon
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Start
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = null,
-                            tint = UnitColors.WarmOrange,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (lesson.progress?.isCompleted == true) "Continue" else "Tap to start",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = UnitColors.WarmOrange,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
+                // CTA button - anchored at bottom, WarmOrange
+                Button(
+                    onClick = onClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(40.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = UnitColors.WarmOrange
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Text(
+                        text = ctaText,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
                 }
             }
         }

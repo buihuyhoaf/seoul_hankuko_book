@@ -25,15 +25,20 @@ object DatabaseModule {
             AppDatabase::class.java,
             "seoul_hankuko_database"
         )
-        .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5)
+        .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6)
         .build()
     }
 
-    // Only keep LoggedAccountDao
     @Provides
     @Singleton
     fun provideLoggedAccountDao(database: AppDatabase): LoggedAccountDao {
         return database.loggedAccountDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideCourseCacheDao(database: AppDatabase): CourseCacheDao {
+        return database.courseCacheDao()
     }
 }
 

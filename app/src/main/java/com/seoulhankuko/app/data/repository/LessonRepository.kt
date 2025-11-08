@@ -12,6 +12,13 @@ import com.seoulhankuko.app.domain.model.ChallengeWithOptions
 import com.seoulhankuko.app.domain.model.LessonLite
 import com.seoulhankuko.app.domain.model.LessonWithChallenges
 import com.seoulhankuko.app.domain.model.ExerciseLite
+import com.seoulhankuko.app.domain.model.QuestionAudioComprehension
+import com.seoulhankuko.app.domain.model.QuestionBlank
+import com.seoulhankuko.app.domain.model.QuestionMatchingPair
+import com.seoulhankuko.app.domain.model.QuestionMetadata
+import com.seoulhankuko.app.domain.model.QuestionMetadataPair
+import com.seoulhankuko.app.domain.model.QuestionPronunciation
+import com.seoulhankuko.app.domain.model.QuestionSentenceOrder
 import retrofit2.Response
 import timber.log.Timber
 import javax.inject.Inject
@@ -205,7 +212,8 @@ class LessonRepository @Inject constructor(
             id = lessonDetail.id,
             title = lessonDetail.title,
             unitId = lessonDetail.unitId,
-            order = lessonDetail.orderIndex
+            order = lessonDetail.orderIndex,
+            description = lessonDetail.description
         )
         
         // Convert questions to challenges
@@ -244,16 +252,61 @@ class LessonRepository @Inject constructor(
                     )
                 }
                 
-                Timber.d("Prepared challenge ${challenge.id} with ${options.size} options")
-                
-                // For now, assume challenges are not completed
-                val completed = false
+                val metadata = question.metadata?.let {
+                    QuestionMetadata(
+                        choices = it.choices,
+                        matchingPairs = it.pairs?.map { pair ->
+                            QuestionMetadataPair(
+                                left = pair.left,
+                                right = pair.right
+                            )
+                        }
+                    )
+                }
+                val matchingPairs = question.matchingPairs?.map {
+                    QuestionMatchingPair(
+                        id = it.id,
+                        leftText = it.leftText,
+                        rightText = it.rightText
+                    )
+                }
+                val sentenceOrder = question.sentenceOrder?.let {
+                    QuestionSentenceOrder(
+                        id = it.id,
+                        correctSequence = it.correctSequence
+                    )
+                }
+                val audioComprehension = question.audioComprehension?.let {
+                    QuestionAudioComprehension(
+                        id = it.id,
+                        transcript = it.transcript
+                    )
+                }
+                val pronunciation = question.pronunciation?.let {
+                    QuestionPronunciation(
+                        id = it.id,
+                        targetPhrase = it.targetPhrase,
+                        referenceAudioUrl = it.referenceAudioUrl
+                    )
+                }
+                val blank = question.blank?.let {
+                    QuestionBlank(
+                        id = it.id,
+                        caseSensitive = it.caseSensitive
+                    )
+                }
                 
                 challengesWithOptions.add(
                     ChallengeWithOptions(
                         challenge = challenge,
                         options = options,
-                        completed = completed
+                        completed = false,
+                        metadata = metadata,
+                        matchingPairs = matchingPairs,
+                        sentenceOrder = sentenceOrder,
+                        audioComprehension = audioComprehension,
+                        pronunciation = pronunciation,
+                        blank = blank
                     )
                 )
             } catch (e: Exception) {
@@ -290,7 +343,14 @@ class LessonRepository @Inject constructor(
         val progressPercent = lessonDetail.progress?.progressPercent ?: 0
         Timber.d("Lesson progress: $progressPercent%")
         
-        return LessonWithChallenges(lesson, challengesWithOptions, exercises, exercisesResponse, progressPercent)
+        return LessonWithChallenges(
+            lesson = lesson,
+            challenges = challengesWithOptions,
+            questionResponses = lessonDetail.questions,
+            exercises = exercises,
+            exercisesResponse = exercisesResponse,
+            progressPercent = progressPercent
+        )
     }
     
     suspend fun updateLessonProgress(lessonId: String, token: String? = null): Result<Map<String, Any>> {

@@ -1,12 +1,14 @@
 package com.seoulhankuko.app.domain.model
 
 import com.seoulhankuko.app.data.api.model.ExerciseResponse
+import com.seoulhankuko.app.data.api.model.QuestionResponse
 
 data class LessonLite(
     val id: String,
     val title: String,
     val unitId: String,
-    val order: Int
+    val order: Int,
+    val description: String? = null
 )
 
 data class ExerciseLite(
@@ -20,6 +22,7 @@ data class ExerciseLite(
 data class LessonWithChallenges(
     val lesson: LessonLite,
     val challenges: List<ChallengeWithOptions>,
+    val questionResponses: List<QuestionResponse> = emptyList(),
     val exercises: List<ExerciseLite> = emptyList(),
     val exercisesResponse: List<ExerciseResponse> = emptyList(), // Full exercise data from API
     val progressPercent: Int = 0 // Progress percentage from backend

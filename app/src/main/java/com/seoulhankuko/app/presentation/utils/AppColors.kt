@@ -42,21 +42,25 @@ object HomeColors {
 // LESSON SCREEN COLORS (LessonScreen)
 // ==========================================
 object LessonColors {
-    val QuestionColor = Color(0xFF42A5F5) // Blue
-    val ListeningColor = Color(0xFF66BB6A) // Green
-    val SpeakingColor = Color(0xFFFFA726) // Orange
-    val PronunciationColor = Color(0xFFAB47BC) // Purple
-    val ConnectorLineColor = Color(0xFFE0E0E0) // Light Grey
-    val BackgroundWhite = Color(0xFFFFFFFF)
-    val TextPrimary = Color(0xFF333333)
-    val TextSecondary = Color(0xFF666666)
-    val CompletedGreen = Color(0xFF4CAF50)
-    
-    // Lesson Header Gradient
-    val HeaderGradientStart = Color(0xFFFFE0B2)
-    val HeaderGradientEnd = Color(0xFFFFF8E7)
-    val TopBarGradientStart = Color(0xFFFF8A65)
-    val TopBarGradientEnd = Color(0xFFFFD180)
+    val HeaderGradientStart = Color(0xFF9FA8DA)
+    val HeaderGradientEnd = Color(0xFF7986CB)
+    val QuestionColor = Color(0xFF7C83FD)
+    val ListeningColor = Color(0xFF5DA9E9)
+    val SpeakingColor = Color(0xFFFFA62B)
+    val PronunciationColor = Color(0xFFE56B6F)
+    val WritingColor = Color(0xFF4CAF50)
+    val CompletedGreen = Color(0xFF00C853)
+    val ConnectorLineColor = Color(0xFFDADCE0)
+    val BackgroundWhite = Color(0xFFF9FAFB)
+    val CardBackground = Color(0xFFFFFFFF)
+    val TextPrimary = Color(0xFF212121)
+    val TextSecondary = Color(0xFF757575)
+    val Accent = Color(0xFF7C83FD)
+    val AccentSoft = Color(0xFFE8E9FF)
+
+    // Backward compatibility for existing usages
+    val TopBarGradientStart = HeaderGradientStart
+    val TopBarGradientEnd = HeaderGradientEnd
 }
 
 // ==========================================
@@ -112,6 +116,19 @@ object UnitColors {
     val TextSecondary = Color(0xFF4A5568)
     val Lavender = Color(0xFFE9D8FD)
     val LightGray = Color(0xFFEDF2F7)
+}
+
+// ==========================================
+// COURSE SCREEN COLORS (CourseScreen - Vietnamese UI)
+// ==========================================
+object CourseColors {
+    val Background = Color(0xFFF9FAFB)
+    val Card = Color.White
+    val TextPrimary = Color(0xFF1C1C1C)
+    val TextSecondary = Color(0xFF6C757D)
+    val Accent = Color(0xFF7C83FD)
+    val AccentLight = Color(0xFFE8E9FF) // Light version of Accent for badges and gradients
+    val Completed = Color(0xFF4CAF50)
 }
 
 // ==========================================

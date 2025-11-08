@@ -1,5 +1,7 @@
 package com.seoulhankuko.app.data.api.model
 
+import com.google.gson.JsonElement
+import com.google.gson.JsonObject
 import com.google.gson.annotations.SerializedName
 
 // Course Management Models
@@ -177,13 +179,79 @@ data class QuestionResponse(
     @SerializedName("image_url")
     val imageUrl: String?,
     val explanation: String?,
+    @SerializedName("question_metadata")
+    val metadata: QuestionMetadataResponse? = null,
     @SerializedName("order_index")
     val orderIndex: Int,
     @SerializedName("question_type")
     val questionType: String,
     @SerializedName("question_type_id")
     val questionTypeId: String? = null,
-    val options: List<QuestionOptionResponse>
+    val options: List<QuestionOptionResponse> = emptyList(),
+    @SerializedName("matching_pairs")
+    val matchingPairs: List<QuestionMatchingPairResponse>? = null,
+    @SerializedName("sentence_order")
+    val sentenceOrder: QuestionSentenceOrderResponse? = null,
+    @SerializedName("audio_comprehension")
+    val audioComprehension: QuestionAudioComprehensionResponse? = null,
+    val pronunciation: QuestionPronunciationResponse? = null,
+    val blank: QuestionBlankResponse? = null
+)
+
+data class QuestionMetadataResponse(
+    val choices: List<String>? = null,
+    @SerializedName("pairs")
+    val pairs: List<QuestionMetadataPairResponse>? = null
+)
+
+data class QuestionMetadataPairResponse(
+    val left: String?,
+    val right: String?
+)
+
+data class QuestionMatchingPairResponse(
+    val id: String,
+    @SerializedName("left_text")
+    val leftText: String?,
+    @SerializedName("left_media")
+    val leftMedia: JsonElement? = null,
+    @SerializedName("right_text")
+    val rightText: String?,
+    @SerializedName("right_media")
+    val rightMedia: JsonElement? = null,
+    @SerializedName("sort_order")
+    val sortOrder: Int
+)
+
+data class QuestionSentenceOrderResponse(
+    val id: String,
+    @SerializedName("correct_sequence")
+    val correctSequence: List<String>
+)
+
+data class QuestionAudioComprehensionResponse(
+    val id: String,
+    val transcript: String?,
+    @SerializedName("tts_config")
+    val ttsConfig: JsonObject? = null
+)
+
+data class QuestionPronunciationResponse(
+    val id: String,
+    @SerializedName("target_phrase")
+    val targetPhrase: String,
+    @SerializedName("reference_audio_url")
+    val referenceAudioUrl: String?,
+    @SerializedName("tts_config")
+    val ttsConfig: JsonObject? = null
+)
+
+data class QuestionBlankResponse(
+    val id: String,
+    @SerializedName("correct_answer")
+    val correctAnswer: String?,
+    @SerializedName("case_sensitive")
+    val caseSensitive: Boolean
 )
 
 data class QuestionTypeResponse(
