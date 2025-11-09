@@ -205,7 +205,7 @@ private fun QuizOptionCard(
         targetValue = when {
             !isAnswered && isSelected -> LessonFlowColors.PrimaryColor
             answerStatus == AnswerStatus.WRONG && isSelected -> LessonFlowColors.ErrorColor
-            answerStatus == AnswerStatus.CORRECT && isCorrect -> LessonFlowColors.SuccessColor
+            isAnswered && answerStatus == AnswerStatus.CORRECT && isCorrect -> LessonFlowColors.SuccessColor
             else -> LessonFlowColors.TextPrimary
         },
         animationSpec = tween(200),
@@ -216,7 +216,7 @@ private fun QuizOptionCard(
         targetValue = when {
             !isAnswered && isSelected -> LessonFlowColors.PrimaryColor
             answerStatus == AnswerStatus.WRONG && isSelected -> LessonFlowColors.ErrorColor
-            answerStatus == AnswerStatus.CORRECT && isCorrect -> LessonFlowColors.SuccessColor
+            isAnswered && answerStatus == AnswerStatus.CORRECT && isCorrect -> LessonFlowColors.SuccessColor
             else -> AppColors.LightGray
         },
         animationSpec = tween(200),

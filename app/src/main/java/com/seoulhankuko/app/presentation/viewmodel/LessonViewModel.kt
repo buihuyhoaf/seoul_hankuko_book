@@ -2,11 +2,12 @@ package com.seoulhankuko.app.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.seoulhankuko.app.data.api.model.LessonProgressUpdateRequest
+import com.seoulhankuko.app.data.api.model.QuestionResponse
 import com.seoulhankuko.app.data.local.UserPreferencesManager
-import com.seoulhankuko.app.data.repository.AccountRepository
 import com.seoulhankuko.app.data.repository.AuthRepository
+import com.seoulhankuko.app.data.repository.AdditionalLessonChallenges
 import com.seoulhankuko.app.data.repository.LessonRepository
-import com.seoulhankuko.app.data.repository.UserProgressRepository
 import com.seoulhankuko.app.domain.model.AnswerStatus
 import com.seoulhankuko.app.domain.model.ChallengeWithOptions
 import com.seoulhankuko.app.domain.model.LessonWithChallenges
@@ -15,18 +16,18 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.time.LocalDate
 import javax.inject.Inject
+import kotlin.math.roundToInt
 
 @HiltViewModel
 class LessonViewModel @Inject constructor(
     private val lessonRepository: LessonRepository,
     private val authRepository: AuthRepository,
-    private val accountRepository: AccountRepository,
-    private val userProgressRepository: UserProgressRepository,
     private val userPreferencesManager: UserPreferencesManager,
     val ttsManager: TTSManager
 ) : ViewModel() {
@@ -36,9 +37,16 @@ class LessonViewModel @Inject constructor(
 
     private val _streakCelebration = MutableStateFlow<StreakCelebrationEvent?>(null)
     val streakCelebration: StateFlow<StreakCelebrationEvent?> = _streakCelebration.asStateFlow()
+
+    private val _lessonExpProgress = MutableStateFlow(LessonExpProgress())
+    private val recordedQuestionIds = mutableSetOf<String>()
+    private val recordedExerciseIds = mutableSetOf<String>()
+    private val recordedExerciseTypes = mutableSetOf<String>()
     
-    fun loadLesson(lessonId: String) {
-        _uiState.update { LessonUiState.Loading }
+    fun loadLesson(lessonId: String, showLoading: Boolean = true) {
+        if (showLoading) {
+            _uiState.update { LessonUiState.Loading }
+        }
         
         viewModelScope.launch {
             try {
@@ -60,15 +68,20 @@ class LessonViewModel @Inject constructor(
                         LessonUiState.Success(
                             lessonWithChallenges = lessonWithChallenges,
                             userProgress = null,
-                            currentChallengeIndex = 0
+                            currentChallengeIndex = 0,
+                            hasMoreQuestions = lessonWithChallenges.hasMoreQuestions
                         )
                     }
 
                     persistCurrentLesson(lessonWithChallenges)
                 } else {
                     Timber.w("Lesson not found for ID: $lessonId")
-                    _uiState.update { 
-                        LessonUiState.Error("Lesson not found. Please check your internet connection and try again.")
+                    if (showLoading) {
+                        _uiState.update { 
+                            LessonUiState.Error("Lesson not found. Please check your internet connection and try again.")
+                        }
+                    } else {
+                        Timber.w("Skipping error state for missing lesson $lessonId during silent reload")
                     }
                 }
             } catch (e: Exception) {
@@ -82,7 +95,11 @@ class LessonViewModel @Inject constructor(
                         "Request timeout. Please try again."
                     else -> "Failed to load lesson: ${e.message ?: "Unknown error"}"
                 }
-                _uiState.update { LessonUiState.Error(errorMessage) }
+                if (showLoading) {
+                    _uiState.update { LessonUiState.Error(errorMessage) }
+                } else {
+                    Timber.w("Silent reload failed for lesson $lessonId with error: $errorMessage")
+                }
             }
         }
     }
@@ -107,6 +124,7 @@ class LessonViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 userPreferencesManager.clearCurrentLesson()
+                resetExpTracking()
             } catch (e: Exception) {
                 Timber.w(e, "Failed to clear current lesson")
             }
@@ -138,7 +156,12 @@ class LessonViewModel @Inject constructor(
         }
     }
 
-    fun submitPracticeCorrectAnswer(lessonId: String, questionId: String, selectedOptionId: String) {
+    fun submitPracticeCorrectAnswer(
+        lessonId: String,
+        questionId: String,
+        selectedOptionId: String,
+        earnedExp: Float
+    ) {
         viewModelScope.launch {
             try {
                 val token = authRepository.getCurrentToken()
@@ -147,22 +170,15 @@ class LessonViewModel @Inject constructor(
                         lessonId = lessonId,
                         questionId = questionId,
                         token = token,
-                        selectedOptionId = selectedOptionId
+                        selectedOptionId = selectedOptionId,
+                        expEarned = earnedExp.roundToInt().coerceAtLeast(0)
                     )
-                    result.onSuccess { responseMap ->
+                    if (result.isSuccess) {
                         Timber.d("Practice submit API success for lesson=$lessonId question=$questionId")
-                        handleStreakInfoPayload((responseMap as? Map<*, *>)?.get("streak_info"))
-                        // Optionally update backend progress immediately
-                        val update = lessonRepository.updateLessonProgress(lessonId, token)
-                        update.onSuccess { updateResponse ->
-                            Timber.d("Progress updated after submit")
-                            handleStreakInfoPayload((updateResponse as? Map<*, *>)?.get("streak_info"))
-                            // Update streak after quiz/question completed
-                            updateStreakAfterActivity()
+                    } else {
+                        result.exceptionOrNull()?.let { err ->
+                            Timber.e(err, "Practice submit API failed")
                         }
-                        update.onFailure { e -> Timber.w(e, "Progress update failed after submit") }
-                    }.onFailure { err ->
-                        Timber.e(err, "Practice submit API failed")
                     }
                 } else {
                     Timber.w("Skip practice submit: token=${token?.take(5)}..., lessonId=$lessonId, questionId=$questionId")
@@ -191,22 +207,16 @@ class LessonViewModel @Inject constructor(
                         audioUrl = audioUrl,
                         selectedAnswers = selectedAnswers
                     )
-                    result.onSuccess { responseMap ->
+                    val responseMap = result.getOrNull()
+                    if (responseMap != null) {
                         Timber.d("Exercise submit API success for exercise=$exerciseId lesson=$lessonId")
                         handleStreakInfoPayload((responseMap as? Map<*, *>)?.get("streak_info"))
-                        // Update backend progress after exercise submission
-                        val update = lessonRepository.updateLessonProgress(lessonId, token)
-                        update.onSuccess { updateResponse ->
-                            Timber.d("Progress updated after exercise submit")
-                            handleStreakInfoPayload((updateResponse as? Map<*, *>)?.get("streak_info"))
-                            // Update streak after exercise completed
-                            updateStreakAfterActivity()
-                            // Reload lesson data to get updated progress
-                            loadLesson(lessonId)
+                        markExerciseCompletion(exerciseId)
+                            loadLesson(lessonId, showLoading = false)
+                    } else {
+                        result.exceptionOrNull()?.let { err ->
+                            Timber.e(err, "Exercise submit API failed")
                         }
-                        update.onFailure { e -> Timber.w(e, "Progress update failed after exercise submit") }
-                    }.onFailure { err ->
-                        Timber.e(err, "Exercise submit API failed")
                     }
                 } else {
                     Timber.w("Skip exercise submit: token=${token?.take(5)}..., exerciseId=$exerciseId, lessonId=$lessonId")
@@ -214,6 +224,31 @@ class LessonViewModel @Inject constructor(
             } catch (e: Exception) {
                 Timber.e(e, "Failed to submit exercise to backend")
             }
+        }
+    }
+
+    suspend fun fetchAdditionalChallenges(
+        lessonId: String,
+        offset: Int,
+        limit: Int = 10
+    ): Result<AdditionalChallengesResult> {
+        return try {
+            val token = authRepository.getCurrentToken()
+            lessonRepository.fetchAdditionalLessonChallenges(
+                lessonId = lessonId,
+                offset = offset,
+                limit = limit,
+                token = token
+            ).map { additional ->
+                AdditionalChallengesResult(
+                    challenges = additional.challenges,
+                    questionResponses = additional.questionResponses,
+                    hasMore = additional.hasMore
+                )
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to fetch additional challenges for lesson $lessonId")
+            Result.failure(e)
         }
     }
     
@@ -235,39 +270,44 @@ class LessonViewModel @Inject constructor(
      * Also reloads lesson data to get updated progress
      * Updates streak if lesson is newly completed
      */
-    fun updateLessonProgress(lessonId: String, onComplete: () -> Unit) {
+    fun updateLessonProgress(
+        lessonId: String,
+        onComplete: (Boolean) -> Unit = {}
+    ) {
         viewModelScope.launch {
+            var celebrationScheduled = false
             try {
                 val token = authRepository.getCurrentToken()
-                val result = lessonRepository.updateLessonProgress(lessonId, token)
-                
-                result.onSuccess { responseBody ->
+                val payload = buildLessonProgressPayload()
+                val result = lessonRepository.updateLessonProgress(lessonId, token, payload)
+
+                val responseBody = result.getOrNull()
+                if (responseBody != null) {
                     Timber.d("Successfully updated lesson progress for lesson $lessonId")
-                    handleStreakInfoPayload((responseBody as? Map<*, *>)?.get("streak_info"))
-                    
+                    val celebrationFromPayload = handleStreakInfoPayload((responseBody as? Map<*, *>)?.get("streak_info"))
+                    celebrationScheduled = celebrationScheduled || celebrationFromPayload
+
                     // Check if lesson was completed and update streak
                     val wasCompletedBefore = (_uiState.value as? LessonUiState.Success)?.isLessonCompleted ?: false
                     val progressPercent = (responseBody as? Map<*, *>)?.get("progress_percent") as? Number
                     val isNowCompleted = (progressPercent?.toFloat() ?: 0f) >= 80f
-                    
-                    // Update streak if lesson was newly completed
-                    if (!wasCompletedBefore && isNowCompleted && token != null) {
-                        updateUserStreak(token)
-                    }
-                    
+
                     // Reload lesson data to get updated progress
-                    loadLesson(lessonId)
-                    
+                    loadLesson(lessonId, showLoading = false)
+
                     _uiState.update { currentState ->
                         if (currentState is LessonUiState.Success) {
                             currentState.copy(progressUpdated = true)
                         } else currentState
                     }
-                }.onFailure { error ->
-                    Timber.e(error, "Failed to update lesson progress for lesson $lessonId")
+                    resetExpTracking()
+                } else {
+                    result.exceptionOrNull()?.let { error ->
+                        Timber.e(error, "Failed to update lesson progress for lesson $lessonId")
+                    }
                     // Reload anyway to try to get latest progress
-                    loadLesson(lessonId)
-                    
+                    loadLesson(lessonId, showLoading = false)
+
                     // Still mark as updated in UI even if API call failed
                     _uiState.update { currentState ->
                         if (currentState is LessonUiState.Success) {
@@ -278,16 +318,16 @@ class LessonViewModel @Inject constructor(
             } catch (e: Exception) {
                 Timber.e(e, "Exception while updating lesson progress")
                 // Reload anyway
-                loadLesson(lessonId)
-                
+                loadLesson(lessonId, showLoading = false)
+
                 // Still mark as updated in UI even if exception occurs
                 _uiState.update { currentState ->
                     if (currentState is LessonUiState.Success) {
                         currentState.copy(progressUpdated = true)
                     } else currentState
-                    }
+                }
             } finally {
-                onComplete()
+                onComplete(celebrationScheduled)
             }
         }
     }
@@ -295,86 +335,108 @@ class LessonViewModel @Inject constructor(
     /**
      * Updates user streak after completing activities
      */
-    private suspend fun updateUserStreak(token: String) {
-        try {
-            val activeAccount = accountRepository.getActiveAccount()
-            val username = activeAccount?.email ?: activeAccount?.displayName
-            
-            if (!username.isNullOrBlank()) {
-                val result = userProgressRepository.updateUserStreak(username, token)
-                result.onSuccess { streakResponse ->
-                    Timber.d("Successfully updated streak: ${streakResponse.newStreak}, bonus EXP: ${streakResponse.streakBonusExp}")
-                    val wasUpdated = streakResponse.message.contains("success", ignoreCase = true)
-                    maybeScheduleStreakCelebration(streakResponse.newStreak, streakResponse.streakBonusExp, wasUpdated)
-                }.onFailure { error ->
-                    Timber.w(error, "Failed to update streak")
-                }
-            } else {
-                Timber.w("Cannot update streak: no active account found")
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Exception while updating streak")
+    private fun Any?.asBooleanOrNull(): Boolean? = when (this) {
+        is Boolean -> this
+        is Number -> this.toInt() != 0
+        is String -> when {
+            equals("true", ignoreCase = true) || this == "1" -> true
+            equals("false", ignoreCase = true) || this == "0" -> false
+            else -> null
         }
-    }
-    
-    /**
-     * Updates user streak after completing quiz or exercise
-     * Called from completion handlers
-     */
-    fun updateStreakAfterActivity() {
-        viewModelScope.launch {
-            val token = authRepository.getCurrentToken()
-            if (token != null) {
-                updateUserStreak(token)
-            } else {
-                Timber.w("Cannot update streak: no token available")
-            }
-        }
-    }
-    
-    private fun handleStreakInfoPayload(payload: Any?) {
-        val infoMap = payload as? Map<*, *> ?: return
-        val updated = when (val value = infoMap["streak_updated"]) {
-            is Boolean -> value
-            is Number -> value.toInt() == 1
-            is String -> value.equals("true", ignoreCase = true) || value == "1"
-            else -> false
-        }
-        val streakDays = (infoMap["current_streak"] as? Number)?.toInt()
-            ?: (infoMap["new_streak"] as? Number)?.toInt()
-        val bonusExp = (infoMap["streak_bonus_exp"] as? Number)?.toInt()
-        maybeScheduleStreakCelebration(streakDays, bonusExp, updated)
+        else -> null
     }
 
-    private fun maybeScheduleStreakCelebration(
+    private fun Any?.asIntOrNull(): Int? = when (this) {
+        is Number -> this.toInt()
+        is String -> this.toIntOrNull()
+        else -> null
+    }
+
+    private suspend fun handleStreakInfoPayload(payload: Any?): Boolean {
+        val infoMap = payload as? Map<*, *> ?: return false
+
+        val updatedKeys = listOf(
+            "streak_updated",
+            "streakUpdated",
+            "updated",
+            "is_updated",
+            "isUpdated",
+            "should_show",
+            "shouldShow",
+            "force_show",
+            "forceShow"
+        )
+        val updatedFlag = updatedKeys
+            .asSequence()
+            .mapNotNull { key -> infoMap[key]?.asBooleanOrNull() }
+            .firstOrNull()
+            ?: false
+
+        val streakDayKeys = listOf(
+            "new_streak",
+            "newStreak",
+            "current_streak",
+            "currentStreak",
+            "streak_days",
+            "streakDays"
+        )
+        val streakDays = streakDayKeys
+            .asSequence()
+            .mapNotNull { key -> infoMap[key]?.asIntOrNull() }
+            .firstOrNull()
+
+        val bonusExpKeys = listOf(
+            "streak_bonus_exp",
+            "streakBonusExp",
+            "bonus_exp",
+            "bonusExp"
+        )
+        val bonusExp = bonusExpKeys
+            .asSequence()
+            .mapNotNull { key -> infoMap[key]?.asIntOrNull() }
+            .firstOrNull()
+
+        val currentStoredStreak = userPreferencesManager.userData.first().streakDays
+        if (streakDays != null) {
+            userPreferencesManager.updateStreakDays(streakDays)
+        }
+
+        val resolvedUpdated = when {
+            updatedFlag -> true
+            streakDays != null && streakDays > currentStoredStreak -> true
+            else -> false
+        }
+
+        return maybeScheduleStreakCelebration(streakDays, bonusExp, resolvedUpdated)
+    }
+
+    private suspend fun maybeScheduleStreakCelebration(
         streakDays: Int?,
         bonusExp: Int?,
         updated: Boolean
-    ) {
-        if (!updated) return
-        val days = streakDays ?: return
-        if (days <= 0) return
+    ): Boolean {
+        if (!updated) return false
+        val days = streakDays ?: return false
+        if (days <= 0) return false
 
-        viewModelScope.launch {
-            val today = LocalDate.now()
-            val lastShownIso = userPreferencesManager.getStreakScreenLastShownDate()
-            val alreadyShownToday = lastShownIso == today.toString()
-            if (alreadyShownToday) {
-                Timber.d("Streak celebration already shown today ($today)")
-                return@launch
-            }
-
-            val pendingCelebration = _streakCelebration.value
-            if (pendingCelebration?.streakDays == days) {
-                return@launch
-            }
-
-            _streakCelebration.value = StreakCelebrationEvent(
-                streakDays = days,
-                bonusExp = bonusExp ?: 0,
-                celebrationDate = today
-            )
+        val today = LocalDate.now()
+        val lastShownIso = userPreferencesManager.getStreakScreenLastShownDate()
+        if (lastShownIso == today.toString()) {
+            Timber.d("Streak celebration already shown today ($today)")
+            return false
         }
+
+        val pendingCelebration = _streakCelebration.value
+        if (pendingCelebration?.streakDays == days) {
+            return true
+        }
+
+        _streakCelebration.value = StreakCelebrationEvent(
+            streakDays = days,
+            bonusExp = bonusExp ?: 0,
+            celebrationDate = today
+        )
+        return true
     }
 
     fun markStreakCelebrationDisplayed() {
@@ -388,12 +450,102 @@ class LessonViewModel @Inject constructor(
         _streakCelebration.value = null
     }
     
+    private fun resetExpTracking() {
+        recordedQuestionIds.clear()
+        recordedExerciseIds.clear()
+        recordedExerciseTypes.clear()
+        _lessonExpProgress.value = LessonExpProgress()
+    }
+    
+    fun recordQuestionCompletion(questionId: String, expGained: Float) {
+        if (questionId.isBlank() || !recordedQuestionIds.add(questionId)) {
+            return
+        }
+        if (expGained <= 0f) {
+            return
+        }
+        _lessonExpProgress.update { current ->
+            current.copy(questionExp = current.questionExp + expGained)
+        }
+    }
+    
+    fun markExerciseCompletion(exerciseId: String?, explicitType: String? = null) {
+        var effectiveType = explicitType?.lowercase()
+        var alreadyRecorded = false
+        if (!exerciseId.isNullOrBlank()) {
+            alreadyRecorded = !recordedExerciseIds.add(exerciseId)
+        } else if (effectiveType != null) {
+            alreadyRecorded = !recordedExerciseTypes.add(effectiveType)
+        }
+        if (alreadyRecorded) return
+        
+        if (effectiveType == null) {
+            val successState = _uiState.value as? LessonUiState.Success ?: return
+            val lessonExercises = successState.lessonWithChallenges?.exercises.orEmpty()
+            val rawType = lessonExercises.firstOrNull { it.id == exerciseId }?.type ?: return
+            effectiveType = rawType.lowercase()
+        }
+        
+        val updateApplied = when (effectiveType) {
+            "listening", "audio_comprehension" -> {
+                _lessonExpProgress.update { current ->
+                    current.copy(listeningExp = current.listeningExp + EXERCISE_EXP_REWARD)
+                }
+                true
+            }
+            "speaking", "pronunciation" -> {
+                _lessonExpProgress.update { current ->
+                    current.copy(speakingExp = current.speakingExp + EXERCISE_EXP_REWARD)
+                }
+                true
+            }
+            "writing", "writing_practice" -> {
+                _lessonExpProgress.update { current ->
+                    current.copy(writingExp = current.writingExp + EXERCISE_EXP_REWARD)
+                }
+                true
+            }
+            else -> false
+        }
+        
+        if (!updateApplied) {
+            exerciseId?.let { recordedExerciseIds.remove(it) }
+            effectiveType?.let { recordedExerciseTypes.remove(it) }
+        }
+    }
+    
+    private fun buildLessonProgressPayload(): LessonProgressUpdateRequest {
+        val snapshot = _lessonExpProgress.value
+        return LessonProgressUpdateRequest(
+            questionExp = snapshot.questionExp.roundToInt().coerceAtLeast(0),
+            listeningExp = snapshot.listeningExp.roundToInt().coerceAtLeast(0),
+            speakingExp = snapshot.speakingExp.roundToInt().coerceAtLeast(0),
+            writingExp = snapshot.writingExp.roundToInt().coerceAtLeast(0)
+        )
+    }
+    
+    companion object {
+        private const val EXERCISE_EXP_REWARD = 20
+    }
 }
+
+data class LessonExpProgress(
+    val questionExp: Float = 0f,
+    val listeningExp: Float = 0f,
+    val speakingExp: Float = 0f,
+    val writingExp: Float = 0f
+)
 
 data class StreakCelebrationEvent(
     val streakDays: Int,
     val bonusExp: Int,
     val celebrationDate: LocalDate
+)
+
+data class AdditionalChallengesResult(
+    val challenges: List<ChallengeWithOptions>,
+    val questionResponses: Map<String, QuestionResponse>,
+    val hasMore: Boolean
 )
 
 // UI State - exported for use in Composables
@@ -410,30 +562,13 @@ sealed class LessonUiState {
         val heartsReduced: Boolean = false,
         val completedChallenges: Set<Int> = emptySet(),
         val canProceedAfterWrong: Boolean = false,
-        val progressUpdated: Boolean = false
+        val progressUpdated: Boolean = false,
+        val hasMoreQuestions: Boolean = false
     ) : LessonUiState() {
-        fun getCurrentChallenge(): ChallengeWithOptions? {
-            return lessonWithChallenges?.challenges?.getOrNull(currentChallengeIndex)
-        }
-        
-        fun getProgressPercentage(): Float {
-            val challenges = lessonWithChallenges?.challenges ?: return 0f
-            if (challenges.isEmpty()) return 0f
-            
-            val completedCount = completedChallenges.size
-            return completedCount.toFloat() / challenges.size.toFloat()
-        }
+
         
         fun getTotalChallenges(): Int {
             return lessonWithChallenges?.challenges?.size ?: 0
-        }
-        
-        fun isLastChallenge(): Boolean {
-            return currentChallengeIndex >= (getTotalChallenges() - 1)
-        }
-        
-        fun allChallengesCompleted(): Boolean {
-            return completedChallenges.size >= getTotalChallenges() && getTotalChallenges() > 0
         }
     }
     

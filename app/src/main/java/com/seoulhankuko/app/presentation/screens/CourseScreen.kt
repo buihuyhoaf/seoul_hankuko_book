@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -69,6 +70,7 @@ fun CourseScreen(
     
     val mainUiViewModel: MainUiViewModel = hiltViewModel()
     val userData by mainUiViewModel.userData.collectAsStateWithLifecycle()
+    val currentLesson by mainUiViewModel.currentLesson.collectAsStateWithLifecycle()
 
     val courseTitleForTopBar = when (val currentState = uiState) {
         is CourseUiState.Success -> currentState.course.title
@@ -91,7 +93,9 @@ fun CourseScreen(
         onNavigateToNotification = onNavigateToNotification,
         onNavigateToProfile = onNavigateToProfile,
         onAvatarClick = onAvatarClick ?: onNavigateToProfile,
-        containerColor = CourseColors.Background
+        containerColor = CourseColors.Background,
+        showBackButton = true,
+        onBackClick = onNavigateBack
     ) { paddingValues ->
         Box(
             modifier = Modifier
@@ -107,6 +111,7 @@ fun CourseScreen(
                 is CourseUiState.Success -> {
                     SuccessContent(
                         units = currentState.units,
+                        currentUnitId = currentLesson?.unitId,
                         onNavigateToUnit = onNavigateToUnit
                     )
                 }
@@ -154,6 +159,7 @@ private fun LoadingContent() {
 @Composable
 private fun SuccessContent(
     units: List<UnitResponse>,
+    currentUnitId: String?,
     onNavigateToUnit: (String) -> Unit
 ) {
     Column(
@@ -191,6 +197,7 @@ private fun SuccessContent(
                     UnitCard(
                         unit = unit,
                         index = index,
+                        isCurrentUnit = currentUnitId == unit.id,
                         onClick = { onNavigateToUnit(unit.id) }
                     )
                 }
@@ -248,6 +255,7 @@ private fun extractVietnameseMeaning(title: String): String? {
 private fun UnitCard(
     unit: UnitResponse,
     index: Int,
+    isCurrentUnit: Boolean,
     onClick: () -> Unit
 ) {
     var isPressed by remember { mutableStateOf(false) }
@@ -399,6 +407,10 @@ private fun UnitCard(
                 // Bottom section: Progress indicator
                 Spacer(modifier = Modifier.height(8.dp))
                 
+                val actionText = if (isCurrentUnit) "Tiếp tục" else "Bắt đầu học"
+                val actionBackground = if (isCurrentUnit) CourseColors.Accent else CourseColors.AccentLight
+                val actionContentColor = if (isCurrentUnit) Color.White else CourseColors.Accent
+
                 unit.progress?.let { progress ->
                     Column(
                         modifier = Modifier.fillMaxWidth()
@@ -415,6 +427,24 @@ private fun UnitCard(
                                     style = MaterialTheme.typography.labelMedium,
                                     color = CourseColors.Completed,
                                     fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = actionBackground,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = actionText,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = actionContentColor,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier
+                                        .padding(vertical = 8.dp)
+                                        .fillMaxWidth()
                                 )
                             }
                         } else {
@@ -436,11 +466,44 @@ private fun UnitCard(
                                     fontWeight = FontWeight.Medium
                                 )
                             }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = actionBackground,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = actionText,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = actionContentColor,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier
+                                        .padding(vertical = 8.dp)
+                                        .fillMaxWidth()
+                                )
+                            }
                         }
                     }
                 } ?: run {
                     // No progress data
                     Spacer(modifier = Modifier.height(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = actionBackground,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = actionText,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = actionContentColor,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .padding(vertical = 8.dp)
+                                .fillMaxWidth()
+                        )
+                    }
                 }
             }
         }

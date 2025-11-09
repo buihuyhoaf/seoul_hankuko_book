@@ -343,8 +343,8 @@ fun AppNavigation(
         composable(
             route = "listening/{exerciseId}/lesson/{lessonId}",
             arguments = listOf(
-                navArgument("exerciseId") { type = NavType.IntType },
-                navArgument("lessonId") { type = NavType.IntType }
+                navArgument("exerciseId") { type = NavType.StringType },
+                navArgument("lessonId") { type = NavType.StringType }
             )
         ) { backStackEntry ->
             val exerciseId = backStackEntry.arguments?.getString("exerciseId")
@@ -459,10 +459,6 @@ fun AppNavigation(
             navController.navigate("unit/$unitId") {
                 launchSingleTop = true
             }
-        }
-
-        navController.navigate("lesson-flow/${lesson.lessonId}") {
-            launchSingleTop = true
         }
 
         onResumeLessonConsumed()

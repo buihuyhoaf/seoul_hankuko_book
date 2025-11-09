@@ -1,5 +1,7 @@
 package com.seoulhankuko.app.presentation.screens
 
+import android.media.MediaPlayer
+import android.os.Build
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -259,6 +261,13 @@ private fun ListeningScreenContent(
     val ttsManager = viewModel.ttsManager
     val isPlaying by ttsManager.isPlaying.collectAsState()
     val playbackPositionState by ttsManager.playbackPosition.collectAsState()
+    val primaryAudioUrl = remember(exercise.audioUrl) {
+        exercise.audioUrl?.takeIf { it.isNotBlank() }
+    }
+    val hasPrimaryAudio = primaryAudioUrl != null
+    val mediaPlayer = remember { MediaPlayer() }
+    var isMediaPrepared by remember(primaryAudioUrl) { mutableStateOf(false) }
+    var isMediaPlaying by remember(primaryAudioUrl) { mutableStateOf(false) }
     
     // Sound Manager for correct/incorrect sounds
     val soundManager = rememberSoundManager()
@@ -301,14 +310,24 @@ private fun ListeningScreenContent(
     }
     
     // Initialize and calculate duration
-    LaunchedEffect(textToSpeak, exercise.questions) {
+    LaunchedEffect(textToSpeak, exercise.questions, primaryAudioUrl) {
         delay(100)
         appBarVisible = true
         delay(200)
         audioCardVisible = true
+
+        hasListened = false
+        replayCount = 0
+        hasCompletedFirstListen = false
+        showQuestions = false
+        showFeedback = false
+        showTranscript = false
+        currentQuestionIndex = 0
+        selectedAnswers = emptyMap()
+        checkedQuestions = emptySet()
         
-        // Estimate duration for TTS
-        if (textToSpeak.isNotBlank()) {
+        // Estimate duration for TTS when no primary audio is available
+        if (!hasPrimaryAudio && textToSpeak.isNotBlank()) {
             val charsPerWord = 4f // Korean average
             val words = textToSpeak.length / charsPerWord
             val minutes = words / 150f // 150 words per minute
@@ -324,49 +343,119 @@ private fun ListeningScreenContent(
     }
     
     // Update playback position from TTS manager
-    LaunchedEffect(isPlaying) {
-        while (isPlaying) {
-            ttsManager.updatePosition()
-            playbackPosition = playbackPositionState
-            delay(100)
+    if (!hasPrimaryAudio) {
+        LaunchedEffect(isPlaying) {
+            while (isPlaying) {
+                ttsManager.updatePosition()
+                playbackPosition = playbackPositionState
+                delay(100)
+            }
         }
-    }
-    
-    // Sync playback position
-    LaunchedEffect(playbackPositionState) {
-        playbackPosition = playbackPositionState
-    }
-    
-    // Handle first time listening completion - show questions with animation
-    // TTSManager sets playbackPosition to estimatedDuration when TTS completes (in onDone callback)
-    LaunchedEffect(isPlaying, playbackPositionState, hasListened) {
-        // Detect completion: TTS stopped playing AND playbackPosition reached estimatedDuration
-        // This means TTS finished naturally (not paused)
-        val isCompleted = !isPlaying && 
-                          hasListened && 
-                          audioDuration > 0 &&
-                          playbackPositionState >= audioDuration * 0.95 && // At least 95% done
-                          !hasCompletedFirstListen &&
-                          exercise.questions.isNotEmpty()
         
-        if (isCompleted) {
-            // First time listening completed - show questions section
-            hasCompletedFirstListen = true
-            Timber.d("TTS completed! Position: $playbackPositionState/$audioDuration, showing questions (count: ${exercise.questions.size})")
-            delay(300) // Small delay before showing questions
-            showQuestions = true
+        // Sync playback position
+        LaunchedEffect(playbackPositionState) {
+            playbackPosition = playbackPositionState
+        }
+        
+        // Handle first time listening completion - show questions with animation
+        // TTSManager sets playbackPosition to estimatedDuration when TTS completes (in onDone callback)
+        LaunchedEffect(isPlaying, playbackPositionState, hasListened) {
+            val isCompleted = !isPlaying && 
+                hasListened && 
+                audioDuration > 0 &&
+                playbackPositionState >= audioDuration * 0.95 &&
+                !hasCompletedFirstListen &&
+                exercise.questions.isNotEmpty()
+            
+            if (isCompleted) {
+                hasCompletedFirstListen = true
+                Timber.d("TTS completed! Position: $playbackPositionState/$audioDuration, showing questions (count: ${exercise.questions.size})")
+                delay(300)
+                showQuestions = true
+            }
+        }
+        
+        // Debug logging - log all state changes
+        LaunchedEffect(isPlaying, hasCompletedFirstListen, showQuestions, exercise.questions.size) {
+            Timber.d("TTS state: isPlaying=$isPlaying, hasListened=$hasListened, hasCompletedFirstListen=$hasCompletedFirstListen, showQuestions=$showQuestions, questionsCount=${exercise.questions.size}, currentQuestionIndex=$currentQuestionIndex")
         }
     }
     
-    // Debug logging - log all state changes
-    LaunchedEffect(isPlaying, hasCompletedFirstListen, showQuestions, exercise.questions.size) {
-        Timber.d("TTS state: isPlaying=$isPlaying, hasListened=$hasListened, hasCompletedFirstListen=$hasCompletedFirstListen, showQuestions=$showQuestions, questionsCount=${exercise.questions.size}, currentQuestionIndex=$currentQuestionIndex")
+    if (hasPrimaryAudio) {
+        LaunchedEffect(primaryAudioUrl) {
+            try {
+                mediaPlayer.reset()
+                isMediaPrepared = false
+                isMediaPlaying = false
+                playbackPosition = 0
+                audioDuration = 0
+
+                mediaPlayer.setDataSource(primaryAudioUrl)
+                mediaPlayer.setOnPreparedListener { player ->
+                    Timber.d("ListeningScreen: Audio prepared (duration=${player.duration})")
+                    audioDuration = player.duration
+                    isMediaPrepared = true
+                }
+                mediaPlayer.setOnCompletionListener { player ->
+                    Timber.d("ListeningScreen: Audio playback completed")
+                    isMediaPlaying = false
+                    playbackPosition = player.duration
+                    if (!hasCompletedFirstListen && hasListened && exercise.questions.isNotEmpty()) {
+                        hasCompletedFirstListen = true
+                        showQuestions = true
+                    }
+                }
+                mediaPlayer.setOnErrorListener { _, what, extra ->
+                    Timber.e("ListeningScreen: MediaPlayer error what=$what extra=$extra")
+                    isMediaPrepared = false
+                    isMediaPlaying = false
+                    playbackPosition = 0
+                    audioDuration = 0
+                    true
+                }
+                mediaPlayer.prepareAsync()
+            } catch (e: Exception) {
+                Timber.e(e, "ListeningScreen: Failed to prepare audio: $primaryAudioUrl")
+                isMediaPrepared = false
+            }
+        }
+
+        LaunchedEffect(isMediaPlaying) {
+            while (isMediaPlaying) {
+                try {
+                    playbackPosition = mediaPlayer.currentPosition
+                } catch (e: IllegalStateException) {
+                    Timber.e(e, "ListeningScreen: Unable to read current position")
+                    break
+                }
+                delay(100)
+            }
+        }
+
+        LaunchedEffect(isMediaPrepared) {
+            if (isMediaPrepared) {
+                try {
+                    audioDuration = mediaPlayer.duration
+                } catch (e: IllegalStateException) {
+                    Timber.e(e, "ListeningScreen: Unable to read duration after prepared")
+                }
+            }
+        }
     }
-    
-    // Cleanup Sound Manager on dispose (TTS is singleton, managed by Hilt)
+
+    // Cleanup Sound Manager and media/tts resources on dispose
     DisposableEffect(Unit) {
         onDispose {
             soundManager.cleanup()
+            if (ttsManager.isAvailable()) {
+                ttsManager.stop()
+            }
+            try {
+                mediaPlayer.reset()
+                mediaPlayer.release()
+            } catch (e: Exception) {
+                Timber.e(e, "ListeningScreen: Error releasing media player")
+            }
         }
     }
     
@@ -407,7 +496,7 @@ private fun ListeningScreenContent(
                 )
             ) {
                 AudioPlayerCard(
-                    isPlaying = isPlaying,
+                    isPlaying = if (hasPrimaryAudio) isMediaPlaying else isPlaying,
                     playbackPosition = playbackPosition,
                     duration = audioDuration,
                     playbackSpeed = playbackSpeed,
@@ -420,7 +509,34 @@ private fun ListeningScreenContent(
                     },
                     onPlayPauseClick = {
                         view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                        if (isPlaying) {
+                        if (hasPrimaryAudio) {
+                            if (!isMediaPrepared) {
+                                Timber.w("ListeningScreen: Audio not prepared yet")
+                                return@AudioPlayerCard
+                            }
+                            if (isMediaPlaying) {
+                                mediaPlayer.pause()
+                                isMediaPlaying = false
+                            } else {
+                                if (ttsManager.isAvailable()) {
+                                    ttsManager.stop()
+                                }
+                                try {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                        mediaPlayer.playbackParams = mediaPlayer.playbackParams.setSpeed(playbackSpeed)
+                                    }
+                                } catch (e: Exception) {
+                                    Timber.e(e, "ListeningScreen: Unable to set playback speed for MediaPlayer")
+                                }
+                                mediaPlayer.start()
+                                isMediaPlaying = true
+                                if (!hasListened) {
+                                    hasListened = true
+                                }
+                                replayCount++
+                                Timber.d("ListeningScreen: Starting audio playback, replayCount=$replayCount")
+                            }
+                        } else if (isPlaying) {
                             ttsManager.pause()
                         } else {
                             if (textToSpeak.isNotBlank()) {
@@ -437,12 +553,29 @@ private fun ListeningScreenContent(
                     },
                     onReplayClick = {
                         view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                        if (textToSpeak.isNotBlank()) {
+                        if (hasPrimaryAudio) {
+                            if (!isMediaPrepared) {
+                                Timber.w("ListeningScreen: Audio not prepared for replay")
+                                return@AudioPlayerCard
+                            }
+                            try {
+                                mediaPlayer.seekTo(0)
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                    mediaPlayer.playbackParams = mediaPlayer.playbackParams.setSpeed(playbackSpeed)
+                                }
+                                mediaPlayer.start()
+                                isMediaPlaying = true
+                                playbackPosition = 0
+                                replayCount++
+                                Timber.d("ListeningScreen: Replaying audio (replayCount=$replayCount, hasCompletedFirstListen=$hasCompletedFirstListen)")
+                            } catch (e: Exception) {
+                                Timber.e(e, "ListeningScreen: Unable to replay audio")
+                            }
+                        } else if (textToSpeak.isNotBlank()) {
                             ttsManager.stop()
                             ttsManager.speak(textToSpeak, playbackSpeed)
                             playbackPosition = 0
                             replayCount++
-                            // Note: hasListened is already true, we don't want to trigger first completion again
                             Timber.d("Replaying TTS (replayCount=$replayCount, hasCompletedFirstListen=$hasCompletedFirstListen)")
                         }
                     },
@@ -453,21 +586,37 @@ private fun ListeningScreenContent(
                             1.0f -> 1.5f
                             else -> 0.5f
                         }
-                        ttsManager.setSpeed(playbackSpeed)
-                        if (isPlaying && textToSpeak.isNotBlank()) {
-                            // Restart with new speed
-                            ttsManager.stop()
-                            ttsManager.speak(textToSpeak, playbackSpeed)
+                        if (hasPrimaryAudio) {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && isMediaPrepared) {
+                                try {
+                                    mediaPlayer.playbackParams = mediaPlayer.playbackParams.setSpeed(playbackSpeed)
+                                } catch (e: Exception) {
+                                    Timber.e(e, "ListeningScreen: Unable to update MediaPlayer speed")
+                                }
+                            } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+                                Timber.w("ListeningScreen: Playback speed control not supported on this device")
+                            }
+                        } else {
+                            ttsManager.setSpeed(playbackSpeed)
+                            if (isPlaying && textToSpeak.isNotBlank()) {
+                                ttsManager.stop()
+                                ttsManager.speak(textToSpeak, playbackSpeed)
+                            }
                         }
                     },
                     onSeekTo = { position ->
-                        // TTS doesn't support seeking, but we can restart from estimated position
-                        // For now, just restart playback
-                        if (textToSpeak.isNotBlank()) {
+                        if (hasPrimaryAudio && isMediaPrepared) {
+                            try {
+                                mediaPlayer.seekTo(position.coerceIn(0, audioDuration))
+                                playbackPosition = mediaPlayer.currentPosition
+                            } catch (e: Exception) {
+                                Timber.e(e, "ListeningScreen: Unable to seek audio")
+                            }
+                        } else if (textToSpeak.isNotBlank()) {
                             ttsManager.stop()
                             ttsManager.speak(textToSpeak, playbackSpeed)
+                            playbackPosition = position.coerceIn(0, audioDuration)
                         }
-                        playbackPosition = position.coerceIn(0, audioDuration)
                     },
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
@@ -598,7 +747,20 @@ private fun ListeningScreenContent(
                     transcript = exercise.transcript,
                     onListenAgain = {
                         view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                        if (textToSpeak.isNotBlank()) {
+                        if (hasPrimaryAudio && isMediaPrepared) {
+                            try {
+                                mediaPlayer.seekTo(0)
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                    mediaPlayer.playbackParams = mediaPlayer.playbackParams.setSpeed(playbackSpeed)
+                                }
+                                mediaPlayer.start()
+                                isMediaPlaying = true
+                                playbackPosition = 0
+                                replayCount++
+                            } catch (e: Exception) {
+                                Timber.e(e, "ListeningScreen: Unable to replay audio from feedback section")
+                            }
+                        } else if (textToSpeak.isNotBlank()) {
                             ttsManager.stop()
                             ttsManager.speak(textToSpeak, playbackSpeed)
                         }

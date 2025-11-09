@@ -52,6 +52,7 @@ fun UnitScreen(
  
     val mainUiViewModel: MainUiViewModel = hiltViewModel()
     val userData by mainUiViewModel.userData.collectAsStateWithLifecycle()
+    val currentLesson by mainUiViewModel.currentLesson.collectAsStateWithLifecycle()
 
     MainScaffold(
         topBarState = TopBarState(
@@ -68,7 +69,9 @@ fun UnitScreen(
         onNavigateToNotification = onNavigateToNotification,
         onNavigateToProfile = onNavigateToProfile,
         onAvatarClick = onAvatarClick ?: onNavigateToProfile,
-        containerColor = UnitColors.BackgroundLight
+        containerColor = UnitColors.BackgroundLight,
+        showBackButton = true,
+        onBackClick = onNavigateBack
     ) { paddingValues ->
         Box(
             modifier = Modifier
@@ -181,6 +184,7 @@ fun UnitScreen(
                                 LessonCard(
                                     lesson = lesson,
                                     index = index,
+                                    currentLessonId = currentLesson?.lessonId,
                                     onClick = { onNavigateToLesson(lesson.id) }
                                 )
                             }
@@ -196,6 +200,7 @@ fun UnitScreen(
 fun LessonCard(
     lesson: com.seoulhankuko.app.data.api.model.LessonResponse,
     index: Int,
+    currentLessonId: String?,
     onClick: () -> Unit
 ) {
     var isPressed by remember { mutableStateOf(false) }
@@ -244,10 +249,24 @@ fun LessonCard(
     }
 
     // Determine CTA button text based on progress
-    val ctaText = if (lesson.progress?.isCompleted == true) {
-        "Tiếp tục học"
-    } else {
-        "Bắt đầu học"
+    val isCurrentLesson = currentLessonId == lesson.id
+    val progressPercent = lesson.progress?.progressPercent?.toDouble() ?: 0.0
+    val ctaText = when {
+        lesson.progress?.isCompleted == true -> "Xem lại"
+        progressPercent <= 0.0 -> "Bắt đầu học"
+        isCurrentLesson -> "Tiếp tục"
+        else -> "Tiếp tục"
+    }
+    val ctaContainerColor = when {
+        lesson.progress?.isCompleted == true -> UnitColors.SoftIndigo
+        progressPercent <= 0.0 -> UnitColors.LightGray
+        isCurrentLesson -> UnitColors.WarmOrange
+        else -> UnitColors.WarmOrange
+    }
+    val ctaContentColor = when {
+        lesson.progress?.isCompleted == true -> Color.White
+        progressPercent <= 0.0 -> UnitColors.TextPrimary
+        else -> Color.White
     }
 
     Card(
@@ -340,7 +359,7 @@ fun LessonCard(
                         .fillMaxWidth()
                         .height(40.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = UnitColors.WarmOrange
+                        containerColor = ctaContainerColor
                     ),
                     shape = RoundedCornerShape(12.dp),
                     contentPadding = PaddingValues(0.dp)
@@ -349,7 +368,7 @@ fun LessonCard(
                         text = ctaText,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = ctaContentColor
                     )
                 }
             }

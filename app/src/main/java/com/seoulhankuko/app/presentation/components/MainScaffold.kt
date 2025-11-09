@@ -31,6 +31,8 @@ fun MainScaffold(
     modifier: Modifier = Modifier,
     containerColor: Color = MaterialTheme.colorScheme.background,
     showBottomBar: Boolean = true,
+    showBackButton: Boolean = false,
+    onBackClick: () -> Unit = {},
     content: @Composable (PaddingValues) -> Unit
 ) {
     Scaffold(
@@ -45,7 +47,9 @@ fun MainScaffold(
                     exp = topBarState.exp,
                     courseTitle = topBarState.courseTitle,
                     courseThumbnailUrl = topBarState.courseThumbnailUrl,
-                    isVisible = topBarState.isVisible
+                    isVisible = topBarState.isVisible,
+                    showBackButton = showBackButton,
+                    onBackClick = onBackClick
                 )
             }
         },

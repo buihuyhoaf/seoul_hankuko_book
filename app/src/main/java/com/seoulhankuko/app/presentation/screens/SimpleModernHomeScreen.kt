@@ -89,6 +89,7 @@ import com.seoulhankuko.app.presentation.components.MainScaffold
 import com.seoulhankuko.app.presentation.components.TopBarState
 import com.seoulhankuko.app.presentation.utils.HomeColors
 import com.seoulhankuko.app.presentation.viewmodel.HomeViewModel
+import com.seoulhankuko.app.presentation.viewmodel.MainUiViewModel
 import kotlinx.coroutines.delay
 
 
@@ -108,6 +109,8 @@ fun ModernHomeScreen(
     val userName by homeViewModel.currentUserName.collectAsStateWithLifecycle()
     val popupCourseId by homeViewModel.popupCourseId.collectAsStateWithLifecycle()
     val userData by homeViewModel.userData.collectAsStateWithLifecycle()
+    val mainUiViewModel: MainUiViewModel = hiltViewModel()
+    val currentLesson by mainUiViewModel.currentLesson.collectAsStateWithLifecycle()
 
     val streakDays = userData.streakDays
     val expPoints = userData.exp
@@ -178,6 +181,7 @@ fun ModernHomeScreen(
                         courses = courses,
                         onCourseSelected = onCourseSelected,
                         isVisible = isVisible,
+                        currentCourseId = currentLesson?.courseId,
                         popupCourseId = popupCourseId,
                         onShowPopup = { homeViewModel.showCoursePopup(it) },
                         onHidePopup = { homeViewModel.hideCoursePopup() }
@@ -246,6 +250,7 @@ fun CourseGrid(
     courses: List<CourseResponse>,
     onCourseSelected: (courseId: String) -> Unit,
     isVisible: Boolean,
+    currentCourseId: String?,
     popupCourseId: String?,
     onShowPopup: (String) -> Unit,
     onHidePopup: () -> Unit
@@ -266,6 +271,7 @@ fun CourseGrid(
                 onClick = { onCourseSelected(course.id) },
                 isVisible = isVisible,
                 index = courses.indexOf(course),
+                isCurrentCourse = currentCourseId == course.id,
                 isPopupVisible = popupCourseId == course.id,
                 onShowPopup = { onShowPopup(course.id) },
                 onHidePopup = onHidePopup
@@ -280,6 +286,7 @@ fun CourseCard(
     onClick: () -> Unit,
     isVisible: Boolean,
     index: Int,
+    isCurrentCourse: Boolean,
     isPopupVisible: Boolean,
     onShowPopup: () -> Unit,
     onHidePopup: () -> Unit
@@ -316,6 +323,10 @@ fun CourseCard(
     val descriptionPlain = remember(course.description) {
         HtmlCompat.fromHtml(course.description ?: "", HtmlCompat.FROM_HTML_MODE_LEGACY).toString()
     }
+
+    val ctaText = if (isCurrentCourse) "Tiếp tục" else "Bắt đầu học"
+    val ctaBackgroundColor = if (isCurrentCourse) HomeColors.DuolingoGreen else HomeColors.DuolingoLightGreen
+    val ctaContentColor = if (isCurrentCourse) Color.White else HomeColors.DuolingoDarkGreen
 
     AnimatedVisibility(
         visible = isVisible,
@@ -492,7 +503,7 @@ fun CourseCard(
                                         onHidePopup()
                                         onClick()
                                     },
-                                    color = HomeColors.DuolingoGreen,
+                                    color = ctaBackgroundColor,
                                     shape = RoundedCornerShape(10.dp),
                                     shadowElevation = 1.dp
                                 ) {
@@ -500,9 +511,9 @@ fun CourseCard(
                                         verticalAlignment = Alignment.CenterVertically,
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                                     ) {
-                                        Text("Start", color = Color.White, style = MaterialTheme.typography.labelLarge)
+                                        Text(ctaText, color = ctaContentColor, style = MaterialTheme.typography.labelLarge)
                                         Spacer(Modifier.width(4.dp))
-                                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
+                                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = ctaContentColor)
                                     }
                                 }
                             }

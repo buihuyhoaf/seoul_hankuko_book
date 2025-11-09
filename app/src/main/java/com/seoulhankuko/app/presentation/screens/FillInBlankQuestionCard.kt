@@ -74,18 +74,34 @@ fun FillInBlankQuestionCard(
     onAnswerSubmitted: (Boolean) -> Unit,
     onPlayAudio: (() -> Unit)? = null
 ) {
-    val correctAnswerValue = remember(challenge, question) {
+    val correctOption = remember(challenge) {
+        challenge.options.firstOrNull { it.correct }
+    }
+    val correctAnswerValue = remember(challenge, question, correctOption) {
         challenge.options.firstOrNull { it.correct }?.text
             ?: question?.blank?.correctAnswer
+            ?: question?.metadata?.choices?.firstOrNull { choice ->
+                val normalized = choice.trim().lowercase()
+                val normalizedCorrect = correctOption?.text?.trim()?.lowercase()
+                normalizedCorrect != null && normalizedCorrect == normalized
+            }
     }
-    val options = remember(challenge, question, correctAnswerValue) {
+    val options = remember(challenge, question, correctAnswerValue, correctOption) {
         val metadataChoices = question?.metadata?.choices
         if (!metadataChoices.isNullOrEmpty()) {
             metadataChoices.map { choiceText ->
                 FillInBlankOption(
                     id = choiceText,
                     text = choiceText,
-                    isCorrect = correctAnswerValue != null && choiceText == correctAnswerValue
+                    isCorrect = when {
+                        correctAnswerValue != null -> {
+                            choiceText.trim().equals(correctAnswerValue.trim(), ignoreCase = true)
+                        }
+                        correctOption != null -> {
+                            choiceText.trim().equals(correctOption.text.trim(), ignoreCase = true)
+                        }
+                        else -> false
+                    }
                 )
             }
         } else {
@@ -214,7 +230,7 @@ private fun FillBlankOptionCard(
         targetValue = when {
             !isAnswered && isSelected -> LessonFlowColors.PrimaryColor
             answerStatus == AnswerStatus.WRONG && isSelected -> LessonFlowColors.ErrorColor
-            answerStatus == AnswerStatus.CORRECT && isCorrect -> LessonFlowColors.SuccessColor
+            isAnswered && answerStatus == AnswerStatus.CORRECT && isCorrect -> LessonFlowColors.SuccessColor
             else -> AppColors.LightGray
         },
         animationSpec = tween(200),
@@ -225,7 +241,7 @@ private fun FillBlankOptionCard(
         targetValue = when {
             !isAnswered && isSelected -> LessonFlowColors.PrimaryColor
             answerStatus == AnswerStatus.WRONG && isSelected -> LessonFlowColors.ErrorColor
-            answerStatus == AnswerStatus.CORRECT && isCorrect -> LessonFlowColors.SuccessColor
+            isAnswered && answerStatus == AnswerStatus.CORRECT && isCorrect -> LessonFlowColors.SuccessColor
             else -> LessonFlowColors.TextPrimary
         },
         animationSpec = tween(200),

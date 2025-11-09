@@ -8,7 +8,9 @@ data class LessonLite(
     val title: String,
     val unitId: String,
     val order: Int,
-    val description: String? = null
+    val description: String? = null,
+    val targetExp: Int? = null,
+    val expPerQuestion: Float? = null
 )
 
 data class ExerciseLite(
@@ -25,6 +27,7 @@ data class LessonWithChallenges(
     val questionResponses: List<QuestionResponse> = emptyList(),
     val exercises: List<ExerciseLite> = emptyList(),
     val exercisesResponse: List<ExerciseResponse> = emptyList(), // Full exercise data from API
-    val progressPercent: Int = 0 // Progress percentage from backend
+    val progressPercent: Int = 0, // Progress percentage from backend
+    val hasMoreQuestions: Boolean = false
 )
 

@@ -110,6 +110,12 @@ class UserPreferencesManager @Inject constructor(
         }
     }
 
+    suspend fun updateStreakDays(newDays: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[STREAK_DAYS_KEY] = newDays.coerceAtLeast(0)
+        }
+    }
+
     /**
      * Clear user data (logout)
      */

@@ -80,9 +80,8 @@ fun WritingScreen(
                     exercise = exercise,
                     onComplete = {
                         // Update progress and streak
-                        viewModel.updateLessonProgress(lessonId) {
-                            viewModel.updateStreakAfterActivity()
-                        }
+                        viewModel.markExerciseCompletion(exercise.challenge.id, "writing")
+                        viewModel.updateLessonProgress(lessonId)
                         onNavigateBack()
                     }
                 )

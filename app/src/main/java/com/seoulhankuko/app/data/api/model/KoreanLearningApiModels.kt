@@ -138,6 +138,12 @@ data class LessonDetailResponse(
     val orderIndex: Int,
     @SerializedName("created_at")
     val createdAt: String,
+    @SerializedName("target_exp")
+    val targetExp: Int? = null,
+    @SerializedName("exp_per_question")
+    val expPerQuestion: Float? = null,
+    @SerializedName("has_more_questions")
+    val hasMoreQuestions: Boolean? = null,
     val questions: List<QuestionResponse>,
     val exercises: List<ExerciseResponse>,
     val progress: LessonProgress?
@@ -572,11 +578,13 @@ data class EntryTestResultResponse(
 
 // Practice question submission requests
 data class PracticeSelectedOptionRequest(
-    @SerializedName("selected_option_id") val selectedOptionId: String
+    @SerializedName("selected_option_id") val selectedOptionId: String,
+    @SerializedName("exp_earned") val expEarned: Int = 0
 )
 
 data class PracticeTextAnswerRequest(
-    @SerializedName("answer") val answer: String
+    @SerializedName("answer") val answer: String,
+    @SerializedName("exp_earned") val expEarned: Int = 0
 )
 
 // Exercise submission request
@@ -584,4 +592,11 @@ data class ExerciseSubmissionRequest(
     @SerializedName("response") val response: String? = null,
     @SerializedName("audio_url") val audioUrl: String? = null,
     @SerializedName("selected_answers") val selectedAnswers: Map<String, String>? = null // Map of questionId to optionId for listening exercises with questions
+)
+
+data class LessonProgressUpdateRequest(
+    @SerializedName("question_exp") val questionExp: Int,
+    @SerializedName("listening_exp") val listeningExp: Int,
+    @SerializedName("speaking_exp") val speakingExp: Int,
+    @SerializedName("writing_exp") val writingExp: Int
 )

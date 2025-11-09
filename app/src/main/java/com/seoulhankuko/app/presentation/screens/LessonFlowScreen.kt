@@ -35,12 +35,16 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -48,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -73,10 +78,133 @@ import com.seoulhankuko.app.presentation.utils.LessonColors
 import com.seoulhankuko.app.presentation.utils.LessonFlowColors
 import com.seoulhankuko.app.presentation.viewmodel.LessonUiState
 import com.seoulhankuko.app.presentation.viewmodel.LessonViewModel
+
 import com.seoulhankuko.app.presentation.viewmodel.StreakCelebrationEvent
+import com.seoulhankuko.app.presentation.viewmodel.AdditionalChallengesResult
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlin.math.max
 import kotlin.math.roundToInt
+import timber.log.Timber
+
+private data class InsufficientXpDialogState(
+    val title: String,
+    val message: String,
+    val confirmText: String = "Đồng ý"
+)
+
+@Composable
+private fun InsufficientXpDialog(
+    state: InsufficientXpDialogState,
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true,
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.35f)),
+            contentAlignment = Alignment.Center
+        ) {
+            val visibleState by remember { mutableStateOf(true) }
+
+            AnimatedVisibility(
+                visible = visibleState,
+                enter = fadeIn(animationSpec = tween(200)) + scaleIn(animationSpec = tween(200))
+            ) {
+                Card(
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 28.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(20.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    brush = Brush.linearGradient(
+                                        listOf(
+                                            LessonFlowColors.PrimaryColor.copy(alpha = 0.15f),
+                                            LessonColors.AccentSoft
+                                        )
+                                    )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.warning_material),
+                                contentDescription = null,
+                                tint = LessonFlowColors.PrimaryColor,
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
+
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = state.title,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1E293B),
+                                textAlign = TextAlign.Center
+                            )
+                            Card(
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = LessonColors.AccentSoft.copy(alpha = 0.6f)
+                                ),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                            ) {
+                                Text(
+                                    text = state.message,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color(0xFF4B5563),
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier
+                                        .padding(horizontal = 16.dp, vertical = 14.dp)
+                                        .fillMaxWidth()
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = onDismiss,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = LessonFlowColors.PrimaryColor,
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Text(
+                                text = state.confirmText,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 /**
  * LessonFlowScreen - Shows quiz questions in a swipeable pager
@@ -92,6 +220,7 @@ fun LessonFlowScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showExitDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     BackHandler(enabled = true) {
         showExitDialog = true
@@ -136,6 +265,7 @@ fun LessonFlowScreen(
                 modifier = Modifier.shadow(elevation = 4.dp)
             )
         },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         containerColor = LessonColors.BackgroundWhite
     ) { innerPadding ->
         when (val state = uiState) {
@@ -156,11 +286,27 @@ fun LessonFlowScreen(
                     val listeningExerciseId = lesson.exercisesResponse
                         .firstOrNull { it.type.lowercase() == "listening" }
                         ?.id
+                    val fallbackTargetExp = lesson.lesson.expPerQuestion
+                        ?.takeIf { it > 0f }
+                        ?.times(max(lesson.challenges.size, 1))
+                        ?.roundToInt()
+                    val targetExp = lesson.lesson.targetExp
+                        ?: fallbackTargetExp
+                        ?: (lesson.challenges.size * 10)
 
                     QuizPagerFlow(
                         lessonId = lessonId,
-                        challenges = lesson.challenges,
-                        questionResponses = lesson.questionResponses.associateBy { it.id },
+                        initialChallenges = lesson.challenges,
+                        initialQuestionResponses = lesson.questionResponses.associateBy { it.id },
+                        targetExp = targetExp,
+                        baseExpPerQuestion = lesson.lesson.expPerQuestion,
+                        hasMoreQuestionsInitial = lesson.hasMoreQuestions,
+                        fetchAdditionalChallenges = { offset ->
+                            viewModel.fetchAdditionalChallenges(
+                                lessonId = lessonId,
+                                offset = offset
+                            )
+                        },
                         viewModel = viewModel,
                         onNavigateBack = onNavigateBack,
                         onNavigateToListening = {
@@ -168,6 +314,7 @@ fun LessonFlowScreen(
                                 onNavigateToListening(exerciseId)
                             } ?: onNavigateBack()
                         },
+                        snackbarHostState = snackbarHostState,
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
@@ -220,16 +367,26 @@ fun LessonFlowScreen(
 @Composable
 fun QuizPagerFlow(
     lessonId: String,
-    challenges: List<ChallengeWithOptions>,
-    questionResponses: Map<String, QuestionResponse>,
+    initialChallenges: List<ChallengeWithOptions>,
+    initialQuestionResponses: Map<String, QuestionResponse>,
+    targetExp: Int,
+    baseExpPerQuestion: Float?,
+    hasMoreQuestionsInitial: Boolean,
+    fetchAdditionalChallenges: suspend (offset: Int) -> Result<AdditionalChallengesResult>,
     viewModel: LessonViewModel,
     onNavigateBack: () -> Unit,
     onNavigateToListening: () -> Unit,
+    snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier
 ) {
-    val pagerState = rememberPagerState(pageCount = { challenges.size })
     val coroutineScope = rememberCoroutineScope()
     val streakCelebration by viewModel.streakCelebration.collectAsStateWithLifecycle()
+    val challengeItems = remember { mutableStateListOf<ChallengeWithOptions>() }
+    val questionResponseMap = remember { mutableStateMapOf<String, QuestionResponse>() }
+    val challengeMap = remember { mutableStateMapOf<String, ChallengeWithOptions>() }
+    val pagerState = rememberPagerState(pageCount = { max(challengeItems.size, 1) })
+    var hasMoreQuestions by remember { mutableStateOf(hasMoreQuestionsInitial) }
+    var isFetchingMoreChallenges by remember { mutableStateOf(false) }
     var currentAnswerStatus by remember { mutableStateOf<AnswerStatus>(AnswerStatus.NONE) }
     var selectedOption by remember { mutableStateOf<String?>(null) }
     var showResultScreen by remember { mutableStateOf(false) }
@@ -238,13 +395,25 @@ fun QuizPagerFlow(
     var matchingCompleted by remember { mutableStateOf(false) }
     var lessonStartTimestamp by remember { mutableStateOf(System.currentTimeMillis()) }
     var totalTimeMillis by remember { mutableStateOf(0L) }
-    var correctCount by remember { mutableStateOf(0) }
-    var experienceGained by remember { mutableStateOf(0) }
+    var expAccumulated by remember { mutableStateOf(0f) }
     val completedChallengeIds = remember { mutableStateListOf<String>() }
+    val incorrectChallengeIds = remember { mutableStateListOf<String>() }
+    val reviewAttempts = remember { mutableStateMapOf<String, Int>() }
     var hasProgressUpdated by remember { mutableStateOf(false) }
     var isUpdatingProgress by remember { mutableStateOf(false) }
     var pendingNavigation by remember { mutableStateOf(false) }
     var shouldNavigateAfterStreak by remember { mutableStateOf(false) }
+    var streakCelebrationScheduled by remember { mutableStateOf(false) }
+    var insufficientXpDialogState by remember { mutableStateOf<InsufficientXpDialogState?>(null) }
+    val totalTargetExp = remember(targetExp) { targetExp.coerceAtLeast(0) }
+    val expPerQuestionValue = remember(targetExp, baseExpPerQuestion, initialChallenges.size) {
+        when {
+            baseExpPerQuestion != null && baseExpPerQuestion > 0f -> baseExpPerQuestion
+            totalTargetExp > 0 && initialChallenges.isNotEmpty() -> totalTargetExp.toFloat() / initialChallenges.size.toFloat()
+            else -> 0f
+        }
+    }
+    val maxReviewAttempts = 2
 
     // Sound manager for playing correct/incorrect sounds
     val soundManager = rememberSoundManager()
@@ -268,27 +437,37 @@ fun QuizPagerFlow(
         }
     }
 
-    LaunchedEffect(challenges) {
+    LaunchedEffect(initialChallenges) {
         if (showResultScreen || showStreakScreen) {
             return@LaunchedEffect
         }
+        challengeItems.clear()
+        challengeItems.addAll(initialChallenges)
+        questionResponseMap.clear()
+        questionResponseMap.putAll(initialQuestionResponses)
+        challengeMap.clear()
+        challengeMap.putAll(initialChallenges.associateBy { it.challenge.id })
+        hasMoreQuestions = hasMoreQuestionsInitial
         showResultScreen = false
         showStreakScreen = false
-        correctCount = 0
-        experienceGained = 0
+        expAccumulated = 0f
         completedChallengeIds.clear()
+        incorrectChallengeIds.clear()
+        reviewAttempts.clear()
         lessonStartTimestamp = System.currentTimeMillis()
         totalTimeMillis = 0L
         hasProgressUpdated = false
         isUpdatingProgress = false
         pendingNavigation = false
         shouldNavigateAfterStreak = false
+        streakCelebrationScheduled = false
         streakEventToShow = null
     }
 
     LaunchedEffect(streakCelebration) {
+        streakEventToShow = streakCelebration
         if (streakCelebration != null) {
-            streakEventToShow = streakCelebration
+            streakCelebrationScheduled = true
         }
     }
 
@@ -298,46 +477,65 @@ fun QuizPagerFlow(
         }
     }
 
-    fun proceedAfterLessonResult() {
-        pendingNavigation = false
-        showResultScreen = false
-        if (ttsManager.isAvailable()) {
-            ttsManager.stop()
-        }
-        val event = streakEventToShow
-        if (event != null) {
-            shouldNavigateAfterStreak = true
-            showStreakScreen = true
-        } else {
-            onNavigateToListening()
-        }
-    }
-
     fun dismissStreakCelebration() {
         val navigateAfter = shouldNavigateAfterStreak
         showStreakScreen = false
         shouldNavigateAfterStreak = false
         streakEventToShow = null
         viewModel.clearStreakCelebration()
+        streakCelebrationScheduled = false
         if (navigateAfter) {
-            onNavigateToListening()
+            pendingNavigation = false
+            onNavigateBack()
         }
     }
 
     LaunchedEffect(showResultScreen) {
         if (showResultScreen && !hasProgressUpdated && !isUpdatingProgress) {
             isUpdatingProgress = true
-            viewModel.updateLessonProgress(lessonId) {
+            streakCelebrationScheduled = false
+            viewModel.updateLessonProgress(lessonId) { celebrationScheduled ->
                 hasProgressUpdated = true
                 isUpdatingProgress = false
-                if (pendingNavigation) {
-                    proceedAfterLessonResult()
-                }
+                streakCelebrationScheduled = celebrationScheduled
             }
         }
     }
 
+    val streakCelebrationFlow = remember { viewModel.streakCelebration }
+
+    LaunchedEffect(pendingNavigation, hasProgressUpdated, streakCelebrationScheduled, streakEventToShow) {
+        if (!pendingNavigation || !hasProgressUpdated) return@LaunchedEffect
+
+        if (streakCelebrationScheduled) {
+            val event = streakEventToShow ?: streakCelebrationFlow.filterNotNull().first().also {
+                streakEventToShow = it
+            }
+            if (ttsManager.isAvailable()) {
+                ttsManager.stop()
+            }
+            showResultScreen = false
+            shouldNavigateAfterStreak = true
+            showStreakScreen = true
+            pendingNavigation = false
+        } else {
+            if (ttsManager.isAvailable()) {
+                ttsManager.stop()
+            }
+            showResultScreen = false
+            pendingNavigation = false
+            onNavigateBack()
+        }
+    }
+
     val streakEvent = streakEventToShow
+    
+    insufficientXpDialogState?.let { dialogState ->
+        InsufficientXpDialog(
+            state = dialogState,
+            onDismiss = { insufficientXpDialogState = null }
+        )
+    }
 
     // Show celebratory result screen when lesson is completed
     if (showStreakScreen && streakEvent != null) {
@@ -350,12 +548,16 @@ fun QuizPagerFlow(
     } else if (showResultScreen) {
         LessonResultScreen(
             totalTime = totalTimeMillis,
-            experienceGained = experienceGained,
+            experienceGained = expAccumulated.roundToInt(),
             onRetry = {
                 showResultScreen = false
-                correctCount = 0
-                experienceGained = 0
+                expAccumulated = 0f
                 completedChallengeIds.clear()
+                challengeItems.clear()
+                challengeItems.addAll(initialChallenges)
+                questionResponseMap.clear()
+                questionResponseMap.putAll(initialQuestionResponses)
+                hasMoreQuestions = hasMoreQuestionsInitial
                 lessonStartTimestamp = System.currentTimeMillis()
                 totalTimeMillis = 0L
                 currentAnswerStatus = AnswerStatus.NONE
@@ -371,18 +573,20 @@ fun QuizPagerFlow(
                 hasProgressUpdated = false
                 isUpdatingProgress = false
                 pendingNavigation = false
+                streakCelebrationScheduled = false
             },
             onContinue = {
                 pendingNavigation = true
                 when {
-                    hasProgressUpdated -> proceedAfterLessonResult()
+                    hasProgressUpdated -> Unit
                     isUpdatingProgress -> Unit
                     else -> {
                         isUpdatingProgress = true
-                        viewModel.updateLessonProgress(lessonId) {
+                        streakCelebrationScheduled = false
+                        viewModel.updateLessonProgress(lessonId) { celebrationScheduled ->
                             hasProgressUpdated = true
                             isUpdatingProgress = false
-                            proceedAfterLessonResult()
+                            streakCelebrationScheduled = celebrationScheduled
                         }
                     }
                 }
@@ -390,26 +594,94 @@ fun QuizPagerFlow(
         )
     } else {
         val currentPage = pagerState.currentPage
-        val currentChallenge = challenges.getOrNull(currentPage)
-        val currentQuestionResponse = currentChallenge?.let { questionResponses[it.challenge.id] }
+        val currentChallenge = challengeItems.getOrNull(currentPage)
+        val currentQuestionResponse = currentChallenge?.let { questionResponseMap[it.challenge.id] }
         val isMatchingQuestion = currentChallenge?.challenge?.type == QuestionType.MATCHING && currentQuestionResponse != null
 
         fun isSelectionCorrect(selection: String?): Boolean {
             if (selection.isNullOrEmpty() || currentChallenge == null) return false
-            val correctOption = currentChallenge.options.firstOrNull { it.correct } ?: return false
+            val correctOption = currentChallenge.options.firstOrNull { it.correct }
             val metadataChoices = currentQuestionResponse?.metadata?.choices
-            return if (!metadataChoices.isNullOrEmpty()) {
-                selection == correctOption.text
-            } else {
-                selection == correctOption.id
+            val blankAnswer = currentQuestionResponse?.blank?.correctAnswer
+            val isCaseSensitive = currentQuestionResponse?.blank?.caseSensitive == true
+            val responseCorrectOptions = currentQuestionResponse?.options?.filter { it.isCorrect }.orEmpty()
+            val selectedChallengeOption = currentChallenge.options.firstOrNull { it.id == selection }
+
+            fun normalize(input: String?) = input
+                ?.trim()
+                ?.replace("\u00A0", " ")
+                ?.replace("\\s+".toRegex(), " ")
+                ?.let { if (isCaseSensitive) it else it.lowercase() }
+
+            val normalizedSelectionId = normalize(selection)
+            val normalizedSelectionText = normalize(selectedChallengeOption?.text ?: selection)
+
+            if (!blankAnswer.isNullOrBlank()) {
+                val normalizedAnswer = normalize(blankAnswer)
+                val normalizedCorrectId = normalize(correctOption?.id)
+                if (normalizedSelectionText == normalizedAnswer ||
+                    normalizedSelectionId == normalizedAnswer ||
+                    normalizedSelectionId == normalizedCorrectId ||
+                    normalizedSelectionText == normalizedCorrectId
+                ) {
+                    return true
+                }
             }
+
+            if (responseCorrectOptions.isNotEmpty()) {
+                val matchesResponseOption = responseCorrectOptions.any { option ->
+                    val normalizedId = normalize(option.id)
+                    val normalizedText = normalize(option.optionText)
+                    normalizedSelectionId == normalizedId ||
+                        normalizedSelectionText == normalizedText ||
+                        normalizedSelectionId == normalizedText ||
+                        normalizedSelectionText == normalizedId
+                }
+                if (matchesResponseOption) {
+                    return true
+                }
+            }
+
+            if (correctOption != null) {
+                val expectedText = normalize(correctOption.text)
+                val expectedId = normalize(correctOption.id)
+                if (normalizedSelectionText == expectedText ||
+                    normalizedSelectionId == expectedText ||
+                    normalizedSelectionId == expectedId ||
+                    normalizedSelectionText == expectedId
+                ) {
+                    return true
+                }
+            }
+
+            if (!metadataChoices.isNullOrEmpty()) {
+                val candidates = mutableSetOf<String>()
+                correctOption?.id?.let { candidates.add(it) }
+                correctOption?.text?.takeIf { it.isNotBlank() }?.let { candidates.add(it) }
+                blankAnswer?.takeIf { it.isNotBlank() }?.let { candidates.add(it) }
+                if (candidates.isNotEmpty()) {
+                    val hasMatch = candidates.any { candidate ->
+                        val normalizedCandidate = normalize(candidate)
+                        normalizedCandidate == normalizedSelectionId || normalizedCandidate == normalizedSelectionText
+                    }
+                    if (hasMatch) {
+                        return true
+                    }
+                }
+            }
+
+            return false
         }
 
         fun registerCorrectForChallenge(challengeId: String?) {
             val id = challengeId ?: return
+            incorrectChallengeIds.remove(id)
+            reviewAttempts.remove(id)
             if (!completedChallengeIds.contains(id)) {
                 completedChallengeIds.add(id)
-                correctCount += 1
+                val gained = expPerQuestionValue.coerceAtLeast(0f)
+                expAccumulated = (expAccumulated + gained).coerceAtMost(totalTargetExp.toFloat())
+                viewModel.recordQuestionCompletion(id, gained)
             }
         }
 
@@ -430,13 +702,98 @@ fun QuizPagerFlow(
                 AnswerStatus.WRONG
             }
 
-            if (isCorrect && currentChallenge != null) {
-                registerCorrectForChallenge(currentChallenge.challenge.id)
+            val currentId = currentChallenge?.challenge?.id
+            if (isCorrect && currentId != null) {
+                registerCorrectForChallenge(currentId)
                 viewModel.submitPracticeCorrectAnswer(
                     lessonId = lessonId,
-                    questionId = currentChallenge.challenge.id,
-                    selectedOptionId = selectedOption ?: ""
+                    questionId = currentId,
+                    selectedOptionId = selectedOption ?: "",
+                    earnedExp = expPerQuestionValue.coerceAtLeast(0f)
                 )
+            } else if (!isCorrect && currentId != null) {
+                if (!incorrectChallengeIds.contains(currentId)) {
+                    incorrectChallengeIds.add(currentId)
+                }
+            }
+        }
+
+        fun handleIncompleteXp() {
+            val reviewCandidates = incorrectChallengeIds.filter { id ->
+                reviewAttempts.getOrDefault(id, 0) < maxReviewAttempts
+            }
+            if (reviewCandidates.isNotEmpty()) {
+                val reviewChallenges = reviewCandidates.mapNotNull { id -> challengeMap[id] }
+                if (reviewChallenges.isNotEmpty()) {
+                    reviewCandidates.forEach { id ->
+                        val attemptCount = reviewAttempts.getOrDefault(id, 0) + 1
+                        reviewAttempts[id] = attemptCount
+                    }
+                    incorrectChallengeIds.removeAll(reviewCandidates.toSet())
+                    val insertionIndex = challengeItems.size
+                    challengeItems.addAll(reviewChallenges)
+                    insufficientXpDialogState = InsufficientXpDialogState(
+                        title = "Chưa đủ XP",
+                        message = "Bạn chưa đủ XP, ôn lại các câu vừa sai để tích lũy thêm XP."
+                    )
+                    coroutineScope.launch {
+                        pagerState.scrollToPage(insertionIndex.coerceAtMost(challengeItems.lastIndex))
+                    }
+                    currentAnswerStatus = AnswerStatus.NONE
+                    selectedOption = null
+                    matchingCompleted = false
+                    return
+                }
+            }
+
+            val hasRetryExhausted = incorrectChallengeIds.isNotEmpty() && reviewCandidates.isEmpty()
+            if (!hasMoreQuestions) {
+                val dialogMessage = if (hasRetryExhausted) {
+                    "Bạn đã ôn lại tất cả câu sai nhưng vẫn chưa đủ XP. Vui lòng thử lại sau."
+                } else {
+                    "Bạn chưa đạt đủ XP và hiện không còn câu hỏi mới. Vui lòng thử lại sau."
+                }
+                insufficientXpDialogState = InsufficientXpDialogState(
+                    title = "Chưa đủ XP",
+                    message = dialogMessage
+                )
+                return
+            }
+            if (isFetchingMoreChallenges) return
+
+            coroutineScope.launch {
+                isFetchingMoreChallenges = true
+                val currentIndex = pagerState.currentPage
+                val result = fetchAdditionalChallenges(challengeItems.size)
+                result.fold(
+                    onSuccess = { additional ->
+                        if (additional.challenges.isNotEmpty()) {
+                            challengeItems.addAll(additional.challenges)
+                            challengeMap.putAll(additional.challenges.associateBy { it.challenge.id })
+                            questionResponseMap.putAll(additional.questionResponses)
+                            hasMoreQuestions = additional.hasMore
+                            val nextIndex = (currentIndex + 1).coerceAtMost(challengeItems.lastIndex)
+                            pagerState.scrollToPage(nextIndex)
+                        } else {
+                            hasMoreQuestions = additional.hasMore
+                            insufficientXpDialogState = InsufficientXpDialogState(
+                                title = "Chưa đủ XP",
+                                message = "Không còn câu hỏi mới, vui lòng thử lại sau."
+                            )
+                        }
+                    },
+                    onFailure = { error ->
+                        Timber.e(error, "Failed to fetch additional challenges for lesson $lessonId")
+                        insufficientXpDialogState = InsufficientXpDialogState(
+                            title = "Chưa đủ XP",
+                            message = "Không thể tải thêm câu hỏi. Vui lòng thử lại."
+                        )
+                    }
+                )
+                currentAnswerStatus = AnswerStatus.NONE
+                selectedOption = null
+                matchingCompleted = false
+                isFetchingMoreChallenges = false
             }
         }
 
@@ -451,33 +808,54 @@ fun QuizPagerFlow(
                     .padding(bottom = 96.dp)
             ) {
                 // Progress indicator
-                ProgressIndicator(
-                    currentPage = pagerState.currentPage + 1,
-                    totalPages = challenges.size
+                ExpProgressIndicator(
+                    earnedExp = expAccumulated.roundToInt(),
+                    targetExp = totalTargetExp,
+                    answeredCount = completedChallengeIds.size,
+                    totalQuestions = challengeItems.size,
+                    perQuestionExp = expPerQuestionValue
                 )
 
                 // Pager with questions
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.weight(1f),
-                    pageSpacing = 16.dp,
-                    contentPadding = PaddingValues(horizontal = 24.dp),
-                    userScrollEnabled = false
-                ) { page ->
-                    val challenge = challenges[page]
-                    val questionResponse = questionResponses[challenge.challenge.id]
-                    val isBlankQuestion = challenge.challenge.type == QuestionType.BLANK && questionResponse != null
-                    val isMatchingQuestion = challenge.challenge.type == QuestionType.MATCHING && questionResponse != null
+                if (challengeItems.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Chưa có câu hỏi nào cho bài học này",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = LessonFlowColors.TextSecondary,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                } else {
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.weight(1f),
+                        pageSpacing = 16.dp,
+                        contentPadding = PaddingValues(horizontal = 24.dp),
+                        userScrollEnabled = false
+                    ) { page ->
+                        val challenge = challengeItems[page]
+                        val questionResponse = questionResponseMap[challenge.challenge.id]
+                        val isBlankQuestion = challenge.challenge.type == QuestionType.BLANK && questionResponse != null
+                        val isMatchingQuestion = challenge.challenge.type == QuestionType.MATCHING && questionResponse != null
+                        val isCurrentPage = page == pagerState.currentPage
+                        val pageAnswerStatus = if (isCurrentPage) currentAnswerStatus else AnswerStatus.NONE
+                        val pageSelectedOption = if (isCurrentPage) selectedOption else null
 
-                    if (isBlankQuestion) {
-                        FillInBlankQuestionCard(
-                            challenge = challenge,
-                            question = questionResponse,
-                            questionIndex = page,
-                            selectedOption = selectedOption,
-                            answerStatus = currentAnswerStatus,
-                            onOptionSelected = { optionId ->
-                                if (currentAnswerStatus == AnswerStatus.NONE) {
+                        if (isBlankQuestion) {
+                            FillInBlankQuestionCard(
+                                challenge = challenge,
+                                question = questionResponse,
+                                questionIndex = page,
+                                selectedOption = pageSelectedOption,
+                                answerStatus = pageAnswerStatus,
+                                onOptionSelected = { optionId ->
+                                    if (!isCurrentPage || currentAnswerStatus != AnswerStatus.NONE) return@FillInBlankQuestionCard
                                     selectedOption = optionId
                                     val option = challenge.options.find { it.id == optionId }
                                     val metadataChoice = questionResponse?.metadata?.choices?.firstOrNull { it == optionId }
@@ -496,99 +874,102 @@ fun QuizPagerFlow(
                                             ttsManager.stop()
                                         }
                                     }
-                                }
-                            },
-                            onAnswerSubmitted = { submitAnswer(it) },
-                            onPlayAudio = {
-                                val questionText = challenge.challenge.question
-                                if (questionText.isNotBlank()) {
-                                    ttsManager.speak(questionText, speed = 0.8f)
-                                }
-                            }
-                        )
-                    } else if (isMatchingQuestion) {
-                        val metadataPairs = questionResponse?.metadata?.pairs
-                            ?.mapNotNull { pair ->
-                                val left = pair.left
-                                val right = pair.right
-                                if (left.isNullOrBlank() && right.isNullOrBlank()) {
-                                    null
-                                } else {
-                                    left.orEmpty() to right.orEmpty()
-                                }
-                            }
-                        val fallbackPairs = challenge.matchingPairs
-                            ?.mapNotNull { pair ->
-                                val left = pair.leftText
-                                val right = pair.rightText
-                                if (left.isNullOrBlank() && right.isNullOrBlank()) {
-                                    null
-                                } else {
-                                    left.orEmpty() to right.orEmpty()
-                                }
-                            }
-                        val pairsForUi = when {
-                            !metadataPairs.isNullOrEmpty() -> metadataPairs
-                            !fallbackPairs.isNullOrEmpty() -> fallbackPairs
-                            else -> emptyList()
-                        }
-
-                        if (pairsForUi.isNotEmpty()) {
-                            MatchingQuestionCard(
-                                question = MatchingQuestion(
-                                    content = challenge.challenge.question,
-                                    pairs = pairsForUi,
-                                    explanation = questionResponse?.explanation.orEmpty()
-                                ),
-                                onMatchCompleted = { isCompleted ->
-                                    matchingCompleted = isCompleted
-                                    if (isCompleted) {
-                                        if (currentAnswerStatus != AnswerStatus.CORRECT) {
-                                            currentAnswerStatus = AnswerStatus.CORRECT
-                                            registerCorrectForChallenge(challenge.challenge.id)
-                                            viewModel.submitPracticeCorrectAnswer(
-                                                lessonId = lessonId,
-                                                questionId = challenge.challenge.id,
-                                                selectedOptionId = ""
-                                            )
-                                        }
-                                    } else if (currentAnswerStatus != AnswerStatus.NONE) {
-                                        currentAnswerStatus = AnswerStatus.NONE
-                                    }
                                 },
-                                onMatchFeedback = { isCorrect ->
-                                    if (isCorrect) {
-                                        soundManager.playCorrect()
-                                    } else {
-                                        soundManager.playIncorrect()
+                                onAnswerSubmitted = {
+                                    if (!isCurrentPage) return@FillInBlankQuestionCard
+                                    submitAnswer(it)
+                                },
+                                onPlayAudio = {
+                                    val questionText = challenge.challenge.question
+                                    if (questionText.isNotBlank()) {
+                                        ttsManager.speak(questionText, speed = 0.8f)
                                     }
                                 }
                             )
-                        } else {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(20.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color.White),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                            ) {
-                                Text(
-                                    text = "Không có dữ liệu ghép cặp cho câu hỏi này.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = LessonFlowColors.TextSecondary,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(24.dp)
-                                )
+                        } else if (isMatchingQuestion) {
+                            val metadataPairs = questionResponse?.metadata?.pairs
+                                ?.mapNotNull { pair ->
+                                    pair.left?.let { left ->
+                                        pair.right?.let { right ->
+                                            left to right
+                                        }
+                                    }
+                                }
+                            val fallbackPairs = challenge.matchingPairs
+                                ?.mapNotNull { pair ->
+                                    val left = pair.leftText
+                                    val right = pair.rightText
+                                    if (left.isNullOrBlank() && right.isNullOrBlank()) {
+                                        null
+                                    } else {
+                                        left.orEmpty() to right.orEmpty()
+                                    }
+                                }
+                            val pairsForUi = when {
+                                !metadataPairs.isNullOrEmpty() -> metadataPairs
+                                !fallbackPairs.isNullOrEmpty() -> fallbackPairs
+                                else -> emptyList()
                             }
-                        }
-                    } else {
-                        QuizQuestionCard(
-                            challenge = challenge,
-                            selectedOption = selectedOption,
-                            answerStatus = currentAnswerStatus,
-                            onOptionSelected = { optionId ->
-                                if (currentAnswerStatus == AnswerStatus.NONE) {
+
+                            if (pairsForUi.isNotEmpty()) {
+                                MatchingQuestionCard(
+                                    question = MatchingQuestion(
+                                        content = challenge.challenge.question,
+                                        pairs = pairsForUi,
+                                        explanation = questionResponse?.explanation.orEmpty()
+                                    ),
+                                    onMatchCompleted = { isCompleted ->
+                                        if (!isCurrentPage) return@MatchingQuestionCard
+                                        matchingCompleted = isCompleted
+                                        if (isCompleted) {
+                                            if (currentAnswerStatus != AnswerStatus.CORRECT) {
+                                                currentAnswerStatus = AnswerStatus.CORRECT
+                                                registerCorrectForChallenge(challenge.challenge.id)
+                                                viewModel.submitPracticeCorrectAnswer(
+                                                    lessonId = lessonId,
+                                                    questionId = challenge.challenge.id,
+                                                    selectedOptionId = "",
+                                                    earnedExp = expPerQuestionValue.coerceAtLeast(0f)
+                                                )
+                                            }
+                                        } else if (currentAnswerStatus != AnswerStatus.NONE) {
+                                            currentAnswerStatus = AnswerStatus.NONE
+                                        }
+                                    },
+                                    onMatchFeedback = { isCorrect ->
+                                        if (!isCurrentPage) return@MatchingQuestionCard
+                                        if (isCorrect) {
+                                            soundManager.playCorrect()
+                                        } else {
+                                            soundManager.playIncorrect()
+                                        }
+                                    }
+                                )
+                            } else {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(20.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                                ) {
+                                    Text(
+                                        text = "Không có dữ liệu ghép cặp cho câu hỏi này.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = LessonFlowColors.TextSecondary,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(24.dp)
+                                    )
+                                }
+                            }
+                        } else {
+                            QuizQuestionCard(
+                                challenge = challenge,
+                                selectedOption = pageSelectedOption,
+                                answerStatus = pageAnswerStatus,
+                                onOptionSelected = { optionId ->
+                                    if (!isCurrentPage || currentAnswerStatus != AnswerStatus.NONE) return@QuizQuestionCard
                                     selectedOption = optionId
                                     val option = challenge.options.find { it.id == optionId }
                                     val optionText = option?.text.orEmpty()
@@ -600,17 +981,20 @@ fun QuizPagerFlow(
                                     } else if (ttsManager.isAvailable()) {
                                         ttsManager.stop()
                                     }
+                                },
+                                onAnswerSubmitted = {
+                                    if (!isCurrentPage) return@QuizQuestionCard
+                                    submitAnswer(it)
+                                },
+                                questionIndex = page,
+                                onPlayAudio = {
+                                    val questionText = challenge.challenge.question
+                                    if (questionText.isNotBlank()) {
+                                        ttsManager.speak(questionText, speed = 0.8f)
+                                    }
                                 }
-                            },
-                            onAnswerSubmitted = { submitAnswer(it) },
-                            questionIndex = page,
-                            onPlayAudio = {
-                                val questionText = challenge.challenge.question
-                                if (questionText.isNotBlank()) {
-                                    ttsManager.speak(questionText, speed = 0.8f)
-                                }
-                            }
-                        )
+                            )
+                        }
                     }
                 }
             }
@@ -621,10 +1005,13 @@ fun QuizPagerFlow(
             else -> true
         }
 
+        val xpRequirementMet = totalTargetExp <= 0 || expAccumulated.roundToInt() >= totalTargetExp
+
         val buttonText = when {
             isMatchingQuestion && !matchingCompleted -> "Hoàn thành"
             currentAnswerStatus == AnswerStatus.NONE -> "Kiểm tra"
-            currentPage == challenges.lastIndex -> "Hoàn thành"
+            currentPage == challengeItems.lastIndex && !xpRequirementMet -> "Tiếp tục"
+            currentPage == challengeItems.lastIndex -> "Hoàn thành"
             else -> "Tiếp tục"
         }
 
@@ -642,21 +1029,28 @@ fun QuizPagerFlow(
                         val isCorrect = isSelectionCorrect(selectedOption)
                         submitAnswer(isCorrect)
                     } else {
-                        if (currentPage == challenges.lastIndex) {
-                            val totalQuestions = challenges.size.coerceAtLeast(1)
-                            totalTimeMillis = (System.currentTimeMillis() - lessonStartTimestamp).coerceAtLeast(0L)
-                            val calculatedXp = ((correctCount.toFloat() / totalQuestions.toFloat()) * 100f).roundToInt().coerceIn(0, 100)
-                            experienceGained = calculatedXp
-                            showResultScreen = true
-                            pendingNavigation = false
+                        if (currentPage == challengeItems.lastIndex) {
+                            if (xpRequirementMet) {
+                                totalTimeMillis = (System.currentTimeMillis() - lessonStartTimestamp).coerceAtLeast(0L)
+                                showResultScreen = true
+                                pendingNavigation = false
+                            } else {
+                                handleIncompleteXp()
+                            }
                         } else {
+                            currentAnswerStatus = AnswerStatus.NONE
+                            selectedOption = null
+                            matchingCompleted = false
+                            if (ttsManager.isAvailable()) {
+                                ttsManager.stop()
+                            }
                             coroutineScope.launch {
                                 pagerState.animateScrollToPage(currentPage + 1)
                             }
                         }
                     }
                 },
-                enabled = buttonEnabled,
+                enabled = buttonEnabled && !isFetchingMoreChallenges,
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = LessonFlowColors.PrimaryColor),
                 modifier = Modifier
@@ -671,6 +1065,17 @@ fun QuizPagerFlow(
                 )
             }
         }
+
+        if (isFetchingMoreChallenges) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = LessonFlowColors.PrimaryColor)
+            }
+        }
         }
     }
 }
@@ -679,10 +1084,20 @@ fun QuizPagerFlow(
  * Progress indicator showing current question number
  */
 @Composable
-fun ProgressIndicator(currentPage: Int, totalPages: Int) {
-    val safeTotal = max(totalPages, 1)
-    val clampedPage = currentPage.coerceIn(0, safeTotal)
-    val progress = clampedPage.toFloat() / safeTotal.toFloat()
+fun ExpProgressIndicator(
+    earnedExp: Int,
+    targetExp: Int,
+    answeredCount: Int,
+    totalQuestions: Int,
+    perQuestionExp: Float
+) {
+    val safeTarget = max(targetExp, 1)
+    val safeEarned = earnedExp.coerceAtLeast(0)
+    val progress = when {
+        targetExp <= 0 -> 1f
+        else -> safeEarned.coerceAtMost(targetExp).toFloat() / safeTarget.toFloat()
+    }
+    val safeTotalQuestions = max(totalQuestions, 1)
 
     Column(
         modifier = Modifier
@@ -701,12 +1116,30 @@ fun ProgressIndicator(currentPage: Int, totalPages: Int) {
         )
 
         Text(
-            text = "$clampedPage / $safeTotal",
+            text = "${safeEarned.coerceAtMost(targetExp)} / $targetExp XP",
             style = MaterialTheme.typography.labelMedium,
             color = LessonFlowColors.TextSecondary,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center
         )
+
+        Text(
+            text = "$answeredCount / $safeTotalQuestions câu đã đạt XP",
+            style = MaterialTheme.typography.labelSmall,
+            color = LessonFlowColors.TextSecondary,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center
+        )
+
+        if (perQuestionExp > 0f) {
+            Text(
+                text = "~${perQuestionExp.roundToInt()} XP mỗi câu đúng",
+                style = MaterialTheme.typography.labelSmall,
+                color = LessonFlowColors.TextSecondary,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 

@@ -1,9 +1,11 @@
 package com.seoulhankuko.app.data.repository
 
+import com.seoulhankuko.app.data.api.model.ExerciseSubmissionRequest
 import com.seoulhankuko.app.data.api.model.LessonDetailResponse
 import com.seoulhankuko.app.data.api.model.PracticeSelectedOptionRequest
 import com.seoulhankuko.app.data.api.model.PracticeTextAnswerRequest
-import com.seoulhankuko.app.data.api.model.ExerciseSubmissionRequest
+import com.seoulhankuko.app.data.api.model.QuestionResponse
+import com.seoulhankuko.app.data.api.model.LessonProgressUpdateRequest
 import com.seoulhankuko.app.data.api.service.ApiService
 import com.seoulhankuko.app.domain.model.ChallengeLite
 import com.seoulhankuko.app.domain.model.ChallengeOptionLite
@@ -26,8 +28,7 @@ import javax.inject.Singleton
 
 @Singleton
 class LessonRepository @Inject constructor(
-    private val apiService: ApiService,
-    private val authRepository: AuthRepository
+    private val apiService: ApiService
 ) {
     /**
      * Map question_type_id to QuestionType enum
@@ -138,7 +139,8 @@ class LessonRepository @Inject constructor(
         questionId: String,
         token: String,
         selectedOptionId: String? = null,
-        textAnswer: String? = null
+        textAnswer: String? = null,
+        expEarned: Int = 0
     ): Result<Map<String, Any>> {
         return try {
             val authHeader = "Bearer $token"
@@ -146,13 +148,19 @@ class LessonRepository @Inject constructor(
                 selectedOptionId != null -> {
                     apiService.submitPracticeQuestionSelectedOption(
                         lessonId, questionId, authHeader,
-                        PracticeSelectedOptionRequest(selectedOptionId)
+                        PracticeSelectedOptionRequest(
+                            selectedOptionId = selectedOptionId,
+                            expEarned = expEarned.coerceAtLeast(0)
+                        )
                     )
                 }
                 textAnswer != null -> {
                     apiService.submitPracticeQuestionTextAnswer(
                         lessonId, questionId, authHeader,
-                        PracticeTextAnswerRequest(textAnswer)
+                        PracticeTextAnswerRequest(
+                            answer = textAnswer,
+                            expEarned = expEarned.coerceAtLeast(0)
+                        )
                     )
                 }
                 else -> {
@@ -213,7 +221,9 @@ class LessonRepository @Inject constructor(
             title = lessonDetail.title,
             unitId = lessonDetail.unitId,
             order = lessonDetail.orderIndex,
-            description = lessonDetail.description
+            description = lessonDetail.description,
+            targetExp = lessonDetail.targetExp,
+            expPerQuestion = lessonDetail.expPerQuestion
         )
         
         // Convert questions to challenges
@@ -223,92 +233,7 @@ class LessonRepository @Inject constructor(
         
         for (question in lessonDetail.questions) {
             try {
-                Timber.d("Processing question ${question.id}: ${question.content.take(50)}...")
-                Timber.d("Question ${question.id}: options count = ${question.options.size}")
-                question.options.forEachIndexed { index, option ->
-                    Timber.d("Question ${question.id} Option $index: id=${option.id}, text='${option.optionText}', correct=${option.isCorrect}")
-                }
-                
-                // Determine challenge type based on question_type_id
-                val questionType = getQuestionType(question.questionTypeId, question.questionType)
-                Timber.d("Question ${question.id}: question_type_id=${question.questionTypeId} mapped to ${questionType.name}")
-                
-                val challenge = ChallengeLite(
-                    id = question.id,
-                    lessonId = lessonDetail.id,
-                    question = question.content,
-                    type = questionType,
-                    order = question.orderIndex
-                )
-                
-                // Convert question options to challenge options
-                val options = question.options.map { option ->
-                    ChallengeOptionLite(
-                        id = option.id,
-                        challengeId = question.id,
-                        text = option.optionText,
-                        correct = option.isCorrect,
-                        audioSrc = question.audioUrl
-                    )
-                }
-                
-                val metadata = question.metadata?.let {
-                    QuestionMetadata(
-                        choices = it.choices,
-                        matchingPairs = it.pairs?.map { pair ->
-                            QuestionMetadataPair(
-                                left = pair.left,
-                                right = pair.right
-                            )
-                        }
-                    )
-                }
-                val matchingPairs = question.matchingPairs?.map {
-                    QuestionMatchingPair(
-                        id = it.id,
-                        leftText = it.leftText,
-                        rightText = it.rightText
-                    )
-                }
-                val sentenceOrder = question.sentenceOrder?.let {
-                    QuestionSentenceOrder(
-                        id = it.id,
-                        correctSequence = it.correctSequence
-                    )
-                }
-                val audioComprehension = question.audioComprehension?.let {
-                    QuestionAudioComprehension(
-                        id = it.id,
-                        transcript = it.transcript
-                    )
-                }
-                val pronunciation = question.pronunciation?.let {
-                    QuestionPronunciation(
-                        id = it.id,
-                        targetPhrase = it.targetPhrase,
-                        referenceAudioUrl = it.referenceAudioUrl
-                    )
-                }
-                val blank = question.blank?.let {
-                    QuestionBlank(
-                        id = it.id,
-                        caseSensitive = it.caseSensitive
-                    )
-                }
-                
-                challengesWithOptions.add(
-                    ChallengeWithOptions(
-                        challenge = challenge,
-                        options = options,
-                        completed = false,
-                        metadata = metadata,
-                        matchingPairs = matchingPairs,
-                        sentenceOrder = sentenceOrder,
-                        audioComprehension = audioComprehension,
-                        pronunciation = pronunciation,
-                        blank = blank
-                    )
-                )
+                challengesWithOptions.add(convertQuestionToChallenge(question, lessonDetail.id))
             } catch (e: Exception) {
                 Timber.e(e, "Exception while processing question ${question.id}")
             }
@@ -349,14 +274,19 @@ class LessonRepository @Inject constructor(
             questionResponses = lessonDetail.questions,
             exercises = exercises,
             exercisesResponse = exercisesResponse,
-            progressPercent = progressPercent
+            progressPercent = progressPercent,
+            hasMoreQuestions = lessonDetail.hasMoreQuestions ?: false
         )
     }
     
-    suspend fun updateLessonProgress(lessonId: String, token: String? = null): Result<Map<String, Any>> {
+    suspend fun updateLessonProgress(
+        lessonId: String,
+        token: String? = null,
+        payload: LessonProgressUpdateRequest
+    ): Result<Map<String, Any>> {
         return try {
             val authToken = if (token != null && token.isNotBlank()) "Bearer $token" else null
-            val response = apiService.updateLessonProgress(lessonId, authToken)
+            val response = apiService.updateLessonProgress(lessonId, authToken, payload)
             
             if (response.isSuccessful) {
                 val body = response.body()
@@ -377,4 +307,141 @@ class LessonRepository @Inject constructor(
             Result.failure(e)
         }
     }
+
+    private fun convertQuestionToChallenge(
+        question: QuestionResponse,
+        lessonId: String
+    ): ChallengeWithOptions {
+        Timber.d("Processing question ${question.id}: ${question.content.take(50)}...")
+        Timber.d("Question ${question.id}: options count = ${question.options.size}")
+        question.options.forEachIndexed { index, option ->
+            Timber.d("Question ${question.id} Option $index: id=${option.id}, text='${option.optionText}', correct=${option.isCorrect}")
+        }
+
+        val questionType = getQuestionType(question.questionTypeId, question.questionType)
+        Timber.d("Question ${question.id}: question_type_id=${question.questionTypeId} mapped to ${questionType.name}")
+
+        val challenge = ChallengeLite(
+            id = question.id,
+            lessonId = lessonId,
+            question = question.content,
+            type = questionType,
+            order = question.orderIndex
+        )
+
+        val options = question.options.map { option ->
+            ChallengeOptionLite(
+                id = option.id,
+                challengeId = question.id,
+                text = option.optionText,
+                correct = option.isCorrect,
+                audioSrc = question.audioUrl
+            )
+        }
+
+        val metadata = question.metadata?.let {
+            QuestionMetadata(
+                choices = it.choices,
+                matchingPairs = it.pairs?.map { pair ->
+                    QuestionMetadataPair(
+                        left = pair.left,
+                        right = pair.right
+                    )
+                }
+            )
+        }
+        val matchingPairs = question.matchingPairs?.map {
+            QuestionMatchingPair(
+                id = it.id,
+                leftText = it.leftText,
+                rightText = it.rightText
+            )
+        }
+        val sentenceOrder = question.sentenceOrder?.let {
+            QuestionSentenceOrder(
+                id = it.id,
+                correctSequence = it.correctSequence
+            )
+        }
+        val audioComprehension = question.audioComprehension?.let {
+            QuestionAudioComprehension(
+                id = it.id,
+                transcript = it.transcript
+            )
+        }
+        val pronunciation = question.pronunciation?.let {
+            QuestionPronunciation(
+                id = it.id,
+                targetPhrase = it.targetPhrase,
+                referenceAudioUrl = it.referenceAudioUrl
+            )
+        }
+        val blank = question.blank?.let {
+            QuestionBlank(
+                id = it.id,
+                caseSensitive = it.caseSensitive
+            )
+        }
+
+        return ChallengeWithOptions(
+            challenge = challenge,
+            options = options,
+            completed = false,
+            metadata = metadata,
+            matchingPairs = matchingPairs,
+            sentenceOrder = sentenceOrder,
+            audioComprehension = audioComprehension,
+            pronunciation = pronunciation,
+            blank = blank
+        )
+    }
+
+    suspend fun fetchAdditionalLessonChallenges(
+        lessonId: String,
+        offset: Int,
+        limit: Int = 10,
+        token: String? = null
+    ): Result<AdditionalLessonChallenges> {
+        return try {
+            val authHeader = if (!token.isNullOrBlank()) "Bearer $token" else null
+            val response = apiService.getLessonQuestions(
+                lessonId = lessonId,
+                offset = offset,
+                limit = limit,
+                token = authHeader
+            )
+
+            if (response.isSuccessful) {
+                val body = response.body()
+                if (body != null) {
+                    val questions = body.data.orEmpty()
+                    val challenges = questions.map { convertQuestionToChallenge(it, lessonId) }
+                    val hasMore = body.page < body.pages
+                    Result.success(
+                        AdditionalLessonChallenges(
+                            challenges = challenges,
+                            questionResponses = questions.associateBy { it.id },
+                            hasMore = hasMore
+                        )
+                    )
+                } else {
+                    Timber.w("Lesson additional questions response body is null")
+                    Result.failure(Exception("Response body is null"))
+                }
+            } else {
+                val errorBody = response.errorBody()?.string()
+                Timber.e("Failed to fetch additional lesson questions - Code: ${response.code()}, Error: $errorBody")
+                Result.failure(Exception("Failed to fetch additional questions: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Exception while fetching additional questions for lesson $lessonId")
+            Result.failure(e)
+        }
+    }
 }
+
+data class AdditionalLessonChallenges(
+    val challenges: List<ChallengeWithOptions>,
+    val questionResponses: Map<String, QuestionResponse>,
+    val hasMore: Boolean
+)

@@ -102,11 +102,20 @@ interface ApiService {
         @Path("lesson_id") lessonId: String,
         @Header("Authorization") token: String? = null
     ): Response<LessonDetailResponse>
+
+    @GET("v1/lessons/{lesson_id}/questions")
+    suspend fun getLessonQuestions(
+        @Path("lesson_id") lessonId: String,
+        @Query("offset") offset: Int,
+        @Query("limit") limit: Int = 10,
+        @Header("Authorization") token: String? = null
+    ): Response<PaginatedResponse<QuestionResponse>>
     
     @POST("v1/lessons/{lesson_id}/progress/update")
     suspend fun updateLessonProgress(
         @Path("lesson_id") lessonId: String,
-        @Header("Authorization") token: String? = null
+        @Header("Authorization") token: String? = null,
+        @Body body: LessonProgressUpdateRequest
     ): Response<Map<String, Any>>
     
     // Practice question submit endpoints (increment lesson progress on correct answers)
