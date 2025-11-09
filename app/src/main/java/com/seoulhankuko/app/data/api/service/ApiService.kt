@@ -1,6 +1,8 @@
 package com.seoulhankuko.app.data.api.service
 
 import com.seoulhankuko.app.data.api.model.*
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -134,6 +136,14 @@ interface ApiService {
         @Header("Authorization") token: String,
         @Body body: PracticeTextAnswerRequest
     ): Response<Map<String, Any>>
+
+    @Multipart
+    @POST("v1/pronunciation")
+    suspend fun evaluatePronunciation(
+        @Header("Authorization") token: String,
+        @Part file: MultipartBody.Part,
+        @Part("sentence") sentence: RequestBody
+    ): Response<PronunciationEvaluationResponse>
     
     // ML Prediction endpoints
     @POST("v1/predict/stroke")

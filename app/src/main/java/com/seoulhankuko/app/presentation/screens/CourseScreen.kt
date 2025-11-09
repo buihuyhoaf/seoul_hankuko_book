@@ -33,6 +33,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.seoulhankuko.app.data.api.model.UnitResponse
 import com.seoulhankuko.app.presentation.components.MainScaffold
 import com.seoulhankuko.app.presentation.components.TopBarState
+import com.seoulhankuko.app.presentation.components.SouthKoreaLoadingIcon
 import com.seoulhankuko.app.presentation.viewmodel.CourseUiState
 import com.seoulhankuko.app.presentation.viewmodel.CourseViewModel
 import com.seoulhankuko.app.presentation.viewmodel.MainUiViewModel
@@ -63,14 +64,15 @@ fun CourseScreen(
         }
     )
     
-    // Load course data when the screen is first displayed or courseId changes
-    LaunchedEffect(courseId) {
-        viewModel.loadCourse(courseId)
-    }
-    
     val mainUiViewModel: MainUiViewModel = hiltViewModel()
     val userData by mainUiViewModel.userData.collectAsStateWithLifecycle()
     val currentLesson by mainUiViewModel.currentLesson.collectAsStateWithLifecycle()
+
+    // Load course data when the screen is first displayed or courseId changes
+    LaunchedEffect(courseId) {
+        mainUiViewModel.setCurrentCourseId(courseId)
+        viewModel.loadCourse(courseId)
+    }
 
     val courseTitleForTopBar = when (val currentState = uiState) {
         is CourseUiState.Success -> currentState.course.title
@@ -143,10 +145,7 @@ private fun LoadingContent() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(48.dp),
-                color = CourseColors.Accent
-            )
+            SouthKoreaLoadingIcon(size = 48.dp)
             Text(
                 text = "Đang tải khóa học...",
                 style = MaterialTheme.typography.bodyLarge,

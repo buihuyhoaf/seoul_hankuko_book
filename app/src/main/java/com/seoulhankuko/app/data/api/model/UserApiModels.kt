@@ -5,7 +5,7 @@ import java.util.Date
 
 // Base User model
 data class User(
-    val id: Int,
+    val id: String,
     val name: String,
     val username: String,
     val email: String,
@@ -36,7 +36,7 @@ data class UserCreateRequest(
 
 // User creation response
 data class UserCreateResponse(
-    val id: Int,
+    val id: String,
     val name: String,
     val username: String,
     val email: String,
@@ -72,7 +72,7 @@ data class UserTierUpdateRequest(
 
 // User read response
 data class UserReadResponse(
-    val id: Int,
+    val id: String,
     val username: String,
     val email: String,
     val picture: String?,

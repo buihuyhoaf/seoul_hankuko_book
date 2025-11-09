@@ -29,7 +29,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seoulhankuko.app.R
 import com.seoulhankuko.app.domain.model.ReferencePattern
+import com.seoulhankuko.app.presentation.components.SouthKoreaLoadingIcon
 import com.seoulhankuko.app.presentation.utils.UnitColors
+import com.seoulhankuko.app.presentation.viewmodel.canvas.StrokePracticeUiState
+import com.seoulhankuko.app.presentation.viewmodel.canvas.StrokePracticeViewModel
 
 /**
  * Guided Stroke Practice Screen
@@ -112,7 +115,7 @@ fun StrokePracticeScreen(
                         .padding(paddingValues),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator()
+                    SouthKoreaLoadingIcon(size = 56.dp)
                 }
             }
             

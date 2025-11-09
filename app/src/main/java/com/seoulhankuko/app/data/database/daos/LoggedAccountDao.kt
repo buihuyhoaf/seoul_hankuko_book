@@ -17,7 +17,7 @@ interface LoggedAccountDao {
     suspend fun getActiveAccount(): LoggedAccountEntity?
     
     @Query("SELECT * FROM logged_accounts WHERE userId = :userId LIMIT 1")
-    suspend fun getAccountByUserId(userId: Int): LoggedAccountEntity?
+    suspend fun getAccountByUserId(userId: String): LoggedAccountEntity?
     
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAccount(account: LoggedAccountEntity): Long

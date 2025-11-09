@@ -109,10 +109,7 @@ fun GoogleSignInButton(
             )
         ) {
             if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp
-                )
+                SouthKoreaLoadingIcon(size = 20.dp)
                 Spacer(modifier = Modifier.width(8.dp))
             }
             
@@ -173,10 +170,7 @@ fun FacebookSignInButton(
         )
     ) {
         if (isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(20.dp),
-                strokeWidth = 2.dp
-            )
+            SouthKoreaLoadingIcon(size = 20.dp)
             Spacer(modifier = Modifier.width(8.dp))
         }
         

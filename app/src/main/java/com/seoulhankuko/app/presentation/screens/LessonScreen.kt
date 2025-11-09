@@ -28,7 +28,6 @@ import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -61,6 +60,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seoulhankuko.app.R
 import com.seoulhankuko.app.domain.model.LessonWithChallenges
+import com.seoulhankuko.app.presentation.components.SouthKoreaLoadingIcon
 import com.seoulhankuko.app.presentation.utils.LessonColors
 import com.seoulhankuko.app.presentation.viewmodel.LessonUiState
 import com.seoulhankuko.app.presentation.viewmodel.LessonViewModel
@@ -68,6 +68,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.activity.compose.BackHandler
 import kotlinx.coroutines.delay
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -95,6 +96,8 @@ fun LessonScreen(
         ?.let { "Bài học: $it" }
         ?: "Bài học: $lessonId"
     
+    BackHandler { onNavigateBack() }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -488,7 +491,7 @@ private fun LessonTimelineCard(
 private fun LessonLoadingState(modifier: Modifier = Modifier) {
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator(color = LessonColors.QuestionColor)
+            SouthKoreaLoadingIcon(size = 48.dp)
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "Đang tải bài học…",

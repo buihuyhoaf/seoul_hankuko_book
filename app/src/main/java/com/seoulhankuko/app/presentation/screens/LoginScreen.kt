@@ -20,6 +20,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seoulhankuko.app.R
 import com.seoulhankuko.app.presentation.components.SocialSignInSection
+import com.seoulhankuko.app.presentation.components.SouthKoreaLoadingIcon
 import com.seoulhankuko.app.presentation.viewmodel.AuthViewModel
 import com.seoulhankuko.app.presentation.utils.LoginColors
 import com.seoulhankuko.app.presentation.utils.AppColors
@@ -171,10 +172,9 @@ fun LoginScreen(
                     shape = MaterialTheme.shapes.medium
                 ) {
                     if (isLoading) {
-                        CircularProgressIndicator(
+                        SouthKoreaLoadingIcon(
                             modifier = Modifier.size(dimensionResource(R.dimen.login_progress_indicator_size)),
-                            color = AppColors.White,
-                            strokeWidth = 2.dp
+                            size = dimensionResource(R.dimen.login_progress_indicator_size)
                         )
                     } else {
                         Text(

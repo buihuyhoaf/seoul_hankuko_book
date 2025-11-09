@@ -1,6 +1,10 @@
 package com.seoulhankuko.app.presentation.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -35,7 +39,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -54,6 +57,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -70,8 +74,12 @@ import com.seoulhankuko.app.R
 import com.seoulhankuko.app.data.api.model.QuestionResponse
 import com.seoulhankuko.app.domain.model.ChallengeWithOptions
 import com.seoulhankuko.app.domain.model.QuestionType
+import com.seoulhankuko.app.domain.model.QuestionPronunciation
 import com.seoulhankuko.app.presentation.components.MatchingQuestion
 import com.seoulhankuko.app.presentation.components.MatchingQuestionCard
+import com.seoulhankuko.app.presentation.components.SouthKoreaLoadingIcon
+import com.seoulhankuko.app.presentation.components.PronunciationEvaluationUiState
+import com.seoulhankuko.app.presentation.components.PronunciationQuestionCard
 import com.seoulhankuko.app.presentation.components.rememberSoundManager
 import com.seoulhankuko.app.presentation.utils.AppColors
 import com.seoulhankuko.app.presentation.utils.LessonColors
@@ -82,6 +90,7 @@ import com.seoulhankuko.app.presentation.viewmodel.LessonViewModel
 import com.seoulhankuko.app.presentation.viewmodel.StreakCelebrationEvent
 import com.seoulhankuko.app.presentation.viewmodel.AdditionalChallengesResult
 import kotlinx.coroutines.launch
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlin.math.max
@@ -405,6 +414,8 @@ fun QuizPagerFlow(
     var shouldNavigateAfterStreak by remember { mutableStateOf(false) }
     var streakCelebrationScheduled by remember { mutableStateOf(false) }
     var insufficientXpDialogState by remember { mutableStateOf<InsufficientXpDialogState?>(null) }
+    val pronunciationEvaluations by viewModel.pronunciationEvaluations.collectAsStateWithLifecycle()
+    val pronunciationProcessing by viewModel.pronunciationProcessing.collectAsStateWithLifecycle()
     val totalTargetExp = remember(targetExp) { targetExp.coerceAtLeast(0) }
     val expPerQuestionValue = remember(targetExp, baseExpPerQuestion, initialChallenges.size) {
         when {
@@ -421,6 +432,19 @@ fun QuizPagerFlow(
     // TTS Manager for reading question content - injected via ViewModel
     val ttsManager = viewModel.ttsManager
 
+    val context = LocalContext.current
+    var audioPermissionGranted by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val audioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        audioPermissionGranted = granted
+    }
+
     // Cleanup managers when composable is disposed
     DisposableEffect(Unit) {
         onDispose {
@@ -432,6 +456,9 @@ fun QuizPagerFlow(
         currentAnswerStatus = AnswerStatus.NONE
         selectedOption = null
         matchingCompleted = false
+        challengeItems.getOrNull(pagerState.currentPage)?.challenge?.id?.let { currentId ->
+            // pronunciation processing state managed in ViewModel
+        }
         if (ttsManager.isAvailable()) {
             ttsManager.stop()
         }
@@ -549,32 +576,6 @@ fun QuizPagerFlow(
         LessonResultScreen(
             totalTime = totalTimeMillis,
             experienceGained = expAccumulated.roundToInt(),
-            onRetry = {
-                showResultScreen = false
-                expAccumulated = 0f
-                completedChallengeIds.clear()
-                challengeItems.clear()
-                challengeItems.addAll(initialChallenges)
-                questionResponseMap.clear()
-                questionResponseMap.putAll(initialQuestionResponses)
-                hasMoreQuestions = hasMoreQuestionsInitial
-                lessonStartTimestamp = System.currentTimeMillis()
-                totalTimeMillis = 0L
-                currentAnswerStatus = AnswerStatus.NONE
-                selectedOption = null
-                matchingCompleted = false
-                soundManager.cleanup()
-                if (ttsManager.isAvailable()) {
-                    ttsManager.stop()
-                }
-                coroutineScope.launch {
-                    pagerState.scrollToPage(0)
-                }
-                hasProgressUpdated = false
-                isUpdatingProgress = false
-                pendingNavigation = false
-                streakCelebrationScheduled = false
-            },
             onContinue = {
                 pendingNavigation = true
                 when {
@@ -597,6 +598,7 @@ fun QuizPagerFlow(
         val currentChallenge = challengeItems.getOrNull(currentPage)
         val currentQuestionResponse = currentChallenge?.let { questionResponseMap[it.challenge.id] }
         val isMatchingQuestion = currentChallenge?.challenge?.type == QuestionType.MATCHING && currentQuestionResponse != null
+        val isPronunciationQuestion = currentChallenge?.challenge?.type == QuestionType.PRONUNCIATION && currentQuestionResponse != null
 
         fun isSelectionCorrect(selection: String?): Boolean {
             if (selection.isNullOrEmpty() || currentChallenge == null) return false
@@ -708,8 +710,7 @@ fun QuizPagerFlow(
                 viewModel.submitPracticeCorrectAnswer(
                     lessonId = lessonId,
                     questionId = currentId,
-                    selectedOptionId = selectedOption ?: "",
-                    earnedExp = expPerQuestionValue.coerceAtLeast(0f)
+                    selectedOptionId = selectedOption ?: ""
                 )
             } else if (!isCorrect && currentId != null) {
                 if (!incorrectChallengeIds.contains(currentId)) {
@@ -843,6 +844,7 @@ fun QuizPagerFlow(
                         val questionResponse = questionResponseMap[challenge.challenge.id]
                         val isBlankQuestion = challenge.challenge.type == QuestionType.BLANK && questionResponse != null
                         val isMatchingQuestion = challenge.challenge.type == QuestionType.MATCHING && questionResponse != null
+                        val isPronunciationQuestion = challenge.challenge.type == QuestionType.PRONUNCIATION && questionResponse != null
                         val isCurrentPage = page == pagerState.currentPage
                         val pageAnswerStatus = if (isCurrentPage) currentAnswerStatus else AnswerStatus.NONE
                         val pageSelectedOption = if (isCurrentPage) selectedOption else null
@@ -883,6 +885,71 @@ fun QuizPagerFlow(
                                     val questionText = challenge.challenge.question
                                     if (questionText.isNotBlank()) {
                                         ttsManager.speak(questionText, speed = 0.8f)
+                                    }
+                                }
+                            )
+                        } else if (isPronunciationQuestion) {
+                            val challengeId = challenge.challenge.id
+                            val pronunciationData = challenge.pronunciation ?: questionResponse?.pronunciation?.let {
+                                QuestionPronunciation(
+                                    id = it.id,
+                                    targetPhrase = it.targetPhrase,
+                                    referenceAudioUrl = it.referenceAudioUrl
+                                )
+                            }
+                            val evaluationState = pronunciationEvaluations[challengeId] ?: PronunciationEvaluationUiState()
+                            val isProcessingPronunciation = pronunciationProcessing.contains(challengeId)
+
+                            PronunciationQuestionCard(
+                                prompt = pronunciationData?.targetPhrase ?: challenge.challenge.question,
+                                explanation = questionResponse.explanation,
+                                referenceAudioUrl = pronunciationData?.referenceAudioUrl,
+                                evaluationState = evaluationState,
+                                isProcessing = isProcessingPronunciation,
+                                onRecordStart = {
+                                    if (!isCurrentPage) return@PronunciationQuestionCard false
+                                    if (!audioPermissionGranted) {
+                                        audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                        false
+                                    } else {
+                                        viewModel.beginPronunciationRecording(challengeId)
+                                    }
+                                },
+                                onRecordStop = {
+                                    if (!isCurrentPage) return@PronunciationQuestionCard
+                                    val result = viewModel.completePronunciationRecording(
+                                        lessonId = lessonId,
+                                        questionId = challengeId,
+                                        sentence = pronunciationData?.targetPhrase ?: challenge.challenge.question
+                                    )
+                                    result?.let { evaluation ->
+                                        if (evaluation.passed) {
+                                            if (currentAnswerStatus != AnswerStatus.CORRECT) {
+                                                currentAnswerStatus = AnswerStatus.CORRECT
+                                                registerCorrectForChallenge(challengeId)
+                                                soundManager.playCorrect()
+                                                viewModel.submitPracticeCorrectAnswer(
+                                                    lessonId = lessonId,
+                                                    questionId = challengeId,
+                                                    selectedOptionId = ""
+                                                )
+                                            }
+                                        } else {
+                                            currentAnswerStatus = AnswerStatus.WRONG
+                                            soundManager.playIncorrect()
+                                        }
+                                    }
+                                },
+                                onRetry = {
+                                    if (!isCurrentPage) return@PronunciationQuestionCard
+                                    currentAnswerStatus = AnswerStatus.NONE
+                                    viewModel.resetPronunciationAttempt(challengeId)
+                                },
+                                onListenNative = {
+                                    val nativePhrase = pronunciationData?.targetPhrase ?: challenge.challenge.question
+                                    if (nativePhrase.isNotBlank() && ttsManager.isAvailable()) {
+                                        ttsManager.stop()
+                                        ttsManager.speak(nativePhrase, speed = 0.8f)
                                     }
                                 }
                             )
@@ -928,8 +995,7 @@ fun QuizPagerFlow(
                                                 viewModel.submitPracticeCorrectAnswer(
                                                     lessonId = lessonId,
                                                     questionId = challenge.challenge.id,
-                                                    selectedOptionId = "",
-                                                    earnedExp = expPerQuestionValue.coerceAtLeast(0f)
+                                            selectedOptionId = ""
                                                 )
                                             }
                                         } else if (currentAnswerStatus != AnswerStatus.NONE) {
@@ -1001,6 +1067,7 @@ fun QuizPagerFlow(
 
         val buttonEnabled = when {
             isMatchingQuestion -> matchingCompleted
+            isPronunciationQuestion -> currentAnswerStatus == AnswerStatus.CORRECT
             currentAnswerStatus == AnswerStatus.NONE -> selectedOption != null
             else -> true
         }
@@ -1017,6 +1084,7 @@ fun QuizPagerFlow(
 
         val shouldShowActionButton = when {
             isMatchingQuestion -> true
+            isPronunciationQuestion -> true
             currentAnswerStatus != AnswerStatus.NONE -> true
             selectedOption != null -> true
             else -> false
@@ -1073,7 +1141,7 @@ fun QuizPagerFlow(
                     .background(Color.Black.copy(alpha = 0.2f)),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = LessonFlowColors.PrimaryColor)
+                SouthKoreaLoadingIcon(size = 56.dp)
             }
         }
         }
@@ -1263,10 +1331,7 @@ fun LoadingIndicator() {
             .background(LessonFlowColors.PrimaryColor.copy(alpha = 0.1f)),
         contentAlignment = Alignment.Center
     ) {
-        androidx.compose.material3.CircularProgressIndicator(
-            color = LessonFlowColors.PrimaryColor,
-            strokeWidth = 3.dp
-        )
+        SouthKoreaLoadingIcon(size = 32.dp)
     }
 }
 

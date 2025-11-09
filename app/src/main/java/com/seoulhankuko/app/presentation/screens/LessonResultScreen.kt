@@ -66,7 +66,6 @@ import androidx.compose.runtime.State
 fun LessonResultScreen(
     totalTime: Long,
     experienceGained: Int,
-    onRetry: () -> Unit,
     onContinue: () -> Unit
 ) {
     val evaluation = remember(experienceGained) { getEvaluation(experienceGained) }
@@ -215,7 +214,6 @@ fun LessonResultScreen(
                     ) + fadeIn(animationSpec = tween(durationMillis = 300))
                 ) {
                     ActionButtonsRow(
-                        onRetry = onRetry,
                         onContinue = onContinue,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -338,7 +336,6 @@ private fun ProgressSection(
 
 @Composable
 fun ActionButtonsRow(
-    onRetry: () -> Unit,
     onContinue: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -347,21 +344,6 @@ fun ActionButtonsRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        OutlinedButton(
-            onClick = onRetry,
-            modifier = Modifier.weight(1f),
-            shape = RoundedCornerShape(16.dp),
-            border = BorderStroke(
-                width = 1.5.dp,
-                color = LessonFlowColors.PrimaryColor.copy(alpha = 0.4f)
-            ),
-            colors = ButtonDefaults.outlinedButtonColors(
-                containerColor = Color.Transparent,
-                contentColor = LessonFlowColors.TextPrimary
-            )
-        ) {
-            Text(text = "🔁 Ôn lại bài")
-        }
 
         Button(
             onClick = onContinue,

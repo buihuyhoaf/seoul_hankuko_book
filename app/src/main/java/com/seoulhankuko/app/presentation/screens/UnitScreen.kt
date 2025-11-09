@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,9 +27,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.seoulhankuko.app.presentation.viewmodel.UnitViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.seoulhankuko.app.data.api.model.LessonResponse
 import com.seoulhankuko.app.presentation.components.MainScaffold
 import com.seoulhankuko.app.presentation.components.TopBarState
 import com.seoulhankuko.app.presentation.viewmodel.MainUiViewModel
+import com.seoulhankuko.app.presentation.components.SouthKoreaLoadingIcon
 import com.seoulhankuko.app.presentation.utils.UnitColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,6 +56,8 @@ fun UnitScreen(
     val mainUiViewModel: MainUiViewModel = hiltViewModel()
     val userData by mainUiViewModel.userData.collectAsStateWithLifecycle()
     val currentLesson by mainUiViewModel.currentLesson.collectAsStateWithLifecycle()
+
+    BackHandler { onNavigateBack() }
 
     MainScaffold(
         topBarState = TopBarState(
@@ -90,10 +95,7 @@ fun UnitScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(48.dp),
-                                color = UnitColors.SoftIndigo
-                            )
+                            SouthKoreaLoadingIcon(size = 48.dp)
                             Text(
                                 text = "Đang tải bài học...",
                                 style = MaterialTheme.typography.bodyMedium,
@@ -198,7 +200,7 @@ fun UnitScreen(
 
 @Composable
 fun LessonCard(
-    lesson: com.seoulhankuko.app.data.api.model.LessonResponse,
+    lesson: LessonResponse,
     index: Int,
     currentLessonId: String?,
     onClick: () -> Unit

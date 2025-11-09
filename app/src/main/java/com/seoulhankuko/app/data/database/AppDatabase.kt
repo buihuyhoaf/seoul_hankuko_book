@@ -17,7 +17,7 @@ import com.seoulhankuko.app.data.database.entities.*
         UnitCacheEntity::class,
         LessonCacheEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -38,7 +38,7 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL("""
                     CREATE TABLE IF NOT EXISTS `logged_accounts` (
                         `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                        `userId` INTEGER NOT NULL,
+                        `userId` TEXT NOT NULL,
                         `email` TEXT NOT NULL,
                         `displayName` TEXT NOT NULL,
                         `photoUrl` TEXT,
@@ -58,7 +58,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "seoul_hankuko_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .build()
                 INSTANCE = instance
                 instance
@@ -220,6 +220,55 @@ abstract class AppDatabase : RoomDatabase() {
 
                 // Create index on lessons_cache.unitId
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_lessons_cache_unitId` ON `lessons_cache`(`unitId`)")
+            }
+        }
+
+        /**
+         * Migration 6->7: Change logged_accounts.userId to TEXT to support UUID identifiers
+         */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `logged_accounts_new` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `userId` TEXT NOT NULL,
+                        `email` TEXT NOT NULL,
+                        `displayName` TEXT NOT NULL,
+                        `photoUrl` TEXT,
+                        `accessToken` TEXT,
+                        `refreshToken` TEXT,
+                        `lastLogin` INTEGER NOT NULL,
+                        `isActive` INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+
+                database.execSQL("""
+                    INSERT INTO `logged_accounts_new`(
+                        `id`,
+                        `userId`,
+                        `email`,
+                        `displayName`,
+                        `photoUrl`,
+                        `accessToken`,
+                        `refreshToken`,
+                        `lastLogin`,
+                        `isActive`
+                    )
+                    SELECT
+                        `id`,
+                        CAST(`userId` AS TEXT),
+                        `email`,
+                        `displayName`,
+                        `photoUrl`,
+                        `accessToken`,
+                        `refreshToken`,
+                        `lastLogin`,
+                        `isActive`
+                    FROM `logged_accounts`
+                """.trimIndent())
+
+                database.execSQL("DROP TABLE `logged_accounts`")
+                database.execSQL("ALTER TABLE `logged_accounts_new` RENAME TO `logged_accounts`")
             }
         }
     }

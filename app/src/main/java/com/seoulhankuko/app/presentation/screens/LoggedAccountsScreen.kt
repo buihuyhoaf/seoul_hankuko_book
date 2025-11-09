@@ -31,6 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.SubcomposeAsyncImage
 import com.seoulhankuko.app.domain.model.LoggedAccount
 import com.seoulhankuko.app.presentation.viewmodel.AuthViewModel
+import com.seoulhankuko.app.presentation.components.SouthKoreaLoadingIcon
 import com.seoulhankuko.app.presentation.viewmodel.AutoLoginState
 import java.text.SimpleDateFormat
 import java.util.*
@@ -259,10 +260,7 @@ fun LoggedAccountsScreen(
                         modifier = Modifier.padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(32.dp),
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        SouthKoreaLoadingIcon(size = 32.dp)
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             text = "Signing in...",
@@ -435,11 +433,7 @@ private fun LoggedAccountItem(
                                 .background(MaterialTheme.colorScheme.surfaceVariant),
                             contentAlignment = Alignment.Center
                         ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.primary
-                            )
+                            SouthKoreaLoadingIcon(size = 24.dp)
                         }
                     },
                     error = {

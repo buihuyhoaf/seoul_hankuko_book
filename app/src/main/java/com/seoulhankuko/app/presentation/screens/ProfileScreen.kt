@@ -133,11 +133,11 @@ fun ProfileScreen(
         ) {
             item {
                 UserInfoCard(
-                    avatarUrl = userData?.avatarUrl,
-                    username = userData?.name ?: userData?.email ?: "Người học",
+                    avatarUrl = userData.avatarUrl,
+                    username = userData.name ?: userData.email ?: "Người học",
                     koreanLevel = null,
-                    streak = userData?.streakDays ?: 0,
-                    exp = userData?.exp ?: 0,
+                    streak = userData.streakDays,
+                    exp = userData.exp,
                     onAvatarClick = onAvatarClick
                 )
             }

@@ -81,6 +81,9 @@ class AuthRepository @Inject constructor(
         val userId = getStoredUserId() ?: "unknown"
         Logger.AuthenticationUseCase.tokenVerified(userId)
         _authState.value = AuthState.SignedIn(userId)
+        repositoryScope.launch {
+            refreshCurrentUserData()
+        }
     }
     
     suspend fun signIn(email: String, password: String): Result<Unit> {
@@ -116,12 +119,35 @@ class AuthRepository @Inject constructor(
                     if (userResponse.isSuccessful) {
                         val user = userResponse.body()
                         if (user != null) {
-                            Logger.AuthenticationUseCase.userInfoRetrieved(user.username, user.id.toInt())
-                            storeUserId(user.id.toString())
+                            Logger.AuthenticationUseCase.userInfoRetrieved(user.username, user.id)
+                            storeUserId(user.id)
+
+                            userPreferencesManager.saveUserData(
+                                userId = user.id,
+                                email = user.email,
+                                name = user.username,
+                                avatarUrl = user.picture,
+                                accessToken = rawToken,
+                                refreshToken = loginResponse.refreshToken,
+                                isPremium = false,
+                                streakDays = user.streakDays,
+                                exp = user.exp,
+                                createdAt = user.createdAt,
+                                hasCompletedEntryTest = user.hasCompletedEntryTest,
+                                currentCourseId = user.currentCourseId,
+                                entryTestScore = user.entryTestScore
+                            )
+
+                            userPreferencesManager.saveEntryTestResult(
+                                hasCompletedEntryTest = user.hasCompletedEntryTest,
+                                currentCourseId = user.currentCourseId,
+                                currentCourseName = null,
+                                entryTestScore = user.entryTestScore
+                            )
                             
                             // Save logged account information with refresh token
                             saveLoggedAccount(
-                                userId = user.id.toString(),
+                                userId = user.id,
                                 email = email,
                                 name = user.username,
                                 avatarUrl = null, // Could be fetched from user data if available
@@ -134,7 +160,7 @@ class AuthRepository @Inject constructor(
                                 exitGuestMode()
                             }
                             
-                            _authState.value = AuthState.SignedIn(user.id.toString())
+                            _authState.value = AuthState.SignedIn(user.id)
                             return Result.success(Unit)
                         }
                     }
@@ -145,6 +171,10 @@ class AuthRepository @Inject constructor(
                     // Exit guest mode if user was in guest mode
                     if (wasInGuestMode) {
                         exitGuestMode()
+                    }
+                    
+                    repositoryScope.launch {
+                        refreshCurrentUserData()
                     }
                     
                     _authState.value = AuthState.SignedIn("user_${System.currentTimeMillis()}")
@@ -270,8 +300,6 @@ class AuthRepository @Inject constructor(
         accessToken: String? = null
     ) {
         try {
-            val userIdInt = userId.toIntOrNull() ?: 0
-            
             // Log refresh token info for debugging (without exposing the actual token)
             val refreshTokenInfo = if (refreshToken != null) {
                 "Length: ${refreshToken.length}, Is blank: ${refreshToken.isBlank()}"
@@ -281,7 +309,7 @@ class AuthRepository @Inject constructor(
             Timber.tag("AUTH_REPO").d("SaveLoggedAccount - Saving account for $email. Refresh token info: $refreshTokenInfo")
             
             val account = LoggedAccount(
-                userId = userIdInt,
+                userId = userId,
                 email = email,
                 displayName = name,
                 photoUrl = avatarUrl,
@@ -346,7 +374,7 @@ class AuthRepository @Inject constructor(
                     storeToken(rawToken)
                     storeRefreshToken(tokenResponse.refreshToken) // Store refresh token for interceptor
                     currentToken = rawToken
-                    storeUserId(freshAccount.userId.toString())
+                    storeUserId(freshAccount.userId)
                     
                     // Update tokens in both SharedPreferences (UserPreferencesManager) and Room DB
                     userPreferencesManager.updateTokens(rawToken, tokenResponse.refreshToken)
@@ -360,7 +388,7 @@ class AuthRepository @Inject constructor(
                     )
                     accountRepository.setActiveAccount(freshAccount.email)
                     
-                    _authState.value = AuthState.SignedIn(freshAccount.userId.toString())
+                    _authState.value = AuthState.SignedIn(freshAccount.userId)
                     return Result.success(Unit)
                 } else {
                     Timber.tag("AUTH_REPO").e("Auto-login failed - Token response body is null")
@@ -451,7 +479,7 @@ class AuthRepository @Inject constructor(
                     storeToken(rawToken)
                     storeRefreshToken(tokenResponse.refreshToken) // Store refresh token for interceptor
                     currentToken = rawToken
-                    storeUserId(currentAccount.userId.toString())
+                    storeUserId(currentAccount.userId)
                     
                     // Update tokens in both SharedPreferences (UserPreferencesManager) and Room DB
                     userPreferencesManager.updateTokens(rawToken, tokenResponse.refreshToken)
@@ -551,5 +579,40 @@ class AuthRepository @Inject constructor(
     suspend fun shouldPromptGuestToLogin(threshold: Int = 3): Boolean {
         val lessonsCompleted = getGuestLessonsCompleted()
         return lessonsCompleted >= threshold
+    }
+
+    suspend fun refreshCurrentUserData() {
+        try {
+            val token = currentToken ?: getStoredToken() ?: return
+            val fullToken = "Bearer $token"
+            val response = apiService.getCurrentUser(fullToken)
+            if (response.isSuccessful) {
+                val user = response.body()
+                if (user != null) {
+                    userPreferencesManager.updateUserProfile(
+                        userId = user.id,
+                        email = user.email,
+                        name = user.username,
+                        avatarUrl = user.picture,
+                        exp = user.exp,
+                        streakDays = user.streakDays,
+                        createdAt = user.createdAt,
+                        hasCompletedEntryTest = user.hasCompletedEntryTest,
+                        currentCourseId = user.currentCourseId,
+                        entryTestScore = user.entryTestScore
+                    )
+                    userPreferencesManager.saveEntryTestResult(
+                        hasCompletedEntryTest = user.hasCompletedEntryTest,
+                        currentCourseId = user.currentCourseId,
+                        currentCourseName = null,
+                        entryTestScore = user.entryTestScore
+                    )
+                }
+            } else {
+                Timber.e("Failed to refresh user data: code=${response.code()} message=${response.message()}")
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Exception while refreshing current user data")
+        }
     }
 }

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.seoulhankuko.app.data.local.CurrentLessonData
 import com.seoulhankuko.app.data.local.UserData
 import com.seoulhankuko.app.data.local.UserPreferencesManager
+import com.seoulhankuko.app.data.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -14,7 +15,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class MainUiViewModel @Inject constructor(
-    private val userPreferencesManager: UserPreferencesManager
+    private val userPreferencesManager: UserPreferencesManager,
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     private val initialUserData = UserData(
@@ -44,9 +46,21 @@ class MainUiViewModel @Inject constructor(
             initialValue = null
         )
 
+    init {
+        viewModelScope.launch {
+            authRepository.refreshCurrentUserData()
+        }
+    }
+
     fun clearCurrentLesson() {
         viewModelScope.launch {
             userPreferencesManager.clearCurrentLesson()
+        }
+    }
+
+    fun setCurrentCourseId(courseId: String?) {
+        viewModelScope.launch {
+            userPreferencesManager.updateCurrentCourseId(courseId)
         }
     }
 }

@@ -238,7 +238,7 @@ object Logger {
             Timber.tag(TAG).d("Fetching user information")
         }
         
-        fun userInfoRetrieved(username: String, userId: Int) {
+        fun userInfoRetrieved(username: String, userId: String) {
             Timber.tag(TAG).d("User info retrieved: $username (ID: $userId)")
         }
         
@@ -262,7 +262,7 @@ object Logger {
             Timber.tag(TAG).e("Sign up API call failed: $error (Code: $code)")
         }
         
-        fun userCreated(username: String, userId: Int) {
+        fun userCreated(username: String, userId: String) {
             Timber.tag(TAG).d("User created successfully: $username (ID: $userId)")
         }
         

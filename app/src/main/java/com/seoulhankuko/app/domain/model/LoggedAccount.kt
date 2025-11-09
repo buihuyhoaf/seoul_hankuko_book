@@ -6,7 +6,7 @@ package com.seoulhankuko.app.domain.model
  */
 data class LoggedAccount(
     val id: Int = 0, // Local database ID
-    val userId: Int, // Backend user ID
+    val userId: String, // Backend user ID
     val email: String,
     val displayName: String,
     val photoUrl: String? = null,

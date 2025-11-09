@@ -241,7 +241,7 @@ fun AppNavigation(
                 CourseScreen(
                     courseId = id,
                     onNavigateToUnit = { unitId: String ->
-                        navController.navigate("unit/$unitId")
+                        navController.navigate("unit/$unitId?courseId=$id")
                     },
                     onNavigateToHome = {
                         navController.navigate("courses") {
@@ -265,13 +265,25 @@ fun AppNavigation(
         }
         
         // Unit Screen
-        composable("unit/{unitId}") { backStackEntry ->
+        composable(
+            route = "unit/{unitId}?courseId={courseId}",
+            arguments = listOf(
+                navArgument("unitId") { type = NavType.StringType },
+                navArgument("courseId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
             val unitId = backStackEntry.arguments?.getString("unitId")
             unitId?.let { id ->
+                val parentCourseId = backStackEntry.arguments?.getString("courseId")
                 UnitScreen(
                     unitId = id,
                     onNavigateToLesson = { lessonId: String ->
-                        navController.navigate("lesson/$lessonId")
+                        val courseQuery = parentCourseId?.let { "&courseId=$it" } ?: ""
+                        navController.navigate("lesson/$lessonId?unitId=$id$courseQuery")
                     },
                     onNavigateToHome = {
                         navController.navigate("courses") {
@@ -289,18 +301,77 @@ fun AppNavigation(
                             launchSingleTop = true
                         }
                     },
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = {
+                        val previousRoute = navController.previousBackStackEntry?.destination?.route.orEmpty()
+                        val cameFromCourse = previousRoute.startsWith("course")
+
+                        val didPop = when {
+                            cameFromCourse -> navController.popBackStack()
+                            parentCourseId != null -> navController.popBackStack("course/$parentCourseId", inclusive = false)
+                            else -> navController.popBackStack()
+                        }
+
+                        if (!didPop && parentCourseId != null) {
+                            navController.navigate("course/$parentCourseId") {
+                                popUpTo("courses") { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        }
+                    }
                 )
             }
         }
         
         // Lesson Screen
-        composable("lesson/{lessonId}") { backStackEntry ->
+        composable(
+            route = "lesson/{lessonId}?unitId={unitId}&courseId={courseId}",
+            arguments = listOf(
+                navArgument("lessonId") { type = NavType.StringType },
+                navArgument("unitId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("courseId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
             val lessonId = backStackEntry.arguments?.getString("lessonId")
             lessonId?.let { id ->
+                val parentUnitId = backStackEntry.arguments?.getString("unitId")
+                val parentCourseId = backStackEntry.arguments?.getString("courseId")
                 LessonScreen(
                     lessonId = id,
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = {
+                        val previousRoute = navController.previousBackStackEntry?.destination?.route.orEmpty()
+                        val cameFromUnit = previousRoute.startsWith("unit")
+
+                        val targetUnitRoute = when {
+                            parentUnitId != null && parentCourseId != null -> "unit/$parentUnitId?courseId=$parentCourseId"
+                            parentUnitId != null -> "unit/$parentUnitId"
+                            else -> null
+                        }
+
+                        val didPop = when {
+                            cameFromUnit -> navController.popBackStack()
+                            targetUnitRoute != null -> navController.popBackStack(targetUnitRoute, inclusive = false)
+                            else -> navController.popBackStack()
+                        }
+
+                        if (!didPop && parentUnitId != null) {
+                            val navigateRoute = buildString {
+                                append("unit/$parentUnitId")
+                                if (parentCourseId != null) append("?courseId=$parentCourseId")
+                            }
+                            navController.navigate(navigateRoute) {
+                                popUpTo("courses") { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        }
+                    },
                     onNavigateToLessonFlow = {
                         navController.navigate("lesson-flow/$id")
                     },
@@ -456,7 +527,8 @@ fun AppNavigation(
         }
 
         lesson.unitId?.let { unitId ->
-            navController.navigate("unit/$unitId") {
+            val courseIdQuery = lesson.courseId?.let { "?courseId=$it" } ?: ""
+            navController.navigate("unit/$unitId$courseIdQuery") {
                 launchSingleTop = true
             }
         }

@@ -21,6 +21,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seoulhankuko.app.R
 import com.seoulhankuko.app.domain.model.AuthState
+import com.seoulhankuko.app.presentation.components.SouthKoreaLoadingIcon
 import com.seoulhankuko.app.presentation.viewmodel.HomeViewModel
 import com.seoulhankuko.app.presentation.utils.FirstScreenColors
 import com.seoulhankuko.app.presentation.utils.HomeColors
@@ -99,9 +100,7 @@ fun FirstScreen(
                 ) {
                     when (authState) {
                         is AuthState.Loading -> {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(48.dp)
-                            )
+                            SouthKoreaLoadingIcon(size = 48.dp)
                         }
                         is AuthState.SignedOut -> {
                             Button(

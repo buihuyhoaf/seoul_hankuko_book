@@ -2,10 +2,11 @@ package com.seoulhankuko.app.data.repository
 
 import com.seoulhankuko.app.data.api.model.ExerciseSubmissionRequest
 import com.seoulhankuko.app.data.api.model.LessonDetailResponse
+import com.seoulhankuko.app.data.api.model.LessonProgressUpdateRequest
+import com.seoulhankuko.app.data.api.model.PronunciationEvaluationResponse
 import com.seoulhankuko.app.data.api.model.PracticeSelectedOptionRequest
 import com.seoulhankuko.app.data.api.model.PracticeTextAnswerRequest
 import com.seoulhankuko.app.data.api.model.QuestionResponse
-import com.seoulhankuko.app.data.api.model.LessonProgressUpdateRequest
 import com.seoulhankuko.app.data.api.service.ApiService
 import com.seoulhankuko.app.domain.model.ChallengeLite
 import com.seoulhankuko.app.domain.model.ChallengeOptionLite
@@ -21,6 +22,9 @@ import com.seoulhankuko.app.domain.model.QuestionMetadata
 import com.seoulhankuko.app.domain.model.QuestionMetadataPair
 import com.seoulhankuko.app.domain.model.QuestionPronunciation
 import com.seoulhankuko.app.domain.model.QuestionSentenceOrder
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.Response
 import timber.log.Timber
 import javax.inject.Inject
@@ -139,8 +143,7 @@ class LessonRepository @Inject constructor(
         questionId: String,
         token: String,
         selectedOptionId: String? = null,
-        textAnswer: String? = null,
-        expEarned: Int = 0
+        textAnswer: String? = null
     ): Result<Map<String, Any>> {
         return try {
             val authHeader = "Bearer $token"
@@ -148,19 +151,13 @@ class LessonRepository @Inject constructor(
                 selectedOptionId != null -> {
                     apiService.submitPracticeQuestionSelectedOption(
                         lessonId, questionId, authHeader,
-                        PracticeSelectedOptionRequest(
-                            selectedOptionId = selectedOptionId,
-                            expEarned = expEarned.coerceAtLeast(0)
-                        )
+                        PracticeSelectedOptionRequest(selectedOptionId)
                     )
                 }
                 textAnswer != null -> {
                     apiService.submitPracticeQuestionTextAnswer(
                         lessonId, questionId, authHeader,
-                        PracticeTextAnswerRequest(
-                            answer = textAnswer,
-                            expEarned = expEarned.coerceAtLeast(0)
-                        )
+                        PracticeTextAnswerRequest(textAnswer)
                     )
                 }
                 else -> {
@@ -205,6 +202,36 @@ class LessonRepository @Inject constructor(
             }
         } catch (e: Exception) {
             Timber.e(e, "Exception submitting exercise")
+            Result.failure(e)
+        }
+    }
+
+    suspend fun evaluatePronunciation(
+        token: String,
+        audioBytes: ByteArray,
+        sentence: String,
+        fileName: String = "pronunciation.wav"
+    ): Result<PronunciationEvaluationResponse> {
+        return try {
+            val authHeader = "Bearer $token"
+            val audioRequest = audioBytes.toRequestBody("audio/wav".toMediaType())
+            val audioPart = MultipartBody.Part.createFormData("file", fileName, audioRequest)
+            val sentencePart = sentence.toRequestBody("text/plain".toMediaType())
+            val response = apiService.evaluatePronunciation(
+                token = authHeader,
+                file = audioPart,
+                sentence = sentencePart
+            )
+            if (response.isSuccessful) {
+                response.body()?.let { Result.success(it) }
+                    ?: Result.failure(IllegalStateException("Pronunciation response body is null"))
+            } else {
+                val error = response.errorBody()?.string()
+                Timber.e("Pronunciation evaluation failed: code=${response.code()}, error=$error")
+                Result.failure(Exception("Pronunciation evaluation failed: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Exception during pronunciation evaluation")
             Result.failure(e)
         }
     }

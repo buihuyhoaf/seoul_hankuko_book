@@ -4,13 +4,16 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.seoulhankuko.app.data.api.model.LessonProgressUpdateRequest
 import com.seoulhankuko.app.data.api.model.QuestionResponse
+import com.seoulhankuko.app.data.audio.PronunciationRecorder
+import com.seoulhankuko.app.data.audio.WavUtils
 import com.seoulhankuko.app.data.local.UserPreferencesManager
 import com.seoulhankuko.app.data.repository.AuthRepository
-import com.seoulhankuko.app.data.repository.AdditionalLessonChallenges
 import com.seoulhankuko.app.data.repository.LessonRepository
+import com.seoulhankuko.app.data.repository.AdditionalLessonChallenges
 import com.seoulhankuko.app.domain.model.AnswerStatus
 import com.seoulhankuko.app.domain.model.ChallengeWithOptions
 import com.seoulhankuko.app.domain.model.LessonWithChallenges
+import com.seoulhankuko.app.presentation.components.PronunciationEvaluationUiState
 import com.seoulhankuko.app.presentation.components.TTSManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,7 +32,8 @@ class LessonViewModel @Inject constructor(
     private val lessonRepository: LessonRepository,
     private val authRepository: AuthRepository,
     private val userPreferencesManager: UserPreferencesManager,
-    val ttsManager: TTSManager
+    val ttsManager: TTSManager,
+    private val pronunciationRecorder: PronunciationRecorder
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow<LessonUiState>(LessonUiState.Loading)
@@ -42,6 +46,12 @@ class LessonViewModel @Inject constructor(
     private val recordedQuestionIds = mutableSetOf<String>()
     private val recordedExerciseIds = mutableSetOf<String>()
     private val recordedExerciseTypes = mutableSetOf<String>()
+    private val _pronunciationEvaluations =
+        MutableStateFlow<Map<String, PronunciationEvaluationUiState>>(emptyMap())
+    val pronunciationEvaluations: StateFlow<Map<String, PronunciationEvaluationUiState>> =
+        _pronunciationEvaluations.asStateFlow()
+    private val _pronunciationProcessing = MutableStateFlow<Set<String>>(emptySet())
+    val pronunciationProcessing: StateFlow<Set<String>> = _pronunciationProcessing.asStateFlow()
     
     fun loadLesson(lessonId: String, showLoading: Boolean = true) {
         if (showLoading) {
@@ -159,8 +169,7 @@ class LessonViewModel @Inject constructor(
     fun submitPracticeCorrectAnswer(
         lessonId: String,
         questionId: String,
-        selectedOptionId: String,
-        earnedExp: Float
+        selectedOptionId: String
     ) {
         viewModelScope.launch {
             try {
@@ -170,8 +179,7 @@ class LessonViewModel @Inject constructor(
                         lessonId = lessonId,
                         questionId = questionId,
                         token = token,
-                        selectedOptionId = selectedOptionId,
-                        expEarned = earnedExp.roundToInt().coerceAtLeast(0)
+                        selectedOptionId = selectedOptionId
                     )
                     if (result.isSuccess) {
                         Timber.d("Practice submit API success for lesson=$lessonId question=$questionId")
@@ -187,6 +195,108 @@ class LessonViewModel @Inject constructor(
                 Timber.e(e, "Failed to submit practice question to backend")
             }
         }
+    }
+
+    fun beginPronunciationRecording(questionId: String): Boolean {
+        Timber.d("Begin pronunciation recording for question %s", questionId)
+        pronunciationRecorder.reset()
+        _pronunciationProcessing.update { it - questionId }
+        _pronunciationEvaluations.update { it - questionId }
+        val started = pronunciationRecorder.startRecording()
+        if (!started) {
+            _pronunciationEvaluations.update {
+                it + (questionId to PronunciationEvaluationUiState(
+                    transcript = null,
+                    score = null,
+                    passed = false,
+                    isEvaluated = false,
+                    errorMessage = "Không thể bắt đầu ghi âm. Vui lòng kiểm tra quyền truy cập micro."
+                ))
+            }
+        }
+        return started
+    }
+
+    suspend fun completePronunciationRecording(
+        lessonId: String,
+        questionId: String,
+        sentence: String
+    ): PronunciationEvaluationUiState? {
+        Timber.d("Complete pronunciation recording for lesson=%s question=%s", lessonId, questionId)
+        _pronunciationProcessing.update { it + questionId }
+        return try {
+            val pcmBytes = pronunciationRecorder.stopRecording()
+            if (pcmBytes.isEmpty()) {
+                Timber.w("Pronunciation recording for %s produced empty buffer", questionId)
+                PronunciationEvaluationUiState(
+                    transcript = "",
+                    score = 0f,
+                    passed = false,
+                    isEvaluated = true,
+                    errorMessage = "Không thu được âm thanh. Vui lòng thử lại."
+                ).also { evaluation ->
+                    _pronunciationEvaluations.update { it + (questionId to evaluation) }
+                }
+            } else {
+                val wavBytes = WavUtils.pcmToWav(
+                    pcmBytes,
+                    PronunciationRecorder.SAMPLE_RATE,
+                    PronunciationRecorder.CHANNEL_COUNT,
+                    PronunciationRecorder.BITS_PER_SAMPLE
+                )
+                val token = authRepository.getCurrentToken()
+                if (token.isNullOrBlank()) {
+                    Timber.w("No auth token available, cannot evaluate pronunciation")
+                    val evaluation = PronunciationEvaluationUiState(
+                        transcript = "",
+                        score = 0f,
+                        passed = false,
+                        isEvaluated = true,
+                        errorMessage = "Không thể gửi lên máy chủ. Vui lòng đăng nhập lại."
+                    )
+                    _pronunciationEvaluations.update { it + (questionId to evaluation) }
+                    evaluation
+                } else {
+                    val result = lessonRepository.evaluatePronunciation(
+                        token = token,
+                        audioBytes = wavBytes,
+                        sentence = sentence,
+                        fileName = "${questionId}.wav"
+                    )
+                    val evaluation = result.fold(
+                        onSuccess = { data ->
+                            PronunciationEvaluationUiState(
+                                transcript = data.transcript,
+                                score = data.score,
+                                passed = data.passed,
+                                isEvaluated = true
+                            )
+                        },
+                        onFailure = { error ->
+                            Timber.e(error, "Pronunciation evaluation failed for %s", questionId)
+                            PronunciationEvaluationUiState(
+                                transcript = "",
+                                score = 0f,
+                                passed = false,
+                                isEvaluated = true,
+                                errorMessage = "Đánh giá thất bại. Vui lòng thử lại."
+                            )
+                        }
+                    )
+                    _pronunciationEvaluations.update { it + (questionId to evaluation) }
+                    evaluation
+                }
+            }
+        } finally {
+            _pronunciationProcessing.update { it - questionId }
+        }
+    }
+
+    fun resetPronunciationAttempt(questionId: String) {
+        Timber.d("Reset pronunciation attempt for question %s", questionId)
+        pronunciationRecorder.reset()
+        _pronunciationProcessing.update { it - questionId }
+        _pronunciationEvaluations.update { it - questionId }
     }
 
     fun submitExercise(
@@ -279,6 +389,7 @@ class LessonViewModel @Inject constructor(
             try {
                 val token = authRepository.getCurrentToken()
                 val payload = buildLessonProgressPayload()
+                val totalExpGain = payload.questionExp + payload.listeningExp + payload.speakingExp + payload.writingExp
                 val result = lessonRepository.updateLessonProgress(lessonId, token, payload)
 
                 val responseBody = result.getOrNull()
@@ -287,10 +398,9 @@ class LessonViewModel @Inject constructor(
                     val celebrationFromPayload = handleStreakInfoPayload((responseBody as? Map<*, *>)?.get("streak_info"))
                     celebrationScheduled = celebrationScheduled || celebrationFromPayload
 
-                    // Check if lesson was completed and update streak
-                    val wasCompletedBefore = (_uiState.value as? LessonUiState.Success)?.isLessonCompleted ?: false
-                    val progressPercent = (responseBody as? Map<*, *>)?.get("progress_percent") as? Number
-                    val isNowCompleted = (progressPercent?.toFloat() ?: 0f) >= 80f
+                    val lessonProgressMap = (responseBody as? Map<*, *>)?.get("lesson_progress") as? Map<*, *>
+                    val progressPercent = (lessonProgressMap?.get("progress_percent") as? Number)?.toFloat() ?: 0f
+                    val isNowCompleted = progressPercent >= 80f
 
                     // Reload lesson data to get updated progress
                     loadLesson(lessonId, showLoading = false)
@@ -301,6 +411,9 @@ class LessonViewModel @Inject constructor(
                         } else currentState
                     }
                     resetExpTracking()
+                    viewModelScope.launch {
+                        authRepository.refreshCurrentUserData()
+                    }
                 } else {
                     result.exceptionOrNull()?.let { error ->
                         Timber.e(error, "Failed to update lesson progress for lesson $lessonId")
@@ -407,6 +520,12 @@ class LessonViewModel @Inject constructor(
             else -> false
         }
 
+        if (resolvedUpdated) {
+            viewModelScope.launch {
+                authRepository.refreshCurrentUserData()
+            }
+        }
+
         return maybeScheduleStreakCelebration(streakDays, bonusExp, resolvedUpdated)
     }
 
@@ -469,6 +588,13 @@ class LessonViewModel @Inject constructor(
         }
     }
     
+    fun recordListeningExp(expGained: Int) {
+        val normalized = expGained.coerceAtLeast(0)
+        _lessonExpProgress.update { current ->
+            current.copy(listeningExp = normalized.toFloat())
+        }
+    }
+    
     fun markExerciseCompletion(exerciseId: String?, explicitType: String? = null) {
         var effectiveType = explicitType?.lowercase()
         var alreadyRecorded = false
@@ -487,21 +613,15 @@ class LessonViewModel @Inject constructor(
         }
         
         val updateApplied = when (effectiveType) {
-            "listening", "audio_comprehension" -> {
-                _lessonExpProgress.update { current ->
-                    current.copy(listeningExp = current.listeningExp + EXERCISE_EXP_REWARD)
-                }
-                true
-            }
             "speaking", "pronunciation" -> {
                 _lessonExpProgress.update { current ->
-                    current.copy(speakingExp = current.speakingExp + EXERCISE_EXP_REWARD)
+                    current.copy(speakingExp = current.speakingExp + SKILL_EXERCISE_EXP_REWARD)
                 }
                 true
             }
             "writing", "writing_practice" -> {
                 _lessonExpProgress.update { current ->
-                    current.copy(writingExp = current.writingExp + EXERCISE_EXP_REWARD)
+                    current.copy(writingExp = current.writingExp + SKILL_EXERCISE_EXP_REWARD)
                 }
                 true
             }
@@ -525,7 +645,7 @@ class LessonViewModel @Inject constructor(
     }
     
     companion object {
-        private const val EXERCISE_EXP_REWARD = 20
+        private const val SKILL_EXERCISE_EXP_REWARD = 20
     }
 }
 

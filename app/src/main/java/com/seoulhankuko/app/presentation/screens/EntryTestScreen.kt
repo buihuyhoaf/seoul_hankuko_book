@@ -20,6 +20,7 @@ import com.seoulhankuko.app.presentation.viewmodel.EntryTestViewModel
 import com.seoulhankuko.app.presentation.viewmodel.GoogleSignInViewModel
 import com.seoulhankuko.app.presentation.viewmodel.EntryTestFlowViewModel
 import com.seoulhankuko.app.presentation.components.LoginPromptDialog
+import com.seoulhankuko.app.presentation.components.SouthKoreaLoadingIcon
 import com.seoulhankuko.app.presentation.utils.EntryTestColors
 
 @Composable
@@ -39,7 +40,7 @@ fun EntryTestScreen(
     var showLoginPrompt by remember { mutableStateOf(false) }
     
     // Check if user is authenticated
-    val isAuthenticated = userData?.isLoggedIn == true && !userData?.accessToken.isNullOrEmpty()
+    val isAuthenticated = userData.isLoggedIn && !userData.accessToken.isNullOrEmpty()
     
     LaunchedEffect(Unit) {
         // Load entry test questions regardless of login status if offline mode is allowed
@@ -93,7 +94,7 @@ fun EntryTestScreen(
         
         when {
             // Only enforce authentication if offline mode is disabled
-            !allowOfflineMode && !isAuthenticated && userData != null -> {
+            !allowOfflineMode && !isAuthenticated -> {
                 // User is not authenticated and offline mode is not allowed
                 LaunchedEffect(Unit) {
                     onNavigateBack()
@@ -110,22 +111,12 @@ fun EntryTestScreen(
                 }
             }
             
-            userData == null -> {
-                // Still loading user data
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
-            }
-            
             uiState.isLoading -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator()
+                    SouthKoreaLoadingIcon(size = 56.dp)
                 }
             }
             
@@ -264,9 +255,9 @@ fun EntryTestScreen(
                                 )
                             ) {
                                 if (uiState.isLoading) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
-                                        color = MaterialTheme.colorScheme.onPrimary
+                                    SouthKoreaLoadingIcon(
+                                        modifier = Modifier.size(20.dp),
+                                        size = 20.dp
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                 }

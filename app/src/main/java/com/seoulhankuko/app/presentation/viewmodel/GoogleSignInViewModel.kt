@@ -8,10 +8,15 @@ import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.seoulhankuko.app.data.repository.GoogleSignInRepository
 import com.seoulhankuko.app.data.repository.GoogleSignInResult
-import com.seoulhankuko.app.data.repository.UserData
+import com.seoulhankuko.app.data.local.UserData
 import com.seoulhankuko.app.core.Logger
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -27,13 +32,30 @@ class GoogleSignInViewModel @Inject constructor(
     private val _googleSignInState = MutableStateFlow<GoogleSignInResult?>(null)
     private val _isLoading = MutableStateFlow(false)
     private val _errorMessage = MutableStateFlow<String?>(null)
-    private val _userData = MutableStateFlow<UserData?>(null)
+    private val initialUserData = UserData(
+        userId = null,
+        email = null,
+        name = null,
+        avatarUrl = null,
+        accessToken = null,
+        refreshToken = null,
+        isLoggedIn = false,
+        isPremium = false,
+        streakDays = 0,
+        exp = 0,
+        createdAt = null,
+        hasCompletedEntryTest = false,
+        currentCourseId = null,
+        entryTestScore = null
+    )
+
+    private val _userData = MutableStateFlow(initialUserData)
 
     // Public immutable state
     val googleSignInState: StateFlow<GoogleSignInResult?> = _googleSignInState.asStateFlow()
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
-    val userData: StateFlow<UserData?> = _userData.asStateFlow()
+    val userData: StateFlow<UserData> = _userData.asStateFlow()
 
     // Get user data from repository
     val isLoggedIn: StateFlow<Boolean> = googleSignInRepository.isLoggedIn
@@ -112,7 +134,7 @@ class GoogleSignInViewModel @Inject constructor(
                 
                 _isLoading.value = false
                 _errorMessage.value = null
-                _userData.value = null
+                _userData.value = initialUserData // Reset to initial state
                 
                 Logger.GoogleSignIn.signOutSuccess()
                 Logger.GoogleSignIn.userDataCleared()
@@ -143,12 +165,12 @@ class GoogleSignInViewModel @Inject constructor(
  * Extension function to check if user is signed in
  */
 fun GoogleSignInViewModel.isUserSignedIn(): Boolean {
-    return userData.value?.isLoggedIn == true
+    return userData.value.isLoggedIn
 }
 
 /**
  * Extension function to get current user info
  */
-fun GoogleSignInViewModel.getCurrentUser(): UserData? {
+fun GoogleSignInViewModel.getCurrentUser(): UserData {
     return userData.value
 }

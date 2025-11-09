@@ -136,7 +136,7 @@ fun SplashScreenWithAutoLogin(
         delay(1500)
         
         // Kiểm tra trạng thái đăng nhập và truyền thông tin qua Intent
-        val isLoggedIn = userData?.isLoggedIn == true && !userData?.accessToken.isNullOrEmpty()
+        val isLoggedIn = userData.isLoggedIn && !userData.accessToken.isNullOrEmpty()
         
         onNavigateToMain(isLoggedIn)
     }

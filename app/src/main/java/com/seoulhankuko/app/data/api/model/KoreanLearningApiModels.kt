@@ -1,7 +1,6 @@
 package com.seoulhankuko.app.data.api.model
 
 import com.google.gson.JsonElement
-import com.google.gson.JsonObject
 import com.google.gson.annotations.SerializedName
 
 // Course Management Models
@@ -239,7 +238,7 @@ data class QuestionAudioComprehensionResponse(
     val id: String,
     val transcript: String?,
     @SerializedName("tts_config")
-    val ttsConfig: JsonObject? = null
+    val ttsConfig: JsonElement? = null
 )
 
 data class QuestionPronunciationResponse(
@@ -249,7 +248,7 @@ data class QuestionPronunciationResponse(
     @SerializedName("reference_audio_url")
     val referenceAudioUrl: String?,
     @SerializedName("tts_config")
-    val ttsConfig: JsonObject? = null
+    val ttsConfig: JsonElement? = null
 )
 
 data class QuestionBlankResponse(
@@ -258,6 +257,12 @@ data class QuestionBlankResponse(
     val correctAnswer: String?,
     @SerializedName("case_sensitive")
     val caseSensitive: Boolean
+)
+
+data class PronunciationEvaluationResponse(
+    val transcript: String,
+    val score: Float,
+    val passed: Boolean
 )
 
 data class QuestionTypeResponse(
@@ -578,13 +583,11 @@ data class EntryTestResultResponse(
 
 // Practice question submission requests
 data class PracticeSelectedOptionRequest(
-    @SerializedName("selected_option_id") val selectedOptionId: String,
-    @SerializedName("exp_earned") val expEarned: Int = 0
+    @SerializedName("selected_option_id") val selectedOptionId: String
 )
 
 data class PracticeTextAnswerRequest(
-    @SerializedName("answer") val answer: String,
-    @SerializedName("exp_earned") val expEarned: Int = 0
+    @SerializedName("answer") val answer: String
 )
 
 // Exercise submission request

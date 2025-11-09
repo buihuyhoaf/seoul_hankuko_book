@@ -29,6 +29,8 @@ import com.seoulhankuko.app.presentation.utils.UnitColors
 import androidx.compose.runtime.rememberCoroutineScope
 import com.seoulhankuko.app.domain.model.Stroke
 import kotlinx.coroutines.launch
+import com.seoulhankuko.app.presentation.viewmodel.canvas.CanvasUiState
+import com.seoulhankuko.app.presentation.viewmodel.canvas.HangulCanvasViewModel
 
 /**
  * Hangul Canvas Screen for drawing and learning Hangul characters

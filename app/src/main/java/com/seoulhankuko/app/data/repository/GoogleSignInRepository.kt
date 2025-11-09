@@ -1,18 +1,18 @@
 package com.seoulhankuko.app.data.repository
 
-import android.util.Log
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
+import com.seoulhankuko.app.core.Logger
 import com.seoulhankuko.app.data.api.model.GoogleSignInRequest
 import com.seoulhankuko.app.data.api.model.GoogleSignInResponse
 import com.seoulhankuko.app.data.api.model.LogoutRequest
 import com.seoulhankuko.app.data.api.model.UserInfo
 import com.seoulhankuko.app.data.api.service.ApiService
+import com.seoulhankuko.app.data.local.UserData
 import com.seoulhankuko.app.data.local.UserPreferencesManager
-import com.seoulhankuko.app.core.Logger
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
@@ -92,39 +92,61 @@ class GoogleSignInRepository @Inject constructor(
                             var backendUserId = account.id ?: "" // Fallback to Google ID
                             var streakDays = 0
                             var exp = 0
+                            var fallback = false
                             try {
                                 val userResponse = apiService.getCurrentUser("Bearer $accessToken")
                                 if (userResponse.isSuccessful && userResponse.body() != null) {
-                                    val userData = userResponse.body()!!
-                                    backendUserId = userData.id.toString() // Use backend user ID
-                                    streakDays = userData.streakDays
-                                    exp = userData.exp
+                                    val fetchedUser = userResponse.body()!!
+                                    backendUserId = fetchedUser.id // Use backend user ID
+                                    streakDays = fetchedUser.streakDays
+                                    exp = fetchedUser.exp
                                     
                                     userPreferencesManager.saveEntryTestResult(
-                                        hasCompletedEntryTest = userData.hasCompletedEntryTest,
-                                        currentCourseId = userData.currentCourseId,
+                                        hasCompletedEntryTest = fetchedUser.hasCompletedEntryTest,
+                                        currentCourseId = fetchedUser.currentCourseId,
                                         currentCourseName = null,
-                                        entryTestScore = userData.entryTestScore
+                                        entryTestScore = fetchedUser.entryTestScore
                                     )
                                     Logger.GoogleSignIn.signInSuccess("User data synced from backend")
+
+                                    // Save full profile using the fetched data
+                                    userPreferencesManager.saveUserData(
+                                        userId = fetchedUser.id,
+                                        email = fetchedUser.email,
+                                        name = fetchedUser.username,
+                                        avatarUrl = account.photoUrl?.toString(),
+                                        accessToken = accessToken,
+                                        refreshToken = refreshToken ?: "",
+                                        isPremium = false,
+                                        streakDays = fetchedUser.streakDays,
+                                        exp = fetchedUser.exp,
+                                        createdAt = fetchedUser.createdAt,
+                                        hasCompletedEntryTest = fetchedUser.hasCompletedEntryTest,
+                                        currentCourseId = fetchedUser.currentCourseId,
+                                        entryTestScore = fetchedUser.entryTestScore
+                                    )
+                                } else {
+                                    fallback = true
                                 }
                             } catch (e: Exception) {
                                 Logger.GoogleSignIn.signInError("Failed to sync user data: ${e.message}")
                                 // Continue with login even if sync fails
+                                fallback = true
                             }
-                            
-                            // Lưu JWT token từ backend vào local storage
-                            userPreferencesManager.saveUserData(
-                                userId = backendUserId,
-                                email = account.email ?: "",
-                                name = account.displayName ?: "",
-                                avatarUrl = account.photoUrl?.toString(),
-                                accessToken = accessToken, // JWT token thật từ backend
-                                refreshToken = refreshToken ?: "",
-                                isPremium = false,
-                                streakDays = streakDays,
-                                exp = exp
-                            )
+                             
+                            if (fallback) {
+                                userPreferencesManager.saveUserData(
+                                    userId = backendUserId,
+                                    email = account.email ?: "",
+                                    name = account.displayName ?: "",
+                                    avatarUrl = account.photoUrl?.toString(),
+                                    accessToken = accessToken,
+                                    refreshToken = refreshToken ?: "",
+                                    isPremium = false,
+                                    streakDays = streakDays,
+                                    exp = exp
+                                )
+                            }
                             
                             // Save logged account information for future auto-login với đúng userId từ backend
                             authRepository.saveLoggedAccount(
@@ -255,8 +277,3 @@ sealed class GoogleSignInResult {
     data class Success(val userInfo: UserInfo) : GoogleSignInResult()
     data class Error(val message: String) : GoogleSignInResult()
 }
-
-/**
- * Import UserData from UserPreferencesManager
- */
-typealias UserData = com.seoulhankuko.app.data.local.UserData

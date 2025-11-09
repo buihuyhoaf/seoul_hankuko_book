@@ -15,6 +15,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
@@ -38,19 +41,29 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.seoulhankuko.app.R
 import com.seoulhankuko.app.data.api.model.ExerciseResponse
 import com.seoulhankuko.app.data.api.model.ExerciseQuestionResponse
 import com.seoulhankuko.app.data.api.model.ExerciseQuestionOptionResponse
+import com.seoulhankuko.app.presentation.components.SouthKoreaLoadingIcon
 import com.seoulhankuko.app.presentation.components.rememberSoundManager
 import com.seoulhankuko.app.presentation.utils.AppColors
 import com.seoulhankuko.app.presentation.viewmodel.LessonUiState
 import com.seoulhankuko.app.presentation.viewmodel.LessonViewModel
+import com.seoulhankuko.app.presentation.viewmodel.StreakCelebrationEvent
+import com.seoulhankuko.app.presentation.viewmodel.TranscriptSegment
+import com.seoulhankuko.app.presentation.viewmodel.TranscriptSyncViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import timber.log.Timber
+
+private const val LISTENING_EXP_PER_CORRECT = 20
 
 /**
  * Modern ListeningScreen with Material 3 design
@@ -140,7 +153,7 @@ fun ListeningScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = Color(0xFF42A5F5))
+                SouthKoreaLoadingIcon(size = 56.dp)
             }
         }
         uiState is LessonUiState.Error -> {
@@ -224,7 +237,7 @@ fun ListeningScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.padding(16.dp)
                 ) {
-                    CircularProgressIndicator(color = Color(0xFF42A5F5))
+                    SouthKoreaLoadingIcon(size = 48.dp)
                     Text(
                         text = "Loading exercise...",
                         style = MaterialTheme.typography.bodyMedium,
@@ -282,9 +295,21 @@ private fun ListeningScreenContent(
     var replayCount by remember { mutableStateOf(0) } // Track number of times user has listened (including replays)
     var hasCompletedFirstListen by remember { mutableStateOf(false) } // Track first completion (not replay)
     var showQuestions by remember { mutableStateOf(false) } // Show after first listen completes
-    var showFeedback by remember { mutableStateOf(false) }
-    var showTranscript by remember { mutableStateOf(false) } // Show/hide transcript
-    
+    var showResultScreen by remember { mutableStateOf(false) }
+    var showTranscript by remember { mutableStateOf(false) }
+    var showDetailPanel by remember { mutableStateOf(false) }
+    var showStreakScreen by remember { mutableStateOf(false) }
+
+    var streakEventToShow by remember { mutableStateOf<StreakCelebrationEvent?>(null) }
+    var pendingNavigationAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+    var listeningExp by remember { mutableStateOf(0) }
+    var correctAnswerCount by remember { mutableStateOf(0) }
+    var totalTimeMillis by remember { mutableStateOf(0L) }
+    var exerciseStartTimestamp by remember { mutableStateOf(System.currentTimeMillis()) }
+    var isUpdatingProgress by remember { mutableStateOf(false) }
+    val streakCelebrationFlow = remember { viewModel.streakCelebration }
+
     // Question navigation state - show one question at a time
     var currentQuestionIndex by remember { mutableStateOf(0) }
     val currentQuestion = if (exercise.questions.isNotEmpty() && currentQuestionIndex < exercise.questions.size) {
@@ -308,6 +333,9 @@ private fun ListeningScreenContent(
     val textToSpeak = remember(exercise.textToSpeech, exercise.transcript) {
         exercise.textToSpeech ?: exercise.transcript ?: ""
     }
+
+    val transcriptViewModel: TranscriptSyncViewModel = viewModel()
+    val transcriptUiState by transcriptViewModel.uiState.collectAsStateWithLifecycle()
     
     // Initialize and calculate duration
     LaunchedEffect(textToSpeak, exercise.questions, primaryAudioUrl) {
@@ -320,11 +348,22 @@ private fun ListeningScreenContent(
         replayCount = 0
         hasCompletedFirstListen = false
         showQuestions = false
-        showFeedback = false
+        showResultScreen = false
+        showDetailPanel = false
+        showStreakScreen = false
         showTranscript = false
         currentQuestionIndex = 0
         selectedAnswers = emptyMap()
         checkedQuestions = emptySet()
+        listeningExp = 0
+        correctAnswerCount = 0
+        totalTimeMillis = 0L
+        exerciseStartTimestamp = System.currentTimeMillis()
+        isUpdatingProgress = false
+        streakEventToShow = null
+        pendingNavigationAction = null
+
+        viewModel.recordListeningExp(0)
         
         // Estimate duration for TTS when no primary audio is available
         if (!hasPrimaryAudio && textToSpeak.isNotBlank()) {
@@ -342,6 +381,10 @@ private fun ListeningScreenContent(
         }
     }
     
+    LaunchedEffect(exercise.transcript) {
+        transcriptViewModel.updateTranscript(exercise.transcript)
+    }
+    
     // Update playback position from TTS manager
     if (!hasPrimaryAudio) {
         LaunchedEffect(isPlaying) {
@@ -355,6 +398,13 @@ private fun ListeningScreenContent(
         // Sync playback position
         LaunchedEffect(playbackPositionState) {
             playbackPosition = playbackPositionState
+        }
+        
+        LaunchedEffect(playbackPosition, audioDuration) {
+            transcriptViewModel.onPlaybackProgress(
+                positionMs = playbackPosition.toLong(),
+                totalDurationMs = audioDuration
+            )
         }
         
         // Handle first time listening completion - show questions with animation
@@ -431,6 +481,13 @@ private fun ListeningScreenContent(
                 delay(100)
             }
         }
+        
+        LaunchedEffect(playbackPosition, audioDuration) {
+            transcriptViewModel.onPlaybackProgress(
+                positionMs = playbackPosition.toLong(),
+                totalDurationMs = audioDuration
+            )
+        }
 
         LaunchedEffect(isMediaPrepared) {
             if (isMediaPrepared) {
@@ -487,290 +544,465 @@ private fun ListeningScreenContent(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
             
-            // Audio Player Card
-            AnimatedVisibility(
-                visible = audioCardVisible,
-                enter = fadeIn(animationSpec = tween(400)) + slideInVertically(
-                    initialOffsetY = { it },
-                    animationSpec = tween(400)
-                )
-            ) {
-                AudioPlayerCard(
-                    isPlaying = if (hasPrimaryAudio) isMediaPlaying else isPlaying,
-                    playbackPosition = playbackPosition,
-                    duration = audioDuration,
-                    playbackSpeed = playbackSpeed,
-                    showTranscriptButton = replayCount >= 2 && exercise.transcript != null,
-                    transcript = exercise.transcript,
-                    showTranscript = showTranscript,
-                    onToggleTranscript = {
-                        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                        showTranscript = !showTranscript
-                    },
-                    onPlayPauseClick = {
-                        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                        if (hasPrimaryAudio) {
-                            if (!isMediaPrepared) {
-                                Timber.w("ListeningScreen: Audio not prepared yet")
-                                return@AudioPlayerCard
+            fun finalizeExercise() {
+                if (showResultScreen) return
+
+                val totalQuestions = exercise.questions.size
+                val correct = if (totalQuestions > 0) {
+                    exercise.questions.count { question ->
+                        val selectedOptionId = selectedAnswers[question.id]
+                        val correctOptionId = question.options.firstOrNull { it.isCorrect }?.id
+                        selectedOptionId == correctOptionId
+                    }
+                } else {
+                    0
+                }
+
+                correctAnswerCount = correct
+                val calculatedExp = (correct * LISTENING_EXP_PER_CORRECT).coerceAtLeast(0)
+                listeningExp = calculatedExp
+                totalTimeMillis = (System.currentTimeMillis() - exerciseStartTimestamp).coerceAtLeast(0L)
+                showQuestions = false
+                showResultScreen = true
+                showDetailPanel = false
+
+                viewModel.recordListeningExp(calculatedExp)
+
+                if (ttsManager.isAvailable()) {
+                    ttsManager.stop()
+                }
+                if (hasPrimaryAudio && isMediaPrepared) {
+                    try {
+                        if (mediaPlayer.isPlaying) {
+                            mediaPlayer.pause()
+                        }
+                    } catch (e: IllegalStateException) {
+                        Timber.e(e, "ListeningScreen: Unable to pause media when finalizing")
+                    }
+                }
+                isMediaPlaying = false
+            }
+
+            fun dismissStreakCelebration(navigateAfter: Boolean) {
+                showStreakScreen = false
+                val action = pendingNavigationAction
+                pendingNavigationAction = null
+                streakEventToShow = null
+                viewModel.clearStreakCelebration()
+                if (navigateAfter) {
+                    action?.invoke()
+                }
+            }
+
+            fun handleContinue() {
+                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                if (isUpdatingProgress) return
+
+                val continueAction: () -> Unit = {
+                    pendingNavigationAction = null
+                    showResultScreen = false
+                    showDetailPanel = false
+                    onNextExercise?.invoke() ?: onNavigateBack()
+                }
+
+                val id = lessonId
+                if (id != null) {
+                    isUpdatingProgress = true
+                    showDetailPanel = false
+                    viewModel.updateLessonProgress(id) { celebrationScheduled ->
+                        isUpdatingProgress = false
+                        if (celebrationScheduled) {
+                            pendingNavigationAction = continueAction
+                            coroutineScope.launch {
+                                val event = streakEventToShow ?: streakCelebrationFlow.filterNotNull().first()
+                                streakEventToShow = event
+                                viewModel.markStreakCelebrationDisplayed()
+                                showResultScreen = false
+                                showStreakScreen = true
                             }
-                            if (isMediaPlaying) {
-                                mediaPlayer.pause()
-                                isMediaPlaying = false
+                        } else {
+                            continueAction()
+                        }
+                    }
+                } else {
+                    continueAction()
+                }
+            }
+
+            val streakEvent = streakEventToShow
+            if (showStreakScreen && streakEvent != null) {
+                StreakCelebrationScreen(
+                    streakDays = streakEvent.streakDays,
+                    onContinueClick = { dismissStreakCelebration(true) },
+                    onExitConfirmed = { dismissStreakCelebration(true) },
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else if (showResultScreen) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    LessonResultScreen(
+                        totalTime = totalTimeMillis,
+                        experienceGained = listeningExp,
+                        onContinue = { handleContinue() }
+                    )
+
+                    if (exercise.questions.isNotEmpty()) {
+                        FilledTonalButton(
+                            onClick = {
+                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                showDetailPanel = true
+                            },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(16.dp)
+                        ) {
+                            Text("Xem chi tiết")
+                        }
+                    }
+                }
+
+                if (showDetailPanel) {
+                    Dialog(onDismissRequest = { showDetailPanel = false }) {
+                        Surface(
+                            shape = RoundedCornerShape(24.dp),
+                            tonalElevation = 4.dp,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
+                            FeedbackCard(
+                                questions = exercise.questions,
+                                selectedAnswers = selectedAnswers,
+                                transcript = exercise.transcript,
+                                onListenAgain = {
+                                    view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                    if (hasPrimaryAudio && isMediaPrepared) {
+                                        try {
+                                            mediaPlayer.seekTo(0)
+                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                                mediaPlayer.playbackParams = mediaPlayer.playbackParams.setSpeed(playbackSpeed)
+                                            }
+                                            mediaPlayer.start()
+                                            isMediaPlaying = true
+                                            playbackPosition = 0
+                                            replayCount++
+                                        } catch (e: Exception) {
+                                            Timber.e(e, "ListeningScreen: Unable to replay audio from detail panel")
+                                        }
+                                    } else if (textToSpeak.isNotBlank()) {
+                                        ttsManager.stop()
+                                        ttsManager.speak(textToSpeak, playbackSpeed)
+                                    }
+                                },
+                                onNextExercise = {
+                                    showDetailPanel = false
+                                    handleContinue()
+                                },
+                                modifier = Modifier.padding(16.dp)
+                            )
+                        }
+                    }
+                }
+            } else {
+                val handleSeek: (Int) -> Unit = { position ->
+                    if (hasPrimaryAudio && isMediaPrepared) {
+                        try {
+                            val boundedPosition = position.coerceIn(0, audioDuration.takeIf { it > 0 } ?: position)
+                            mediaPlayer.seekTo(boundedPosition)
+                            playbackPosition = mediaPlayer.currentPosition
+                            transcriptViewModel.onPlaybackProgress(
+                                positionMs = mediaPlayer.currentPosition.toLong(),
+                                totalDurationMs = audioDuration
+                            )
+                        } catch (e: Exception) {
+                            Timber.e(e, "ListeningScreen: Unable to seek audio")
+                        }
+                    } else if (textToSpeak.isNotBlank()) {
+                        val boundedPosition = position.coerceIn(0, audioDuration.takeIf { it > 0 } ?: position)
+                        ttsManager.stop()
+                        ttsManager.speak(textToSpeak, playbackSpeed)
+                        playbackPosition = boundedPosition
+                        transcriptViewModel.onPlaybackProgress(
+                            positionMs = boundedPosition.toLong(),
+                            totalDurationMs = audioDuration
+                        )
+                    }
+                }
+
+                // Audio Player Card
+                AnimatedVisibility(
+                    visible = audioCardVisible,
+                    enter = fadeIn(animationSpec = tween(400)) + slideInVertically(
+                        initialOffsetY = { it },
+                        animationSpec = tween(400)
+                    )
+                ) {
+                    AudioPlayerCard(
+                        isPlaying = if (hasPrimaryAudio) isMediaPlaying else isPlaying,
+                        playbackPosition = playbackPosition,
+                        duration = audioDuration,
+                        playbackSpeed = playbackSpeed,
+                        showTranscriptButton = false,
+                        transcript = exercise.transcript,
+                        onToggleTranscript = {
+                            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                            showTranscript = !showTranscript
+                        },
+                        onPlayPauseClick = {
+                            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                            if (hasPrimaryAudio) {
+                                if (!isMediaPrepared) {
+                                    Timber.w("ListeningScreen: Audio not prepared yet")
+                                    return@AudioPlayerCard
+                                }
+                                if (isMediaPlaying) {
+                                    mediaPlayer.pause()
+                                    isMediaPlaying = false
+                                } else {
+                                    if (ttsManager.isAvailable()) {
+                                        ttsManager.stop()
+                                    }
+                                    try {
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                            mediaPlayer.playbackParams = mediaPlayer.playbackParams.setSpeed(playbackSpeed)
+                                        }
+                                    } catch (e: Exception) {
+                                        Timber.e(e, "ListeningScreen: Unable to set playback speed for MediaPlayer")
+                                    }
+                                    mediaPlayer.start()
+                                    isMediaPlaying = true
+                                    if (!hasListened) {
+                                        hasListened = true
+                                    }
+                                    replayCount++
+                                    Timber.d("ListeningScreen: Starting audio playback, replayCount=$replayCount")
+                                }
+                            } else if (isPlaying) {
+                                ttsManager.pause()
                             } else {
-                                if (ttsManager.isAvailable()) {
-                                    ttsManager.stop()
+                                if (textToSpeak.isNotBlank()) {
+                                    ttsManager.speak(textToSpeak, playbackSpeed)
+                                    if (!hasListened) {
+                                        hasListened = true
+                                    }
+                                    replayCount++
+                                    Timber.d("Starting TTS playback, replayCount=$replayCount")
+                                } else {
+                                    Timber.w("No text to speak")
+                                }
+                            }
+                        },
+                        onReplayClick = {
+                            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                            if (hasPrimaryAudio) {
+                                if (!isMediaPrepared) {
+                                    Timber.w("ListeningScreen: Audio not prepared for replay")
+                                    return@AudioPlayerCard
                                 }
                                 try {
+                                    mediaPlayer.seekTo(0)
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                                         mediaPlayer.playbackParams = mediaPlayer.playbackParams.setSpeed(playbackSpeed)
                                     }
+                                    mediaPlayer.start()
+                                    isMediaPlaying = true
+                                    playbackPosition = 0
+                                    replayCount++
+                                    Timber.d("ListeningScreen: Replaying audio (replayCount=$replayCount, hasCompletedFirstListen=$hasCompletedFirstListen)")
                                 } catch (e: Exception) {
-                                    Timber.e(e, "ListeningScreen: Unable to set playback speed for MediaPlayer")
+                                    Timber.e(e, "ListeningScreen: Unable to replay audio")
                                 }
-                                mediaPlayer.start()
-                                isMediaPlaying = true
-                                if (!hasListened) {
-                                    hasListened = true
-                                }
-                                replayCount++
-                                Timber.d("ListeningScreen: Starting audio playback, replayCount=$replayCount")
-                            }
-                        } else if (isPlaying) {
-                            ttsManager.pause()
-                        } else {
-                            if (textToSpeak.isNotBlank()) {
-                                ttsManager.speak(textToSpeak, playbackSpeed)
-                                if (!hasListened) {
-                                    hasListened = true
-                                }
-                                replayCount++
-                                Timber.d("Starting TTS playback, replayCount=$replayCount")
-                            } else {
-                                Timber.w("No text to speak")
-                            }
-                        }
-                    },
-                    onReplayClick = {
-                        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                        if (hasPrimaryAudio) {
-                            if (!isMediaPrepared) {
-                                Timber.w("ListeningScreen: Audio not prepared for replay")
-                                return@AudioPlayerCard
-                            }
-                            try {
-                                mediaPlayer.seekTo(0)
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                    mediaPlayer.playbackParams = mediaPlayer.playbackParams.setSpeed(playbackSpeed)
-                                }
-                                mediaPlayer.start()
-                                isMediaPlaying = true
-                                playbackPosition = 0
-                                replayCount++
-                                Timber.d("ListeningScreen: Replaying audio (replayCount=$replayCount, hasCompletedFirstListen=$hasCompletedFirstListen)")
-                            } catch (e: Exception) {
-                                Timber.e(e, "ListeningScreen: Unable to replay audio")
-                            }
-                        } else if (textToSpeak.isNotBlank()) {
-                            ttsManager.stop()
-                            ttsManager.speak(textToSpeak, playbackSpeed)
-                            playbackPosition = 0
-                            replayCount++
-                            Timber.d("Replaying TTS (replayCount=$replayCount, hasCompletedFirstListen=$hasCompletedFirstListen)")
-                        }
-                    },
-                    onSpeedToggle = {
-                        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                        playbackSpeed = when (playbackSpeed) {
-                            0.5f -> 1.0f
-                            1.0f -> 1.5f
-                            else -> 0.5f
-                        }
-                        if (hasPrimaryAudio) {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && isMediaPrepared) {
-                                try {
-                                    mediaPlayer.playbackParams = mediaPlayer.playbackParams.setSpeed(playbackSpeed)
-                                } catch (e: Exception) {
-                                    Timber.e(e, "ListeningScreen: Unable to update MediaPlayer speed")
-                                }
-                            } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-                                Timber.w("ListeningScreen: Playback speed control not supported on this device")
-                            }
-                        } else {
-                            ttsManager.setSpeed(playbackSpeed)
-                            if (isPlaying && textToSpeak.isNotBlank()) {
+                            } else if (textToSpeak.isNotBlank()) {
                                 ttsManager.stop()
                                 ttsManager.speak(textToSpeak, playbackSpeed)
+                                playbackPosition = 0
+                                replayCount++
+                                Timber.d("Replaying TTS (replayCount=$replayCount, hasCompletedFirstListen=$hasCompletedFirstListen)")
                             }
-                        }
-                    },
-                    onSeekTo = { position ->
-                        if (hasPrimaryAudio && isMediaPrepared) {
-                            try {
-                                mediaPlayer.seekTo(position.coerceIn(0, audioDuration))
-                                playbackPosition = mediaPlayer.currentPosition
-                            } catch (e: Exception) {
-                                Timber.e(e, "ListeningScreen: Unable to seek audio")
+                        },
+                        onSpeedToggle = {
+                            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                            playbackSpeed = when (playbackSpeed) {
+                                0.5f -> 1.0f
+                                1.0f -> 1.5f
+                                else -> 0.5f
                             }
-                        } else if (textToSpeak.isNotBlank()) {
-                            ttsManager.stop()
-                            ttsManager.speak(textToSpeak, playbackSpeed)
-                            playbackPosition = position.coerceIn(0, audioDuration)
-                        }
-                    },
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-            }
-            
-            // Instruction Section
-            InstructionCard(
-                content = exercise.content ?: "Listen carefully to the audio.",
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            
-            // Questions Section (appears after first listen completion)
-            // Debug logging
-            if (exercise.questions.isEmpty()) {
-                Timber.w("No questions found in exercise!")
-            } else {
-                Timber.d("Questions available: ${exercise.questions.size}, currentQuestionIndex: $currentQuestionIndex, showQuestions: $showQuestions, hasCompletedFirstListen: $hasCompletedFirstListen")
-            }
-            
-            if (exercise.questions.isNotEmpty() && currentQuestion != null) {
-                AnimatedVisibility(
-                    visible = showQuestions && !showFeedback,
-                    enter = fadeIn(animationSpec = tween(500)) + expandVertically(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessLow
-                        )
-                    )
-                ) {
-                    SingleQuestionCard(
-                        question = currentQuestion,
-                        questionNumber = currentQuestionIndex + 1,
-                        totalQuestions = exercise.questions.size,
-                        selectedOptionId = selectedAnswers[currentQuestion.id],
-                        isChecked = checkedQuestions.contains(currentQuestion.id),
-                        onOptionSelected = { optionId ->
-                            if (!checkedQuestions.contains(currentQuestion.id)) {
-                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                                selectedAnswers = selectedAnswers + (currentQuestion.id to optionId)
-                                
-                                // Check answer immediately
-                                val selectedOption = currentQuestion.options.find { it.id == optionId }
-                                val isCorrect = selectedOption?.isCorrect == true
-                                
-                                // Mark as checked
-                                checkedQuestions = checkedQuestions + currentQuestion.id
-                                
-                                // Play sound feedback (correct.wav or incorrect.wav)
-                                if (isCorrect) {
-                                    soundManager.playCorrect()
-                                } else {
-                                    soundManager.playIncorrect()
+                            if (hasPrimaryAudio) {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && isMediaPrepared) {
+                                    try {
+                                        mediaPlayer.playbackParams = mediaPlayer.playbackParams.setSpeed(playbackSpeed)
+                                    } catch (e: Exception) {
+                                        Timber.e(e, "ListeningScreen: Unable to update MediaPlayer speed")
+                                    }
+                                } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+                                    Timber.w("ListeningScreen: Playback speed control not supported on this device")
                                 }
-                                
-                                // Move to next question or show feedback after sound
-                                coroutineScope.launch {
-                                    // Wait for sound to play (about 500ms)
-                                    delay(500)
-                                    
-                                    if (currentQuestionIndex < exercise.questions.size - 1) {
-                                        currentQuestionIndex++
+                            } else {
+                                ttsManager.setSpeed(playbackSpeed)
+                                if (isPlaying && textToSpeak.isNotBlank()) {
+                                    ttsManager.stop()
+                                    ttsManager.speak(textToSpeak, playbackSpeed)
+                                }
+                            }
+                        },
+                        onSeekTo = handleSeek,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                }
+            
+                if (!exercise.transcript.isNullOrBlank()) {
+                    val transcriptToggleColor = Color(0xFF42A5F5)
+                    Text(
+                        text = if (showTranscript) "Ẩn hội thoại" else "Xem hội thoại",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = transcriptToggleColor,
+                        modifier = Modifier
+                            .align(Alignment.Start)
+                            .padding(horizontal = 16.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(transcriptToggleColor.copy(alpha = 0.1f))
+                            .clickable {
+                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                showTranscript = !showTranscript
+                                if (showTranscript) {
+                                    transcriptViewModel.onPlaybackProgress(
+                                        positionMs = playbackPosition.toLong(),
+                                        totalDurationMs = audioDuration
+                                    )
+                                }
+                            }
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+    
+                    AnimatedVisibility(
+                        visible = showTranscript,
+                        enter = fadeIn(animationSpec = tween(300)) + expandVertically(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessLow
+                            )
+                        ),
+                        exit = fadeOut(animationSpec = tween(300)) + shrinkVertically(
+                            animationSpec = tween(300)
+                        )
+                    ) {
+                        TranscriptSection(
+                            segments = transcriptUiState.segments,
+                            highlightedIndex = transcriptUiState.highlightedIndex,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            onSegmentClick = { segmentIndex ->
+                                transcriptViewModel.onSeekToSegment(segmentIndex)?.let { target ->
+                                    handleSeek(target.toInt())
+                                }
+                            }
+                        )
+                    }
+                }
+            
+                // Instruction Section
+                exercise.content
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { content ->
+                        InstructionCard(
+                            content = content,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                    }
+            
+                // Questions Section (appears after first listen completion)
+                if (exercise.questions.isEmpty()) {
+                    Timber.w("No questions found in exercise!")
+                } else {
+                    Timber.d("Questions available: ${exercise.questions.size}, currentQuestionIndex: $currentQuestionIndex, showQuestions: $showQuestions, hasCompletedFirstListen: $hasCompletedFirstListen")
+                }
+            
+                if (exercise.questions.isNotEmpty() && currentQuestion != null) {
+                    AnimatedVisibility(
+                        visible = showQuestions && !showResultScreen,
+                        enter = fadeIn(animationSpec = tween(500)) + expandVertically(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessLow
+                            )
+                        )
+                    ) {
+                        SingleQuestionCard(
+                            question = currentQuestion,
+                            questionNumber = currentQuestionIndex + 1,
+                            totalQuestions = exercise.questions.size,
+                            selectedOptionId = selectedAnswers[currentQuestion.id],
+                            isChecked = checkedQuestions.contains(currentQuestion.id),
+                            onOptionSelected = { optionId ->
+                                if (!checkedQuestions.contains(currentQuestion.id)) {
+                                    view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                    selectedAnswers = selectedAnswers + (currentQuestion.id to optionId)
+            
+                                    val selectedOption = currentQuestion.options.find { it.id == optionId }
+                                    val isCorrect = selectedOption?.isCorrect == true
+            
+                                    checkedQuestions = checkedQuestions + currentQuestion.id
+            
+                                    if (isCorrect) {
+                                        soundManager.playCorrect()
                                     } else {
-                                        // All questions answered, show feedback
+                                        soundManager.playIncorrect()
+                                    }
+            
+                                    coroutineScope.launch {
                                         delay(500)
-                                        showFeedback = true
-                                        showQuestions = false
-                                        
-                                        // Submit exercise completion to backend
-                                        if (lessonId != null) {
-                                            viewModel.submitExercise(
-                                                exerciseId = exercise.id,
-                                                lessonId = lessonId,
-                                                selectedAnswers = selectedAnswers
-                                            )
+            
+                                        if (currentQuestionIndex < exercise.questions.size - 1) {
+                                            currentQuestionIndex++
+                                        } else {
+                                            delay(500)
+                                            if (lessonId != null) {
+                                                viewModel.submitExercise(
+                                                    exerciseId = exercise.id,
+                                                    lessonId = lessonId,
+                                                    selectedAnswers = selectedAnswers
+                                                )
+                                            }
+                                            finalizeExercise()
                                         }
                                     }
                                 }
-                            }
-                        },
-                        onCheckAnswer = {
-                            // This is now handled in onOptionSelected
-                        },
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                }
-            } else if (exercise.questions.isEmpty()) {
-                // Fallback to old AnswerCard if no questions (backward compatibility)
-                var fallbackAnswerText by remember { mutableStateOf("") }
-                AnimatedVisibility(
-                    visible = showQuestions && !showFeedback,
-                    enter = fadeIn(animationSpec = tween(500)) + expandVertically(
-                        animationSpec = tween(500)
-                    )
-                ) {
-                    AnswerCard(
-                        sampleAnswer = exercise.sampleAnswer,
-                        answerText = fallbackAnswerText,
-                        onAnswerTextChange = { fallbackAnswerText = it },
-                        onSubmitAnswer = {
-                            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                            showFeedback = true
-                            showQuestions = false
-                            
-                            // Submit exercise completion to backend (fallback case without questions)
-                            if (lessonId != null) {
-                                viewModel.submitExercise(
-                                    exerciseId = exercise.id,
-                                    lessonId = lessonId,
-                                    response = fallbackAnswerText
-                                )
-                            }
-                        },
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                }
-            }
-            
-            // Feedback Section (after submit)
-            AnimatedVisibility(
-                visible = showFeedback,
-                enter = fadeIn(animationSpec = tween(500)) + expandVertically(
-                    animationSpec = tween(500)
-                )
-            ) {
-                FeedbackCard(
-                    questions = exercise.questions,
-                    selectedAnswers = selectedAnswers,
-                    transcript = exercise.transcript,
-                    onListenAgain = {
-                        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                        if (hasPrimaryAudio && isMediaPrepared) {
-                            try {
-                                mediaPlayer.seekTo(0)
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                    mediaPlayer.playbackParams = mediaPlayer.playbackParams.setSpeed(playbackSpeed)
+                            },
+                            onCheckAnswer = {
+                                // Handled in onOptionSelected
+                            },
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                    }
+                } else if (exercise.questions.isEmpty()) {
+                    var fallbackAnswerText by remember { mutableStateOf("") }
+                    AnimatedVisibility(
+                        visible = showQuestions && !showResultScreen,
+                        enter = fadeIn(animationSpec = tween(500)) + expandVertically(
+                            animationSpec = tween(500)
+                        )
+                    ) {
+                        AnswerCard(
+                            sampleAnswer = exercise.sampleAnswer,
+                            answerText = fallbackAnswerText,
+                            onAnswerTextChange = { fallbackAnswerText = it },
+                            onSubmitAnswer = {
+                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                if (lessonId != null) {
+                                    viewModel.submitExercise(
+                                        exerciseId = exercise.id,
+                                        lessonId = lessonId,
+                                        response = fallbackAnswerText
+                                    )
                                 }
-                                mediaPlayer.start()
-                                isMediaPlaying = true
-                                playbackPosition = 0
-                                replayCount++
-                            } catch (e: Exception) {
-                                Timber.e(e, "ListeningScreen: Unable to replay audio from feedback section")
-                            }
-                        } else if (textToSpeak.isNotBlank()) {
-                            ttsManager.stop()
-                            ttsManager.speak(textToSpeak, playbackSpeed)
-                        }
-                    },
-                    onNextExercise = {
-                        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                        onNextExercise?.invoke() ?: onNavigateBack()
-                    },
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
+                                finalizeExercise()
+                            },
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                    }
+                }
             }
             
             Spacer(modifier = Modifier.height(24.dp))
@@ -842,6 +1074,9 @@ private fun AudioPlayerCard(
     onSeekTo: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val primaryColor = Color(0xFF42A5F5)
+    val buttonSize = 48.dp
+
     Box(modifier = modifier.fillMaxWidth()) {
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -854,87 +1089,126 @@ private fun AudioPlayerCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp),
+                    .padding(horizontal = 20.dp, vertical = 14.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Waveform animation placeholder (pulsing dots)
-                if (isPlaying) {
-                    AnimatedWaveform()
-                } else {
-                    Spacer(modifier = Modifier.height(40.dp))
-                }
-
-                // Large Play/Pause button
-                Box(
+                Row(
                     modifier = Modifier
-                        .size(100.dp)
-                        .clip(CircleShape)
-                        .background(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    Color(0xFF42A5F5),
-                                    Color(0xFF64B5F6)
-                            )
-                            )
-                        )
-                        .clickable(onClick = onPlayPauseClick),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    IconButton(
+                        onClick = onReplayClick,
+                        modifier = Modifier
+                            .size(buttonSize)
+                            .clip(CircleShape)
+                            .background(primaryColor.copy(alpha = 0.12f)),
+                        colors = IconButtonDefaults.iconButtonColors(
+                            contentColor = primaryColor
+                        )
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.replay),
+                            contentDescription = "Replay"
+                        )
+                    }
+
                     val scale by animateFloatAsState(
-                        targetValue = if (isPlaying) 1.1f else 1f,
+                        targetValue = if (isPlaying) 1.08f else 1f,
                         animationSpec = spring(
                             dampingRatio = Spring.DampingRatioMediumBouncy,
                             stiffness = Spring.StiffnessLow
                         ),
                         label = "playButtonScale"
                     )
-                    if (isPlaying) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.pause),
-                            contentDescription = "Pause",
-                            tint = Color.White,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .scale(scale)
+
+                    IconButton(
+                        onClick = onPlayPauseClick,
+                        modifier = Modifier
+                            .size(buttonSize)
+                            .clip(CircleShape)
+                            .background(primaryColor),
+                        colors = IconButtonDefaults.iconButtonColors(
+                            contentColor = Color.White
                         )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = "Play",
-                            tint = Color.White,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .scale(scale)
+                    ) {
+                        if (isPlaying) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.pause),
+                                contentDescription = "Pause",
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .scale(scale)
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = "Play",
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .scale(scale)
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = onSpeedToggle,
+                        modifier = Modifier
+                            .size(buttonSize)
+                            .clip(CircleShape)
+                            .background(primaryColor.copy(alpha = 0.12f)),
+                        colors = IconButtonDefaults.iconButtonColors(
+                            contentColor = primaryColor
+                        )
+                    ) {
+                        Text(
+                            text = "${playbackSpeed}x",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
 
-                // Progress slider
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Slider(
-                        value = if (duration > 0) playbackPosition.toFloat() / duration else 0f,
-                        onValueChange = { newValue ->
-                            val newPosition = (newValue * duration).toInt()
-                            onSeekTo(newPosition)
-                        },
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = SliderDefaults.colors(
-                            thumbColor = Color(0xFF42A5F5),
-                            activeTrackColor = Color(0xFF42A5F5),
-                            inactiveTrackColor = Color(0xFFE0E0E0)
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Slider(
+                            value = if (duration > 0) playbackPosition.toFloat() / duration else 0f,
+                            onValueChange = { newValue ->
+                                val newPosition = (newValue * duration).toInt()
+                                onSeekTo(newPosition)
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = SliderDefaults.colors(
+                                thumbColor = primaryColor,
+                                activeTrackColor = primaryColor,
+                                inactiveTrackColor = Color(0xFFE0E0E0)
+                            )
                         )
-                    )
 
-                    // Time indicators
+                        AnimatedWaveform(
+                            modifier = Modifier
+                                .height(20.dp)
+                                .width(32.dp)
+                                .alpha(if (isPlaying) 1f else 0.3f),
+                            barColor = primaryColor
+                        )
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
+                    ) {
+                        Text(
                             text = formatTime(playbackPosition),
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF666666)
@@ -943,104 +1217,64 @@ private fun AudioPlayerCard(
                             text = formatTime(duration),
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF666666)
-                    )
-                }
-                
-                    // Transcript text (shown below seek bar when showTranscript is true)
-                    if (showTranscript && transcript != null && transcript.isNotBlank()) {
-                        AnimatedVisibility(
-                            visible = true,
-                            enter = fadeIn(animationSpec = tween(300)) + expandVertically(
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                    stiffness = Spring.StiffnessLow
-                                )
-                            ),
-                            exit = fadeOut(animationSpec = tween(300)) + shrinkVertically(
-                                animationSpec = tween(300)
-                            )
-                        ) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                                text = transcript,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color(0xFF666666),
-                                lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.5,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    }
-                }
-
-                // Control buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    // Replay button
-                    IconButton(
-                        onClick = onReplayClick,
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.replay),
-                            contentDescription = "Replay",
-                            tint = Color(0xFF42A5F5)
-                        )
-                    }
-
-                    // Speed toggle button
-                    TextButton(onClick = onSpeedToggle) {
-                        Text(
-                            text = "${playbackSpeed}x",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF42A5F5)
                         )
                     }
                 }
-            }
-        }
-        
-        // Transcript icon button (top right corner) - placed outside Card but inside Box
-        if (showTranscriptButton && transcript != null) {
-            IconButton(
-                onClick = onToggleTranscript,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(12.dp)
-            ) {
-                Icon(
-                    painter = painterResource(
-                        id = if (showTranscript) R.drawable.visibility_off else R.drawable.visibility
+
+                AnimatedVisibility(
+                    visible = showTranscript && !transcript.isNullOrBlank(),
+                    enter = fadeIn(animationSpec = tween(300)) + expandVertically(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessLow
+                        )
                     ),
-                    contentDescription = if (showTranscript) "Hide Transcript" else "Show Transcript",
-                    tint = Color(0xFF42A5F5),
-                    modifier = Modifier.size(24.dp)
-                )
+                    exit = fadeOut(animationSpec = tween(300)) + shrinkVertically(
+                        animationSpec = tween(300)
+                    )
+                ) {
+                    val transcriptScrollState = rememberScrollState()
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(primaryColor.copy(alpha = 0.08f))
+                            .verticalScroll(transcriptScrollState)
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = transcript.orEmpty(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color(0xFF666666),
+                            lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.4f
+                        )
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun AnimatedWaveform() {
+private fun AnimatedWaveform(
+    modifier: Modifier = Modifier,
+    barColor: Color = Color(0xFF42A5F5)
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "waveform")
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 20.dp),
-        horizontalArrangement = Arrangement.Center,
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         repeat(5) { index ->
-            val infiniteTransition = rememberInfiniteTransition(label = "waveform")
             val scale by infiniteTransition.animateFloat(
-                initialValue = 0.5f,
-                targetValue = 1.5f,
+                initialValue = 0.75f,
+                targetValue = 1.25f,
                 animationSpec = infiniteRepeatable(
                     animation = tween(
-                        durationMillis = 600,
-                        delayMillis = index * 100,
+                        durationMillis = 520,
+                        delayMillis = index * 80,
                         easing = FastOutSlowInEasing
                     ),
                     repeatMode = RepeatMode.Reverse
@@ -1050,13 +1284,105 @@ private fun AnimatedWaveform() {
 
             Box(
                 modifier = Modifier
-                    .size(width = 8.dp, height = 32.dp * scale)
-                    .background(
-                        color = Color(0xFF42A5F5),
-                        shape = RoundedCornerShape(4.dp)
-                    )
-                    .padding(horizontal = 4.dp)
+                    .width(4.dp)
+                    .height(16.dp * scale)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(barColor)
             )
+        }
+    }
+}
+
+@Composable
+private fun TranscriptSection(
+    segments: List<TranscriptSegment>,
+    highlightedIndex: Int,
+    modifier: Modifier = Modifier,
+    onSegmentClick: (Int) -> Unit = {}
+) {
+    val lazyListState = rememberLazyListState()
+
+    LaunchedEffect(highlightedIndex, segments.size) {
+        val targetPosition = segments.indexOfFirst { it.index == highlightedIndex }
+        if (targetPosition >= 0) {
+            val viewportHeight = lazyListState.layoutInfo.viewportSize.height
+            val offset = if (viewportHeight == 0) 0 else -(viewportHeight / 4)
+            lazyListState.animateScrollToItem(
+                index = targetPosition,
+                scrollOffset = offset
+            )
+        }
+    }
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+        ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+        )
+    ) {
+        if (segments.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .height(100.dp)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Không có hội thoại",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFF666666)
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .height(100.dp)
+                    .padding(vertical = 8.dp),
+                state = lazyListState,
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                itemsIndexed(segments, key = { _, segment -> segment.index }) { _, segment ->
+                    val isActive = segment.index == highlightedIndex
+                    val backgroundColor by animateColorAsState(
+                        targetValue = if (isActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else Color.Transparent,
+                        animationSpec = tween(250),
+                        label = "transcriptBackground"
+                    )
+                    val textColor by animateColorAsState(
+                        targetValue = if (isActive) MaterialTheme.colorScheme.primary else Color(0xFF333333),
+                        animationSpec = tween(250),
+                        label = "transcriptTextColor"
+                    )
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp)
+                    ) {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(backgroundColor)
+                                .clickable { onSegmentClick(segment.index) },
+                            color = Color.Transparent
+                        ) {
+                            Text(
+                                text = segment.text,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = textColor,
+                                lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.4f,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

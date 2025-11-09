@@ -12,7 +12,7 @@ data class LoggedAccountEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
     
-    val userId: Int, // From backend
+    val userId: String, // From backend
     val email: String,
     val displayName: String,
     val photoUrl: String? = null,

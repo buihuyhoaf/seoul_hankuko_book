@@ -35,6 +35,7 @@ class UserPreferencesManager @Inject constructor(
         private val REFRESH_TOKEN_KEY = stringPreferencesKey("refresh_token")
         private val IS_LOGGED_IN_KEY = booleanPreferencesKey("is_logged_in")
         private val IS_PREMIUM_KEY = booleanPreferencesKey("is_premium")
+        private val USER_CREATED_AT_KEY = stringPreferencesKey("user_created_at")
         
         // Entry test related keys
         private val HAS_COMPLETED_ENTRY_TEST_KEY = booleanPreferencesKey("has_completed_entry_test")
@@ -83,7 +84,11 @@ class UserPreferencesManager @Inject constructor(
         refreshToken: String? = null,
         isPremium: Boolean = false,
         streakDays: Int = 0,
-        exp: Int = 0
+        exp: Int = 0,
+        createdAt: String? = null,
+        hasCompletedEntryTest: Boolean? = null,
+        currentCourseId: String? = null,
+        entryTestScore: Int? = null
     ) {
         context.dataStore.edit { preferences ->
             preferences[USER_ID_KEY] = userId
@@ -94,6 +99,10 @@ class UserPreferencesManager @Inject constructor(
             preferences[IS_PREMIUM_KEY] = isPremium
             preferences[STREAK_DAYS_KEY] = streakDays
             preferences[EXP_KEY] = exp
+            createdAt?.let { preferences[USER_CREATED_AT_KEY] = it }
+            hasCompletedEntryTest?.let { preferences[HAS_COMPLETED_ENTRY_TEST_KEY] = it }
+            currentCourseId?.let { preferences[CURRENT_COURSE_ID_KEY] = it }
+            entryTestScore?.let { preferences[ENTRY_TEST_SCORE_KEY] = it }
             
             avatarUrl?.let { preferences[USER_AVATAR_URL_KEY] = it }
             refreshToken?.let { preferences[REFRESH_TOKEN_KEY] = it }
@@ -113,6 +122,33 @@ class UserPreferencesManager @Inject constructor(
     suspend fun updateStreakDays(newDays: Int) {
         context.dataStore.edit { preferences ->
             preferences[STREAK_DAYS_KEY] = newDays.coerceAtLeast(0)
+        }
+    }
+
+
+    suspend fun updateUserProfile(
+        userId: String? = null,
+        email: String? = null,
+        name: String? = null,
+        avatarUrl: String? = null,
+        exp: Int? = null,
+        streakDays: Int? = null,
+        createdAt: String? = null,
+        hasCompletedEntryTest: Boolean? = null,
+        currentCourseId: String? = null,
+        entryTestScore: Int? = null
+    ) {
+        context.dataStore.edit { preferences ->
+            userId?.let { preferences[USER_ID_KEY] = it }
+            email?.let { preferences[USER_EMAIL_KEY] = it }
+            name?.let { preferences[USER_NAME_KEY] = it }
+            avatarUrl?.let { preferences[USER_AVATAR_URL_KEY] = it }
+            exp?.let { preferences[EXP_KEY] = it.coerceAtLeast(0) }
+            streakDays?.let { preferences[STREAK_DAYS_KEY] = it.coerceAtLeast(0) }
+            createdAt?.let { preferences[USER_CREATED_AT_KEY] = it }
+            hasCompletedEntryTest?.let { preferences[HAS_COMPLETED_ENTRY_TEST_KEY] = it }
+            currentCourseId?.let { preferences[CURRENT_COURSE_ID_KEY] = it }
+            entryTestScore?.let { preferences[ENTRY_TEST_SCORE_KEY] = it }
         }
     }
 
@@ -214,7 +250,11 @@ class UserPreferencesManager @Inject constructor(
             isLoggedIn = preferences[IS_LOGGED_IN_KEY] ?: false,
             isPremium = preferences[IS_PREMIUM_KEY] ?: false,
             streakDays = preferences[STREAK_DAYS_KEY] ?: 0,
-            exp = preferences[EXP_KEY] ?: 0
+            exp = preferences[EXP_KEY] ?: 0,
+            createdAt = preferences[USER_CREATED_AT_KEY],
+            hasCompletedEntryTest = preferences[HAS_COMPLETED_ENTRY_TEST_KEY] ?: false,
+            currentCourseId = preferences[CURRENT_COURSE_ID_KEY],
+            entryTestScore = preferences[ENTRY_TEST_SCORE_KEY]
         )
     }
 
@@ -303,6 +343,16 @@ class UserPreferencesManager @Inject constructor(
             currentCourseId?.let { preferences[CURRENT_COURSE_ID_KEY] = it }
             currentCourseName?.let { preferences[CURRENT_COURSE_NAME_KEY] = it }
             entryTestScore?.let { preferences[ENTRY_TEST_SCORE_KEY] = it }
+        }
+    }
+
+    suspend fun updateCurrentCourseId(courseId: String?) {
+        context.dataStore.edit { preferences ->
+            if (courseId.isNullOrBlank()) {
+                preferences.remove(CURRENT_COURSE_ID_KEY)
+            } else {
+                preferences[CURRENT_COURSE_ID_KEY] = courseId
+            }
         }
     }
     
@@ -537,7 +587,11 @@ data class UserData(
     val isLoggedIn: Boolean,
     val isPremium: Boolean,
     val streakDays: Int = 0,
-    val exp: Int = 0
+    val exp: Int = 0,
+    val createdAt: String? = null,
+    val hasCompletedEntryTest: Boolean = false,
+    val currentCourseId: String? = null,
+    val entryTestScore: Int? = null
 )
 
 data class CurrentLessonData(

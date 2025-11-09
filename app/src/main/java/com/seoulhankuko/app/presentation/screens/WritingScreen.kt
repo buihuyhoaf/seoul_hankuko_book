@@ -18,7 +18,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -41,6 +40,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seoulhankuko.app.presentation.viewmodel.LessonViewModel
 import com.seoulhankuko.app.presentation.viewmodel.LessonUiState
+import com.seoulhankuko.app.presentation.components.SouthKoreaLoadingIcon
 import com.seoulhankuko.app.presentation.utils.LessonFlowColors
 import com.seoulhankuko.app.presentation.utils.AppColors
 
@@ -63,7 +63,7 @@ fun WritingScreen(
                     .background(LessonFlowColors.BackgroundColor),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = LessonFlowColors.PrimaryColor)
+                SouthKoreaLoadingIcon(size = 56.dp)
             }
         }
         

@@ -40,7 +40,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -88,6 +87,7 @@ import com.seoulhankuko.app.data.api.model.CourseResponse
 import com.seoulhankuko.app.presentation.components.MainScaffold
 import com.seoulhankuko.app.presentation.components.TopBarState
 import com.seoulhankuko.app.presentation.utils.HomeColors
+import com.seoulhankuko.app.presentation.components.SouthKoreaLoadingIcon
 import com.seoulhankuko.app.presentation.viewmodel.HomeViewModel
 import com.seoulhankuko.app.presentation.viewmodel.MainUiViewModel
 import kotlinx.coroutines.delay
@@ -160,10 +160,7 @@ fun ModernHomeScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(
-                            color = HomeColors.DuolingoGreen,
-                            modifier = Modifier.size(48.dp)
-                        )
+                        SouthKoreaLoadingIcon(size = 48.dp)
                     }
                 } else if (courses.isEmpty()) {
                     Box(
