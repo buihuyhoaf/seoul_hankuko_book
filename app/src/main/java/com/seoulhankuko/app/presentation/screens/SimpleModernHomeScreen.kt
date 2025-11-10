@@ -98,6 +98,7 @@ import kotlinx.coroutines.delay
 fun ModernHomeScreen(
     onCourseSelected: (courseId: String) -> Unit,
     onNavigateToNotification: () -> Unit = {},
+    onNavigateToAlphabet: () -> Unit = {},
     onNavigateToProfile: () -> Unit = {},
     homeViewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -136,6 +137,7 @@ fun ModernHomeScreen(
         currentRoute = "courses",
         onNavigateToHome = {},
         onNavigateToNotification = onNavigateToNotification,
+        onNavigateToAlphabet = onNavigateToAlphabet,
         onNavigateToProfile = onNavigateToProfile,
         onAvatarClick = onNavigateToProfile,
         containerColor = HomeColors.DuolingoLightGray

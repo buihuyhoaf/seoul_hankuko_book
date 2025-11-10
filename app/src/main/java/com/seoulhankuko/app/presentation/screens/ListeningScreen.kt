@@ -641,7 +641,6 @@ private fun ListeningScreenContent(
                 StreakCelebrationScreen(
                     streakDays = streakEvent.streakDays,
                     onContinueClick = { dismissStreakCelebration(true) },
-                    onExitConfirmed = { dismissStreakCelebration(true) },
                     modifier = Modifier.fillMaxSize()
                 )
             } else if (showResultScreen) {

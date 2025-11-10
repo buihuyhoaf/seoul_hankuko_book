@@ -7,8 +7,8 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,7 +33,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -49,20 +49,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.painterResource
-import coil.compose.AsyncImage
 import com.seoulhankuko.app.R
 import com.seoulhankuko.app.presentation.utils.HomeColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 
+@Suppress("UNUSED_PARAMETER")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppBarSection(
@@ -73,8 +72,10 @@ fun AppBarSection(
     courseTitle: String?,
     courseThumbnailUrl: String?,
     isVisible: Boolean,
+    notificationCount: Int,
     showBackButton: Boolean = false,
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onNotificationClick: () -> Unit = {}
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -138,6 +139,16 @@ fun AppBarSection(
             repeatMode = RepeatMode.Reverse
         ),
         label = "star_icon_scale"
+    )
+
+    var notificationScaleTarget by remember { mutableStateOf(1f) }
+    val notificationScale by animateFloatAsState(
+        targetValue = notificationScaleTarget,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "notification_click_scale"
     )
 
     AnimatedVisibility(
@@ -226,36 +237,65 @@ fun AppBarSection(
 
                     Spacer(modifier = Modifier.weight(1f))
 
-                    val fallbackCourseTitle = courseTitle ?: "Khóa học hiện tại"
-                    val thumbnailDescription = "Khóa học hiện tại: $fallbackCourseTitle"
-                    val thumbnailModifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .semantics { contentDescription = thumbnailDescription }
-
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        if (!courseThumbnailUrl.isNullOrBlank()) {
-                            AsyncImage(
-                                model = courseThumbnailUrl,
-                                contentDescription = thumbnailDescription,
-                                modifier = thumbnailModifier,
-                                contentScale = ContentScale.Crop
-                            )
+                        val fallbackCourseTitle = courseTitle ?: "khóa học hiện tại"
+                        val notificationDescription = if (notificationCount > 0) {
+                            "Bạn có $notificationCount thông báo mới cho $fallbackCourseTitle"
                         } else {
-                            Box(
-                                modifier = thumbnailModifier
-                                    .background(HomeColors.DuolingoLightGreen),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = fallbackCourseTitle.take(1).uppercase(),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = HomeColors.DuolingoDarkGreen
-                                )
+                            "Không có thông báo mới cho $fallbackCourseTitle"
+                        }
+                        val displayNotificationCount = if (notificationCount > 99) "99+" else notificationCount.toString()
+
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(HomeColors.DuolingoLightGreen.copy(alpha = 0.3f))
+                                .scale(notificationScale)
+                                .semantics { contentDescription = notificationDescription }
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    coroutineScope.launch {
+                                        notificationScaleTarget = 0.92f
+                                        delay(90)
+                                        notificationScaleTarget = 1.05f
+                                        delay(120)
+                                        notificationScaleTarget = 1f
+                                    }
+                                    onNotificationClick()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.notifications_material),
+                                contentDescription = null,
+                                tint = HomeColors.DuolingoDarkGreen,
+                                modifier = Modifier.size(24.dp)
+                            )
+
+                            if (notificationCount > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .offset(x = 6.dp, y = (-6).dp)
+                                        .size(20.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFFF4B4B)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = displayNotificationCount,
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 10.sp
+                                    )
+                                }
                             }
                         }
 
@@ -278,20 +318,19 @@ fun AppBarSection(
                                     onAvatarClick()
                                 }
                         ) {
-                            Surface(
-                                modifier = Modifier.size(40.dp),
-                                color = HomeColors.DuolingoGreen,
-                                shape = CircleShape,
-                                shadowElevation = 4.dp
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(HomeColors.DuolingoGreen),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Text(
-                                        text = userName.take(1).uppercase(),
-                                        color = Color.White,
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
+                                Text(
+                                    text = userName.take(1).uppercase(),
+                                    color = Color.White,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }

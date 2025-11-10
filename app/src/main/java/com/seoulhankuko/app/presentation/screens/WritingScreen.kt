@@ -1,24 +1,41 @@
 package com.seoulhankuko.app.presentation.screens
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -27,9 +44,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -42,10 +60,9 @@ import com.seoulhankuko.app.presentation.viewmodel.LessonUiState
 import com.seoulhankuko.app.presentation.components.SouthKoreaLoadingIcon
 import com.seoulhankuko.app.presentation.utils.LessonFlowColors
 import com.seoulhankuko.app.presentation.utils.AppColors
+import androidx.compose.ui.focus.onFocusChanged
 
-/**
- * WritingScreen - Practice writing Korean
- */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WritingScreen(
     lessonId: String,
@@ -75,216 +92,339 @@ fun WritingScreen(
         else -> null
     }
 
-    when (val state = uiState) {
-        is LessonUiState.Loading -> {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(LessonFlowColors.BackgroundColor),
-                contentAlignment = Alignment.Center
-            ) {
-                SouthKoreaLoadingIcon(size = 56.dp)
-            }
+    val screenTitle = writingExercise?.title
+        ?.takeIf { it.isNotBlank() }
+        ?: writingExercise?.content?.takeIf { it.isNotBlank() }
+        ?: "Viết bài luyện tập"
+
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = LessonFlowColors.BackgroundColor,
+        topBar = {
+            WritingTopBar(
+                title = "Viết bài luyện tập",
+                onBackClick = onNavigateBack
+            )
         }
-
-        is LessonUiState.Success -> {
-            when {
-                writingExercise != null -> {
-                    WritingContent(
-                        exercise = writingExercise,
-                        onSubmit = { userAnswer ->
-                            viewModel.submitExercise(
-                                exerciseId = writingExercise.id,
-                                lessonId = lessonId,
-                                response = userAnswer
-                            )
-                            viewModel.updateLessonProgress(lessonId)
-                            onNavigateBack()
-                        }
-                    )
+    ) { innerPadding ->
+        when (val state = uiState) {
+            is LessonUiState.Loading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .background(LessonFlowColors.BackgroundColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    SouthKoreaLoadingIcon(size = 56.dp)
                 }
+            }
 
-                else -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(LessonFlowColors.BackgroundColor),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                            modifier = Modifier.padding(24.dp)
+            is LessonUiState.Success -> {
+                when {
+                    writingExercise != null -> {
+                        WritingContent(
+                            exercise = writingExercise,
+                            screenTitle = screenTitle,
+                            onSubmit = { userAnswer, submissionType ->
+                                viewModel.submitExercise(
+                                    exerciseId = writingExercise.id,
+                                    lessonId = lessonId,
+                                    response = userAnswer
+                                )
+                                // Future handling can utilize submissionType if different flows are required
+                                viewModel.updateLessonProgress(lessonId)
+                                onNavigateBack()
+                            },
+                            modifier = Modifier.padding(innerPadding)
+                        )
+                    }
+
+                    else -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(innerPadding)
+                                .background(LessonFlowColors.BackgroundColor),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = "Không tìm thấy bài tập viết trong bài học này.",
-                                style = MaterialTheme.typography.titleMedium,
-                                textAlign = TextAlign.Center,
-                                color = LessonFlowColors.TextPrimary
-                            )
-                            Button(
-                                onClick = onNavigateBack,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = LessonFlowColors.PrimaryColor
-                                ),
-                                shape = RoundedCornerShape(12.dp)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                modifier = Modifier.padding(24.dp)
                             ) {
                                 Text(
-                                    text = "Quay lại",
+                                    text = "Không tìm thấy bài tập viết trong bài học này.",
                                     style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = AppColors.White
+                                    textAlign = TextAlign.Center,
+                                    color = LessonFlowColors.TextPrimary
                                 )
+                                Button(
+                                    onClick = onNavigateBack,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = LessonFlowColors.PrimaryColor
+                                    ),
+                                    shape = RoundedCornerShape(16.dp)
+                                ) {
+                                    Text(
+                                        text = "Quay lại",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = AppColors.White
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
-        }
 
-        is LessonUiState.Error -> {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(LessonFlowColors.BackgroundColor),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = state.message,
-                    style = MaterialTheme.typography.bodyLarge,
-                    textAlign = TextAlign.Center
-                )
+            is LessonUiState.Error -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .background(LessonFlowColors.BackgroundColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = state.message,
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }
 }
 
+private val ActiveButtonGradient = listOf(Color(0xFF38BDF8), Color(0xFF3B82F6))
+private val DisabledButtonGradient = ActiveButtonGradient.map { it.copy(alpha = 0.35f) }
+
 @Composable
-fun WritingContent(
-    exercise: ExerciseResponse,
-    onSubmit: (String) -> Unit
+private fun ActionButton(
+    modifier: Modifier = Modifier,
+    text: String,
+    enabled: Boolean,
+    interactionSource: MutableInteractionSource,
+    onClick: () -> Unit
 ) {
-    var userInput by remember { mutableStateOf("") }
-    
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(LessonFlowColors.BackgroundColor)
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+    val shape = RoundedCornerShape(32.dp)
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.97f else 1f,
+        label = "${text}ButtonScale"
+    )
+    val gradient = if (enabled) ActiveButtonGradient else DisabledButtonGradient
+
+    Button(
+        onClick = onClick,
+        modifier = modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .shadow(
+                elevation = if (enabled) 8.dp else 0.dp,
+                shape = shape,
+                ambientColor = Color(0x220EA5E9),
+                spotColor = Color(0x330EA5E9)
+            ),
+        shape = shape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.Transparent,
+            disabledContainerColor = Color.Transparent
+        ),
+        interactionSource = interactionSource,
+        contentPadding = PaddingValues(),
+        enabled = enabled
     ) {
-        Text(
-            text = "✍️ Viết",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = LessonFlowColors.TextPrimary
-        )
-        
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = Color.White
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(32.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .clip(CircleShape)
-                        .background(
-                            brush = Brush.radialGradient(
-                                colors = listOf(LessonFlowColors.PrimaryColor, LessonFlowColors.SecondaryColor)
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("✍️", fontSize = 40.sp)
-                }
-                
-                Text(
-                    text = exercise.prompt ?: exercise.content ?: exercise.title.orEmpty(),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    color = LessonFlowColors.TextPrimary
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = Brush.horizontalGradient(gradient),
+                    shape = shape
                 )
-                
-                OutlinedTextField(
-                    value = userInput,
-                    onValueChange = { userInput = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(150.dp),
-                    placeholder = {
-                        Text("Viết câu trả lời của bạn...")
-                    },
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = false,
-                    maxLines = 5
-                )
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-
-        if (!exercise.sampleAnswer.isNullOrBlank()) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = AppColors.GreenPrimary.copy(alpha = 0.08f)
-                )
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "Gợi ý",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = LessonFlowColors.TextPrimary
-                    )
-                    Text(
-                        text = exercise.sampleAnswer ?: "",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = LessonFlowColors.TextSecondary
-                    )
-                }
-            }
-        }
-
-        Button(
-            onClick = { onSubmit(userInput) },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = LessonFlowColors.SuccessColor
-            ),
-            enabled = userInput.isNotBlank()
+                .padding(vertical = 14.dp),
+            contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "Hoàn thành",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
+                text = text,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp
+                ),
                 color = AppColors.White
             )
         }
     }
 }
 
+enum class WritingSubmissionType {
+    AI,
+    Teacher
+}
 
+@Composable
+fun WritingContent(
+    exercise: ExerciseResponse,
+    screenTitle: String,
+    onSubmit: (String, WritingSubmissionType) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var userInput by remember { mutableStateOf("") }
+    val scrollState = rememberScrollState()
+    val focusColor = Color(0xFF0EA5E9)
+    var isTextFieldFocused by remember { mutableStateOf(false) }
+    val animatedBorderColor by animateColorAsState(
+        targetValue = if (isTextFieldFocused) focusColor else focusColor.copy(alpha = 0.4f),
+        label = "writingBorderColor"
+    )
+    val promptText = exercise.prompt
+        ?.takeIf { it.isNotBlank() }
+        ?: exercise.content
+        ?: exercise.title.orEmpty()
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(LessonFlowColors.BackgroundColor)
+            .verticalScroll(scrollState)
+            .padding(horizontal = 24.dp, vertical = 28.dp)
+            .imePadding(),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        Text(
+            text = screenTitle,
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 20.sp,
+                lineHeight = 26.sp
+            ),
+            color = LessonFlowColors.TextPrimary
+        )
+
+        Card(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = AppColors.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp, vertical = 24.dp)
+            ) {
+                OutlinedTextField(
+                    value = userInput,
+                    onValueChange = { userInput = it },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .onFocusChanged { focusState -> isTextFieldFocused = focusState.isFocused },
+                    placeholder = {
+                        Text(
+                            text = "Viết câu trả lời của bạn...",
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontSize = 16.sp,
+                                lineHeight = 24.sp,
+                                color = LessonFlowColors.TextSecondary.copy(alpha = 0.6f),
+                                textAlign = TextAlign.Start
+                            )
+                        )
+                    },
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                        fontSize = 16.sp,
+                        lineHeight = 24.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = LessonFlowColors.TextPrimary,
+                        textAlign = TextAlign.Start
+                    ),
+                    shape = RoundedCornerShape(18.dp),
+                    singleLine = false,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = animatedBorderColor,
+                        unfocusedBorderColor = animatedBorderColor.copy(alpha = 0.55f),
+                        focusedContainerColor = AppColors.White,
+                        unfocusedContainerColor = AppColors.White,
+                        cursorColor = focusColor
+                    )
+                )
+            }
+        }
+
+        val aiInteractionSource = remember { MutableInteractionSource() }
+        val teacherInteractionSource = remember { MutableInteractionSource() }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ActionButton(
+                modifier = Modifier.weight(1f),
+                text = "Chấm AI",
+                enabled = userInput.isNotBlank(),
+                interactionSource = aiInteractionSource
+            ) {
+                onSubmit(userInput.trim(), WritingSubmissionType.AI)
+            }
+
+            ActionButton(
+                modifier = Modifier.weight(1f),
+                text = "Chấm giáo viên",
+                enabled = userInput.isNotBlank(),
+                interactionSource = teacherInteractionSource
+            ) {
+                onSubmit(userInput.trim(), WritingSubmissionType.Teacher)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WritingTopBar(
+    title: String,
+    onBackClick: () -> Unit
+) {
+    val gradient = Brush.verticalGradient(
+        colors = listOf(Color(0xFFF8FBFF), Color(0xFFEFF5FF))
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 4.dp,
+                spotColor = Color(0x220EA5E9),
+                ambientColor = Color(0x220EA5E9)
+            )
+            .background(gradient)
+    ) {
+        CenterAlignedTopAppBar(
+            title = {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 20.sp
+                    ),
+                    color = Color(0xFF1E293B)
+                )
+            },
+            navigationIcon = {
+                IconButton(onClick = onBackClick) {
+                    Icon(
+                        imageVector = Icons.Rounded.ArrowBack,
+                        contentDescription = "Quay lại",
+                        tint = Color(0xFF1E293B)
+                    )
+                }
+            },
+            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                containerColor = Color.Transparent,
+                navigationIconContentColor = Color(0xFF1E293B),
+                titleContentColor = Color(0xFF1E293B)
+            )
+        )
+    }
+}

@@ -571,7 +571,6 @@ fun QuizPagerFlow(
         StreakCelebrationScreen(
             streakDays = streakEvent.streakDays,
             onContinueClick = { dismissStreakCelebration() },
-            onExitConfirmed = { dismissStreakCelebration() },
             modifier = modifier
         )
     } else if (showResultScreen) {

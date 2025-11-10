@@ -17,7 +17,8 @@ data class TopBarState(
     val courseTitle: String? = null,
     val courseThumbnailUrl: String? = null,
     val isVisible: Boolean = true,
-    val isShown: Boolean = true
+    val isShown: Boolean = true,
+    val notificationCount: Int = 0
 )
 
 @Composable
@@ -26,6 +27,7 @@ fun MainScaffold(
     currentRoute: String,
     onNavigateToHome: () -> Unit,
     onNavigateToNotification: () -> Unit,
+    onNavigateToAlphabet: () -> Unit = onNavigateToNotification,
     onNavigateToProfile: () -> Unit,
     onAvatarClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -48,8 +50,10 @@ fun MainScaffold(
                     courseTitle = topBarState.courseTitle,
                     courseThumbnailUrl = topBarState.courseThumbnailUrl,
                     isVisible = topBarState.isVisible,
+                    notificationCount = topBarState.notificationCount,
                     showBackButton = showBackButton,
-                    onBackClick = onBackClick
+                    onBackClick = onBackClick,
+                    onNotificationClick = onNavigateToNotification
                 )
             }
         },
@@ -58,7 +62,7 @@ fun MainScaffold(
                 ModernBottomNavigationBar(
                     currentRoute = currentRoute,
                     onNavigateToHome = onNavigateToHome,
-                    onNavigateToNotification = onNavigateToNotification,
+                    onNavigateToNotification = onNavigateToAlphabet,
                     onNavigateToProfile = onNavigateToProfile
                 )
             }

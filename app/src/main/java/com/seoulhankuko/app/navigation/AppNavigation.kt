@@ -29,6 +29,7 @@ import com.seoulhankuko.app.ui.screen.canvas.HangulCanvasScreen
 import com.seoulhankuko.app.presentation.screens.QuestsScreen
 import com.seoulhankuko.app.presentation.screens.ShopScreen
 import com.seoulhankuko.app.presentation.screens.UnitScreen
+import com.seoulhankuko.app.presentation.screens.NotificationScreen
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -157,11 +158,41 @@ fun AppNavigation(
                     navController.navigate("course/$courseId")
                 },
                 onNavigateToNotification = {
-                    navController.navigate("alphabet_list")
+                    navController.navigate("notifications") {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToAlphabet = {
+                    navController.navigate("alphabet_list") {
+                        launchSingleTop = true
+                    }
                 },
                 onNavigateToProfile = {
                     navController.navigate("profile")
                 }
+            )
+        }
+        
+        // Notification Screen
+        composable("notifications") {
+            NotificationScreen(
+                onNavigateToHome = {
+                    navController.navigate("courses") {
+                        popUpTo("courses") { inclusive = false }
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToAlphabet = {
+                    navController.navigate("alphabet_list") {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToProfile = {
+                    navController.navigate("profile") {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateBack = { navController.popBackStack() }
             )
         }
         
@@ -218,7 +249,7 @@ fun AppNavigation(
                     }
                 },
                 onNavigateToNotification = {
-                    navController.navigate("alphabet_list") {
+                    navController.navigate("notifications") {
                         launchSingleTop = true
                     }
                 },
@@ -250,6 +281,11 @@ fun AppNavigation(
                         }
                     },
                     onNavigateToNotification = {
+                    navController.navigate("notifications") {
+                        launchSingleTop = true
+                    }
+                    },
+                    onNavigateToAlphabet = {
                         navController.navigate("alphabet_list") {
                             launchSingleTop = true
                         }
@@ -295,6 +331,11 @@ fun AppNavigation(
                         }
                     },
                     onNavigateToNotification = {
+                    navController.navigate("notifications") {
+                        launchSingleTop = true
+                    }
+                    },
+                    onNavigateToAlphabet = {
                         navController.navigate("alphabet_list") {
                             launchSingleTop = true
                         }
