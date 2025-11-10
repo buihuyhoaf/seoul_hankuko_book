@@ -23,6 +23,7 @@ data class UnitUiState(
     val isLoading: Boolean = false,
     val lessons: List<LessonResponse> = emptyList(),
     val unitTitle: String? = null,
+    val courseId: String? = null,
     val error: String? = null
 )
 
@@ -50,6 +51,7 @@ class UnitViewModel @Inject constructor(
                     isLoading = false,
                     lessons = cachedUnit.lessons.sortedBy { it.orderIndex },
                     unitTitle = cachedUnit.title,
+                    courseId = cachedUnit.courseId,
                     error = null
                 )
             } else {
@@ -89,6 +91,7 @@ class UnitViewModel @Inject constructor(
                                     isLoading = false,
                                     lessons = unitDetail.lessons.sortedBy { it.orderIndex },
                                     unitTitle = unitDetail.title,
+                                    courseId = unitDetail.courseId,
                                     error = null
                                 )
                             },
@@ -102,12 +105,13 @@ class UnitViewModel @Inject constructor(
                                         val retryResult = courseRepository.getUnit(unitId, newToken)
                                         retryResult.fold(
                                             onSuccess = { unitDetail ->
-                                                _uiState.value = UnitUiState(
-                                                    isLoading = false,
-                                                    lessons = unitDetail.lessons.sortedBy { it.orderIndex },
-                                                    unitTitle = unitDetail.title,
-                                                    error = null
-                                                )
+                            _uiState.value = UnitUiState(
+                                isLoading = false,
+                                lessons = unitDetail.lessons.sortedBy { it.orderIndex },
+                                unitTitle = unitDetail.title,
+                                courseId = unitDetail.courseId,
+                                error = null
+                            )
                                             },
                                             onFailure = { retryException ->
                                                 // Only show error if we don't have cached data

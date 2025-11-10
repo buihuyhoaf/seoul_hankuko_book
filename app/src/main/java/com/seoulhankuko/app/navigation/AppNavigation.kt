@@ -281,9 +281,12 @@ fun AppNavigation(
                 val parentCourseId = backStackEntry.arguments?.getString("courseId")
                 UnitScreen(
                     unitId = id,
-                    onNavigateToLesson = { lessonId: String ->
-                        val courseQuery = parentCourseId?.let { "&courseId=$it" } ?: ""
-                        navController.navigate("lesson/$lessonId?unitId=$id$courseQuery")
+                    initialCourseId = parentCourseId,
+                    onNavigateToLesson = { lessonId: String, courseId: String? ->
+                        val effectiveCourseId = parentCourseId ?: courseId
+                        val unitQuery = "?unitId=$id"
+                        val courseQuery = effectiveCourseId?.let { "&courseId=$it" } ?: ""
+                        navController.navigate("lesson/$lessonId$unitQuery$courseQuery")
                     },
                     onNavigateToHome = {
                         navController.navigate("courses") {
@@ -301,18 +304,19 @@ fun AppNavigation(
                             launchSingleTop = true
                         }
                     },
-                    onNavigateBack = {
+                    onNavigateBack = { fallbackCourseId ->
                         val previousRoute = navController.previousBackStackEntry?.destination?.route.orEmpty()
                         val cameFromCourse = previousRoute.startsWith("course")
+                        val effectiveCourseId = parentCourseId ?: fallbackCourseId
 
                         val didPop = when {
                             cameFromCourse -> navController.popBackStack()
-                            parentCourseId != null -> navController.popBackStack("course/$parentCourseId", inclusive = false)
+                            effectiveCourseId != null -> navController.popBackStack("course/$effectiveCourseId", inclusive = false)
                             else -> navController.popBackStack()
                         }
 
-                        if (!didPop && parentCourseId != null) {
-                            navController.navigate("course/$parentCourseId") {
+                        if (!didPop && effectiveCourseId != null) {
+                            navController.navigate("course/$effectiveCourseId") {
                                 popUpTo("courses") { inclusive = false }
                                 launchSingleTop = true
                             }
@@ -345,6 +349,7 @@ fun AppNavigation(
                 val parentCourseId = backStackEntry.arguments?.getString("courseId")
                 LessonScreen(
                     lessonId = id,
+                    courseId = parentCourseId,
                     onNavigateBack = {
                         val previousRoute = navController.previousBackStackEntry?.destination?.route.orEmpty()
                         val cameFromUnit = previousRoute.startsWith("unit")

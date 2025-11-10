@@ -38,11 +38,12 @@ import com.seoulhankuko.app.presentation.utils.UnitColors
 @Composable
 fun UnitScreen(
     unitId: String,
-    onNavigateToLesson: (lessonId: String) -> Unit,
+    initialCourseId: String? = null,
+    onNavigateToLesson: (lessonId: String, courseId: String?) -> Unit,
     onNavigateToHome: () -> Unit,
     onNavigateToNotification: () -> Unit,
     onNavigateToProfile: () -> Unit,
-    onNavigateBack: () -> Unit,
+    onNavigateBack: (fallbackCourseId: String?) -> Unit,
     onAvatarClick: (() -> Unit)? = null,
     viewModel: UnitViewModel = hiltViewModel()
 ) {
@@ -57,7 +58,15 @@ fun UnitScreen(
     val userData by mainUiViewModel.userData.collectAsStateWithLifecycle()
     val currentLesson by mainUiViewModel.currentLesson.collectAsStateWithLifecycle()
 
-    BackHandler { onNavigateBack() }
+    val resolvedCourseId = uiState.courseId ?: initialCourseId
+
+    LaunchedEffect(resolvedCourseId) {
+        resolvedCourseId?.let { courseId ->
+            mainUiViewModel.setCurrentCourseId(courseId)
+        }
+    }
+
+    BackHandler { onNavigateBack(resolvedCourseId) }
 
     MainScaffold(
         topBarState = TopBarState(
@@ -76,7 +85,7 @@ fun UnitScreen(
         onAvatarClick = onAvatarClick ?: onNavigateToProfile,
         containerColor = UnitColors.BackgroundLight,
         showBackButton = true,
-        onBackClick = onNavigateBack
+        onBackClick = { onNavigateBack(resolvedCourseId) }
     ) { paddingValues ->
         Box(
             modifier = Modifier
@@ -187,7 +196,7 @@ fun UnitScreen(
                                     lesson = lesson,
                                     index = index,
                                     currentLessonId = currentLesson?.lessonId,
-                                    onClick = { onNavigateToLesson(lesson.id) }
+                                    onClick = { onNavigateToLesson(lesson.id, resolvedCourseId) }
                                 )
                             }
                         }

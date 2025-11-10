@@ -64,6 +64,7 @@ import com.seoulhankuko.app.presentation.components.SouthKoreaLoadingIcon
 import com.seoulhankuko.app.presentation.utils.LessonColors
 import com.seoulhankuko.app.presentation.viewmodel.LessonUiState
 import com.seoulhankuko.app.presentation.viewmodel.LessonViewModel
+import com.seoulhankuko.app.presentation.viewmodel.MainUiViewModel
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -79,6 +80,7 @@ private const val ITEM_ANIMATION_DELAY = 80L
 @Composable
 fun LessonScreen(
     lessonId: String,
+    courseId: String? = null,
     onNavigateBack: () -> Unit,
     onNavigateToLessonFlow: () -> Unit,
     onNavigateToListening: (exerciseId: String) -> Unit = {},
@@ -96,6 +98,13 @@ fun LessonScreen(
         ?.let { "Bài học: $it" }
         ?: "Bài học: $lessonId"
     
+    val mainUiViewModel: MainUiViewModel = hiltViewModel()
+    LaunchedEffect(courseId) {
+        if (!courseId.isNullOrBlank()) {
+            mainUiViewModel.setCurrentCourseId(courseId)
+        }
+    }
+
     BackHandler { onNavigateBack() }
 
     Scaffold(
