@@ -77,6 +77,7 @@ import com.seoulhankuko.app.domain.model.QuestionType
 import com.seoulhankuko.app.domain.model.QuestionPronunciation
 import com.seoulhankuko.app.presentation.components.MatchingQuestion
 import com.seoulhankuko.app.presentation.components.MatchingQuestionCard
+import com.seoulhankuko.app.presentation.components.ComboCelebrationOverlay
 import com.seoulhankuko.app.presentation.components.SouthKoreaLoadingIcon
 import com.seoulhankuko.app.presentation.components.PronunciationEvaluationUiState
 import com.seoulhankuko.app.presentation.components.PronunciationQuestionCard
@@ -390,6 +391,7 @@ fun QuizPagerFlow(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val streakCelebration by viewModel.streakCelebration.collectAsStateWithLifecycle()
+    val comboCelebration by viewModel.comboCelebration.collectAsStateWithLifecycle()
     val challengeItems = remember { mutableStateListOf<ChallengeWithOptions>() }
     val questionResponseMap = remember { mutableStateMapOf<String, QuestionResponse>() }
     val challengeMap = remember { mutableStateMapOf<String, ChallengeWithOptions>() }
@@ -704,6 +706,8 @@ fun QuizPagerFlow(
                 AnswerStatus.WRONG
             }
 
+            viewModel.onAnswerEvaluated(isCorrect)
+
             val currentId = currentChallenge?.challenge?.id
             if (isCorrect && currentId != null) {
                 registerCorrectForChallenge(currentId)
@@ -933,10 +937,12 @@ fun QuizPagerFlow(
                                                     questionId = challengeId,
                                                     selectedOptionId = ""
                                                 )
+                                                viewModel.onAnswerEvaluated(true)
                                             }
                                         } else {
                                             currentAnswerStatus = AnswerStatus.WRONG
                                             soundManager.playIncorrect()
+                                            viewModel.onAnswerEvaluated(false)
                                         }
                                     }
                                 },
@@ -995,8 +1001,9 @@ fun QuizPagerFlow(
                                                 viewModel.submitPracticeCorrectAnswer(
                                                     lessonId = lessonId,
                                                     questionId = challenge.challenge.id,
-                                            selectedOptionId = ""
+                                                    selectedOptionId = ""
                                                 )
+                                                viewModel.onAnswerEvaluated(true)
                                             }
                                         } else if (currentAnswerStatus != AnswerStatus.NONE) {
                                             currentAnswerStatus = AnswerStatus.NONE
@@ -1008,6 +1015,7 @@ fun QuizPagerFlow(
                                             soundManager.playCorrect()
                                         } else {
                                             soundManager.playIncorrect()
+                                            viewModel.onAnswerEvaluated(false)
                                         }
                                     }
                                 )
@@ -1143,6 +1151,14 @@ fun QuizPagerFlow(
             ) {
                 SouthKoreaLoadingIcon(size = 56.dp)
             }
+        }
+
+        comboCelebration?.let { celebration ->
+            ComboCelebrationOverlay(
+                state = celebration,
+                modifier = Modifier.align(Alignment.Center),
+                onAnimationFinished = { viewModel.clearComboCelebration() }
+            )
         }
         }
     }

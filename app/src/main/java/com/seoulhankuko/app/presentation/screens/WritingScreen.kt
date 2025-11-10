@@ -1,7 +1,6 @@
 package com.seoulhankuko.app.presentation.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -22,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,12 +31,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.seoulhankuko.app.data.api.model.ExerciseResponse
 import com.seoulhankuko.app.presentation.viewmodel.LessonViewModel
 import com.seoulhankuko.app.presentation.viewmodel.LessonUiState
 import com.seoulhankuko.app.presentation.components.SouthKoreaLoadingIcon
@@ -54,7 +53,28 @@ fun WritingScreen(
     viewModel: LessonViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    
+
+    LaunchedEffect(lessonId) {
+        val currentLessonId = (viewModel.uiState.value as? LessonUiState.Success)
+            ?.lessonWithChallenges
+            ?.lesson
+            ?.id
+
+        if (currentLessonId != lessonId || viewModel.uiState.value !is LessonUiState.Success) {
+            viewModel.loadLesson(lessonId)
+        }
+    }
+
+    val writingExercise = when (val state = uiState) {
+        is LessonUiState.Success -> state.lessonWithChallenges
+            ?.exercisesResponse
+            ?.firstOrNull { exercise ->
+                val type = exercise.type.lowercase()
+                type == "writing" || type == "writing_practice"
+            }
+        else -> null
+    }
+
     when (val state = uiState) {
         is LessonUiState.Loading -> {
             Box(
@@ -66,30 +86,62 @@ fun WritingScreen(
                 SouthKoreaLoadingIcon(size = 56.dp)
             }
         }
-        
+
         is LessonUiState.Success -> {
-            // Note: WRITING_PRACTICE is no longer supported in BE
-            // This will be empty until exercises are properly handled separately from questions
-            val exercises = state.lessonWithChallenges?.challenges?.filter { 
-                false // WRITING_PRACTICE removed, exercises should come from exercises list, not challenges
-            } ?: emptyList()
-            
-            if (exercises.isNotEmpty()) {
-                val exercise = exercises.first()
-                WritingContent(
-                    exercise = exercise,
-                    onComplete = {
-                        // Update progress and streak
-                        viewModel.markExerciseCompletion(exercise.challenge.id, "writing")
-                        viewModel.updateLessonProgress(lessonId)
-                        onNavigateBack()
+            when {
+                writingExercise != null -> {
+                    WritingContent(
+                        exercise = writingExercise,
+                        onSubmit = { userAnswer ->
+                            viewModel.submitExercise(
+                                exerciseId = writingExercise.id,
+                                lessonId = lessonId,
+                                response = userAnswer
+                            )
+                            viewModel.updateLessonProgress(lessonId)
+                            onNavigateBack()
+                        }
+                    )
+                }
+
+                else -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(LessonFlowColors.BackgroundColor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.padding(24.dp)
+                        ) {
+                            Text(
+                                text = "Không tìm thấy bài tập viết trong bài học này.",
+                                style = MaterialTheme.typography.titleMedium,
+                                textAlign = TextAlign.Center,
+                                color = LessonFlowColors.TextPrimary
+                            )
+                            Button(
+                                onClick = onNavigateBack,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = LessonFlowColors.PrimaryColor
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = "Quay lại",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AppColors.White
+                                )
+                            }
+                        }
                     }
-                )
-            } else {
-                onNavigateBack()
+                }
             }
         }
-        
+
         is LessonUiState.Error -> {
             Box(
                 modifier = Modifier
@@ -109,8 +161,8 @@ fun WritingScreen(
 
 @Composable
 fun WritingContent(
-    exercise: com.seoulhankuko.app.domain.model.ChallengeWithOptions,
-    onComplete: () -> Unit
+    exercise: ExerciseResponse,
+    onSubmit: (String) -> Unit
 ) {
     var userInput by remember { mutableStateOf("") }
     
@@ -160,7 +212,7 @@ fun WritingContent(
                 }
                 
                 Text(
-                    text = exercise.challenge.question,
+                    text = exercise.prompt ?: exercise.content ?: exercise.title.orEmpty(),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
@@ -184,9 +236,40 @@ fun WritingContent(
         }
         
         Spacer(modifier = Modifier.height(24.dp))
-        
+
+        if (!exercise.sampleAnswer.isNullOrBlank()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = AppColors.GreenPrimary.copy(alpha = 0.08f)
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Gợi ý",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = LessonFlowColors.TextPrimary
+                    )
+                    Text(
+                        text = exercise.sampleAnswer ?: "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = LessonFlowColors.TextSecondary
+                    )
+                }
+            }
+        }
+
         Button(
-            onClick = onComplete,
+            onClick = { onSubmit(userInput) },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(

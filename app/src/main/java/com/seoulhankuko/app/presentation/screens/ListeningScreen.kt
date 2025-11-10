@@ -50,6 +50,7 @@ import com.seoulhankuko.app.data.api.model.ExerciseResponse
 import com.seoulhankuko.app.data.api.model.ExerciseQuestionResponse
 import com.seoulhankuko.app.data.api.model.ExerciseQuestionOptionResponse
 import com.seoulhankuko.app.presentation.components.SouthKoreaLoadingIcon
+import com.seoulhankuko.app.presentation.components.ComboCelebrationOverlay
 import com.seoulhankuko.app.presentation.components.rememberSoundManager
 import com.seoulhankuko.app.presentation.utils.AppColors
 import com.seoulhankuko.app.presentation.viewmodel.LessonUiState
@@ -302,6 +303,7 @@ private fun ListeningScreenContent(
 
     var streakEventToShow by remember { mutableStateOf<StreakCelebrationEvent?>(null) }
     var pendingNavigationAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var pendingComboAdvance by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     var listeningExp by remember { mutableStateOf(0) }
     var correctAnswerCount by remember { mutableStateOf(0) }
@@ -309,6 +311,7 @@ private fun ListeningScreenContent(
     var exerciseStartTimestamp by remember { mutableStateOf(System.currentTimeMillis()) }
     var isUpdatingProgress by remember { mutableStateOf(false) }
     val streakCelebrationFlow = remember { viewModel.streakCelebration }
+    val comboCelebration by viewModel.comboCelebration.collectAsStateWithLifecycle()
 
     // Question navigation state - show one question at a time
     var currentQuestionIndex by remember { mutableStateOf(0) }
@@ -534,16 +537,20 @@ private fun ListeningScreenContent(
         },
         containerColor = Color(0xFFF9FAFB)
     ) { paddingValues ->
-    Column(
+        Box(
             modifier = modifier
-            .fillMaxSize()
+                .fillMaxSize()
                 .padding(paddingValues)
-                .verticalScroll(scrollState),
-        horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scrollState),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             fun finalizeExercise() {
                 if (showResultScreen) return
 
@@ -852,7 +859,7 @@ private fun ListeningScreenContent(
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
                 }
-            
+
                 if (!exercise.transcript.isNullOrBlank()) {
                     val transcriptToggleColor = Color(0xFF42A5F5)
                     Text(
@@ -876,7 +883,7 @@ private fun ListeningScreenContent(
                             }
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     )
-    
+
                     AnimatedVisibility(
                         visible = showTranscript,
                         enter = fadeIn(animationSpec = tween(300)) + expandVertically(
@@ -901,7 +908,7 @@ private fun ListeningScreenContent(
                         )
                     }
                 }
-            
+
                 // Instruction Section
                 exercise.content
                     ?.takeIf { it.isNotBlank() }
@@ -911,14 +918,14 @@ private fun ListeningScreenContent(
                             modifier = Modifier.padding(horizontal = 16.dp)
                         )
                     }
-            
+
                 // Questions Section (appears after first listen completion)
                 if (exercise.questions.isEmpty()) {
                     Timber.w("No questions found in exercise!")
                 } else {
                     Timber.d("Questions available: ${exercise.questions.size}, currentQuestionIndex: $currentQuestionIndex, showQuestions: $showQuestions, hasCompletedFirstListen: $hasCompletedFirstListen")
                 }
-            
+
                 if (exercise.questions.isNotEmpty() && currentQuestion != null) {
                     AnimatedVisibility(
                         visible = showQuestions && !showResultScreen,
@@ -939,33 +946,49 @@ private fun ListeningScreenContent(
                                 if (!checkedQuestions.contains(currentQuestion.id)) {
                                     view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                                     selectedAnswers = selectedAnswers + (currentQuestion.id to optionId)
-            
+
                                     val selectedOption = currentQuestion.options.find { it.id == optionId }
                                     val isCorrect = selectedOption?.isCorrect == true
-            
+
                                     checkedQuestions = checkedQuestions + currentQuestion.id
-            
+
                                     if (isCorrect) {
                                         soundManager.playCorrect()
                                     } else {
                                         soundManager.playIncorrect()
                                     }
-            
+
+                                    val comboResult = viewModel.onAnswerEvaluated(isCorrect)
+
                                     coroutineScope.launch {
                                         delay(500)
-            
-                                        if (currentQuestionIndex < exercise.questions.size - 1) {
-                                            currentQuestionIndex++
-                                        } else {
-                                            delay(500)
-                                            if (lessonId != null) {
-                                                viewModel.submitExercise(
-                                                    exerciseId = exercise.id,
-                                                    lessonId = lessonId,
-                                                    selectedAnswers = selectedAnswers
-                                                )
+
+                                        val proceed: suspend () -> Unit = {
+                                            if (currentQuestionIndex < exercise.questions.size - 1) {
+                                                currentQuestionIndex++
+                                            } else {
+                                                delay(500)
+                                                if (lessonId != null) {
+                                                    viewModel.submitExercise(
+                                                        exerciseId = exercise.id,
+                                                        lessonId = lessonId,
+                                                        selectedAnswers = selectedAnswers
+                                                    )
+                                                }
+                                                finalizeExercise()
                                             }
-                                            finalizeExercise()
+                                        }
+
+                                        if (isCorrect && comboResult != null) {
+                                            pendingComboAdvance = {
+                                                coroutineScope.launch {
+                                                    pendingComboAdvance = null
+                                                    proceed()
+                                                }
+                                            }
+                                        } else {
+                                            pendingComboAdvance = null
+                                            proceed()
                                         }
                                     }
                                 }
@@ -1004,8 +1027,22 @@ private fun ListeningScreenContent(
                     }
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        comboCelebration?.let { celebration ->
+            ComboCelebrationOverlay(
+                state = celebration,
+                modifier = Modifier.align(Alignment.Center),
+                onAnimationFinished = {
+                    val action = pendingComboAdvance
+                    pendingComboAdvance = null
+                    action?.invoke()
+                    viewModel.clearComboCelebration()
+                }
+            )
+        }
         }
     }
 }

@@ -41,6 +41,8 @@ class LessonViewModel @Inject constructor(
 
     private val _streakCelebration = MutableStateFlow<StreakCelebrationEvent?>(null)
     val streakCelebration: StateFlow<StreakCelebrationEvent?> = _streakCelebration.asStateFlow()
+    private val _comboCelebration = MutableStateFlow<ComboCelebrationState?>(null)
+    val comboCelebration: StateFlow<ComboCelebrationState?> = _comboCelebration.asStateFlow()
 
     private val _lessonExpProgress = MutableStateFlow(LessonExpProgress())
     private val recordedQuestionIds = mutableSetOf<String>()
@@ -52,6 +54,7 @@ class LessonViewModel @Inject constructor(
         _pronunciationEvaluations.asStateFlow()
     private val _pronunciationProcessing = MutableStateFlow<Set<String>>(emptySet())
     val pronunciationProcessing: StateFlow<Set<String>> = _pronunciationProcessing.asStateFlow()
+    private var consecutiveCorrectAnswers = 0
     
     fun loadLesson(lessonId: String, showLoading: Boolean = true) {
         if (showLoading) {
@@ -574,6 +577,8 @@ class LessonViewModel @Inject constructor(
         recordedExerciseIds.clear()
         recordedExerciseTypes.clear()
         _lessonExpProgress.value = LessonExpProgress()
+        consecutiveCorrectAnswers = 0
+        _comboCelebration.value = null
     }
     
     fun recordQuestionCompletion(questionId: String, expGained: Float) {
@@ -594,7 +599,37 @@ class LessonViewModel @Inject constructor(
             current.copy(listeningExp = normalized.toFloat())
         }
     }
-    
+
+    fun onAnswerEvaluated(isCorrect: Boolean): ComboCelebrationState? {
+        if (isCorrect) {
+            consecutiveCorrectAnswers += 1
+            val milestone = when {
+                consecutiveCorrectAnswers % ComboMilestone.GOLD.threshold == 0 -> ComboMilestone.GOLD
+                consecutiveCorrectAnswers % ComboMilestone.SILVER.threshold == 0 -> ComboMilestone.SILVER
+                else -> null
+            }
+            return milestone?.let { comboMilestone ->
+                ComboCelebrationState(
+                    milestone = comboMilestone,
+                    comboCount = consecutiveCorrectAnswers,
+                    triggeredAt = System.currentTimeMillis()
+                ).also { celebration ->
+                    _comboCelebration.value = celebration
+                }
+            }
+        } else {
+            if (consecutiveCorrectAnswers != 0) {
+                consecutiveCorrectAnswers = 0
+            }
+            _comboCelebration.value = null
+        }
+        return null
+    }
+
+    fun clearComboCelebration() {
+        _comboCelebration.value = null
+    }
+ 
     fun markExerciseCompletion(exerciseId: String?, explicitType: String? = null) {
         var effectiveType = explicitType?.lowercase()
         var alreadyRecorded = false
@@ -662,6 +697,17 @@ data class StreakCelebrationEvent(
     val celebrationDate: LocalDate
 )
 
+data class ComboCelebrationState(
+    val milestone: ComboMilestone,
+    val comboCount: Int,
+    val triggeredAt: Long = System.currentTimeMillis()
+)
+
+enum class ComboMilestone(val threshold: Int) {
+    SILVER(5),
+    GOLD(10)
+}
+ 
 data class AdditionalChallengesResult(
     val challenges: List<ChallengeWithOptions>,
     val questionResponses: Map<String, QuestionResponse>,
