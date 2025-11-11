@@ -275,6 +275,32 @@ interface ApiService {
         @Header("Authorization") token: String? = null
     ): Response<PaginatedResponse<FriendResponse>>
     
+    // Notification endpoints
+    @GET("v1/user/{username}/notifications")
+    suspend fun getUserNotifications(
+        @Path("username") username: String,
+        @Query("page") page: Int = 1,
+        @Query("items_per_page") itemsPerPage: Int = 20,
+        @Query("unread_only") unreadOnly: Boolean = false,
+        @Query("notification_type") notificationType: String? = null
+    ): Response<PaginatedResponse<NotificationResponse>>
+    
+    @GET("v1/user/{username}/notifications/unread-count")
+    suspend fun getUnreadNotificationsCount(
+        @Path("username") username: String
+    ): Response<NotificationUnreadCountResponse>
+    
+    @PUT("v1/user/{username}/notifications/{notification_id}/read")
+    suspend fun markNotificationRead(
+        @Path("username") username: String,
+        @Path("notification_id") notificationId: String
+    ): Response<Map<String, String>>
+    
+    @PUT("v1/user/{username}/notifications/mark-all-read")
+    suspend fun markAllNotificationsRead(
+        @Path("username") username: String
+    ): Response<Map<String, String>>
+    
     // Task endpoints
     @POST("v1/tasks/task")
     suspend fun createTask(@Body taskCreateRequest: TaskCreateRequest): Response<TaskCreateResponse>
