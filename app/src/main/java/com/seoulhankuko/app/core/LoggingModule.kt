@@ -1,7 +1,12 @@
 package com.seoulhankuko.app.core
 
 import android.app.Application
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.os.Build
 import com.seoulhankuko.app.BuildConfig
+import com.seoulhankuko.app.R
+import com.seoulhankuko.app.core.messaging.SeoulHankukoFirebaseMessagingService
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 
@@ -19,6 +24,25 @@ class SeoulHankukoApplication : Application() {
         }
         
         Logger.appStarted()
+        createNotificationChannel()
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+
+        val channelName = getString(R.string.notification_channel_name)
+        val channelDescription = getString(R.string.notification_channel_description)
+        val importance = NotificationManager.IMPORTANCE_HIGH
+        val channel = NotificationChannel(
+            SeoulHankukoFirebaseMessagingService.DEFAULT_CHANNEL_ID,
+            channelName,
+            importance
+        ).apply {
+            description = channelDescription
+        }
+
+        val manager = getSystemService(NotificationManager::class.java)
+        manager?.createNotificationChannel(channel)
     }
 }
 

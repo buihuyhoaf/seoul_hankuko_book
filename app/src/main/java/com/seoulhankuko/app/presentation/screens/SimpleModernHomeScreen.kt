@@ -99,6 +99,8 @@ fun ModernHomeScreen(
     onCourseSelected: (courseId: String) -> Unit,
     onNavigateToNotification: () -> Unit = {},
     onNavigateToAlphabet: () -> Unit = {},
+    onNavigateToRanking: () -> Unit = {},
+    onNavigateToMission: () -> Unit = {},
     onNavigateToProfile: () -> Unit = {},
     homeViewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -131,13 +133,16 @@ fun ModernHomeScreen(
             exp = expPoints,
             courseTitle = courseTitle,
             courseThumbnailUrl = courseThumbnailUrl,
+            avatarUrl = userData.avatarUrl,
             isVisible = isVisible,
             isShown = true
         ),
         currentRoute = "courses",
         onNavigateToHome = {},
-        onNavigateToNotification = onNavigateToNotification,
         onNavigateToAlphabet = onNavigateToAlphabet,
+        onNavigateToRanking = onNavigateToRanking,
+        onNavigateToMission = onNavigateToMission,
+        onNavigateToNotification = onNavigateToNotification,
         onNavigateToProfile = onNavigateToProfile,
         onAvatarClick = onNavigateToProfile,
         containerColor = HomeColors.DuolingoLightGray

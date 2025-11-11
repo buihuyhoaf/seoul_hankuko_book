@@ -143,4 +143,8 @@
     <string name="loading">Loading</string>
     <string name="signed_out">SignedOut</string>
     <string name="signed_in">SignedIn (ID: %s)</string>
+    
+    <!-- Notifications -->
+    <string name="notification_channel_name">Thông báo học tập</string>
+    <string name="notification_channel_description">Nhận nhắc nhở và cập nhật mới từ Seoul Hankuko Book</string>
 </resources>

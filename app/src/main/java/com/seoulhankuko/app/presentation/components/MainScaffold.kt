@@ -16,9 +16,9 @@ data class TopBarState(
     val exp: Int,
     val courseTitle: String? = null,
     val courseThumbnailUrl: String? = null,
+    val avatarUrl: String? = null,
     val isVisible: Boolean = true,
-    val isShown: Boolean = true,
-    val notificationCount: Int = 0
+    val isShown: Boolean = true
 )
 
 @Composable
@@ -26,8 +26,10 @@ fun MainScaffold(
     topBarState: TopBarState,
     currentRoute: String,
     onNavigateToHome: () -> Unit,
+    onNavigateToAlphabet: () -> Unit,
+    onNavigateToRanking: () -> Unit,
+    onNavigateToMission: () -> Unit,
     onNavigateToNotification: () -> Unit,
-    onNavigateToAlphabet: () -> Unit = onNavigateToNotification,
     onNavigateToProfile: () -> Unit,
     onAvatarClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -49,11 +51,10 @@ fun MainScaffold(
                     exp = topBarState.exp,
                     courseTitle = topBarState.courseTitle,
                     courseThumbnailUrl = topBarState.courseThumbnailUrl,
+                    avatarUrl = topBarState.avatarUrl,
                     isVisible = topBarState.isVisible,
-                    notificationCount = topBarState.notificationCount,
                     showBackButton = showBackButton,
-                    onBackClick = onBackClick,
-                    onNotificationClick = onNavigateToNotification
+                    onBackClick = onBackClick
                 )
             }
         },
@@ -62,8 +63,10 @@ fun MainScaffold(
                 ModernBottomNavigationBar(
                     currentRoute = currentRoute,
                     onNavigateToHome = onNavigateToHome,
-                    onNavigateToNotification = onNavigateToAlphabet,
-                    onNavigateToProfile = onNavigateToProfile
+                    onNavigateToAlphabet = onNavigateToAlphabet,
+                    onNavigateToRanking = onNavigateToRanking,
+                    onNavigateToMission = onNavigateToMission,
+                    onNavigateToNotification = onNavigateToNotification
                 )
             }
         }

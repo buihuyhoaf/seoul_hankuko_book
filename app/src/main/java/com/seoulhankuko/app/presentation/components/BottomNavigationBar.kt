@@ -91,13 +91,52 @@ fun BottomNavigationBar(
 fun ModernBottomNavigationBar(
     currentRoute: String,
     onNavigateToHome: () -> Unit,
-    onNavigateToNotification: () -> Unit,
-    onNavigateToProfile: () -> Unit
+    onNavigateToAlphabet: () -> Unit,
+    onNavigateToRanking: () -> Unit,
+    onNavigateToMission: () -> Unit,
+    onNavigateToNotification: () -> Unit
 ) {
     NavigationBar(
         containerColor = Color.White,
         tonalElevation = 8.dp
     ) {
+        NavigationBarItem(
+            icon = {
+                Icon(
+                    painter = painterResource(id = R.drawable.alphabet_korean),
+                    contentDescription = "Alphabet"
+                )
+            },
+            label = { Text("Chữ cái") },
+            selected = currentRoute == "alphabet_list",
+            onClick = onNavigateToAlphabet,
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = HomeColors.DuolingoGreen,
+                selectedTextColor = HomeColors.DuolingoGreen,
+                unselectedIconColor = HomeColors.DuolingoGray,
+                unselectedTextColor = HomeColors.DuolingoGray
+            )
+        )
+        
+        NavigationBarItem(
+            icon = {
+                Icon(
+                    painter = painterResource(id = R.drawable.regular_ranking_star),
+                    contentDescription = "Ranking",
+                    modifier = Modifier.size(22.dp)
+                )
+            },
+            label = { Text("Xếp hạng") },
+            selected = currentRoute == "ranking",
+            onClick = onNavigateToRanking,
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = HomeColors.DuolingoGreen,
+                selectedTextColor = HomeColors.DuolingoGreen,
+                unselectedIconColor = HomeColors.DuolingoGray,
+                unselectedTextColor = HomeColors.DuolingoGray
+            )
+        )
+
         NavigationBarItem(
             icon = {
                 Icon(
@@ -115,17 +154,18 @@ fun ModernBottomNavigationBar(
                 unselectedTextColor = HomeColors.DuolingoGray
             )
         )
-        
+
         NavigationBarItem(
             icon = {
                 Icon(
-                    painter = painterResource(id = R.drawable.alphabet_korean),
-                    contentDescription = "Alphabet"
+                    painter = painterResource(id = R.drawable.scroll_text),
+                    contentDescription = "Missions",
+                    modifier = Modifier.size(22.dp)
                 )
             },
-            label = { Text("Bảng chữ cái") },
-            selected = currentRoute == "alphabet_list",
-            onClick = onNavigateToNotification,
+            label = { Text("Nhiệm vụ") },
+            selected = currentRoute == "missions",
+            onClick = onNavigateToMission,
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = HomeColors.DuolingoGreen,
                 selectedTextColor = HomeColors.DuolingoGreen,
@@ -133,17 +173,18 @@ fun ModernBottomNavigationBar(
                 unselectedTextColor = HomeColors.DuolingoGray
             )
         )
-        
+
         NavigationBarItem(
             icon = {
                 Icon(
-                    painter = painterResource(id = R.drawable.profile_icomoon),
-                    contentDescription = "Profile"
+                    painter = painterResource(id = R.drawable.notifications_material),
+                    contentDescription = "Notifications",
+                    modifier = Modifier.size(22.dp)
                 )
             },
-            label = { Text("Hồ sơ") },
-            selected = currentRoute == "profile",
-            onClick = onNavigateToProfile,
+            label = { Text("Thông báo") },
+            selected = currentRoute == "notifications",
+            onClick = onNavigateToNotification,
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = HomeColors.DuolingoGreen,
                 selectedTextColor = HomeColors.DuolingoGreen,
@@ -156,15 +197,17 @@ fun ModernBottomNavigationBar(
 
 /**
  * Main Screen Wrapper with Bottom Navigation
- * Wraps main navigation screens (Home, Notification, Profile) with bottom navigation bar
+ * Wraps main navigation screens with bottom navigation bar
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreenWrapper(
     currentRoute: String,
     onNavigateToHome: () -> Unit,
+    onNavigateToAlphabet: () -> Unit,
+    onNavigateToRanking: () -> Unit,
+    onNavigateToMission: () -> Unit,
     onNavigateToNotification: () -> Unit,
-    onNavigateToProfile: () -> Unit,
     content: @Composable (PaddingValues) -> Unit
 ) {
     Scaffold(
@@ -172,8 +215,10 @@ fun MainScreenWrapper(
             ModernBottomNavigationBar(
                 currentRoute = currentRoute,
                 onNavigateToHome = onNavigateToHome,
-                onNavigateToNotification = onNavigateToNotification,
-                onNavigateToProfile = onNavigateToProfile
+                onNavigateToAlphabet = onNavigateToAlphabet,
+                onNavigateToRanking = onNavigateToRanking,
+                onNavigateToMission = onNavigateToMission,
+                onNavigateToNotification = onNavigateToNotification
             )
         },
         containerColor = Color.White

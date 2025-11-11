@@ -23,6 +23,7 @@ import com.seoulhankuko.app.presentation.screens.LoggedAccountsScreen
 import com.seoulhankuko.app.presentation.screens.LoginScreen
 import com.seoulhankuko.app.presentation.screens.ModernHomeScreen
 import com.seoulhankuko.app.presentation.screens.HangulAlphabetScreen
+import com.seoulhankuko.app.presentation.screens.MissionScreen
 import com.seoulhankuko.app.presentation.screens.ProfileScreen
 import com.seoulhankuko.app.presentation.screens.CanvasScreen
 import com.seoulhankuko.app.ui.screen.canvas.HangulCanvasScreen
@@ -30,6 +31,7 @@ import com.seoulhankuko.app.presentation.screens.QuestsScreen
 import com.seoulhankuko.app.presentation.screens.ShopScreen
 import com.seoulhankuko.app.presentation.screens.UnitScreen
 import com.seoulhankuko.app.presentation.screens.NotificationScreen
+import com.seoulhankuko.app.presentation.screens.RankingScreen
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -167,6 +169,16 @@ fun AppNavigation(
                         launchSingleTop = true
                     }
                 },
+                onNavigateToRanking = {
+                    navController.navigate("ranking") {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToMission = {
+                    navController.navigate("missions") {
+                        launchSingleTop = true
+                    }
+                },
                 onNavigateToProfile = {
                     navController.navigate("profile")
                 }
@@ -187,6 +199,16 @@ fun AppNavigation(
                         launchSingleTop = true
                     }
                 },
+                onNavigateToRanking = {
+                    navController.navigate("ranking") {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToMission = {
+                    navController.navigate("missions") {
+                        launchSingleTop = true
+                    }
+                },
                 onNavigateToProfile = {
                     navController.navigate("profile") {
                         launchSingleTop = true
@@ -203,13 +225,93 @@ fun AppNavigation(
                     navController.navigate("courses")
                 },
                 onNavigateToAlphabet = { /* Current screen */ },
+                onNavigateToRanking = {
+                    navController.navigate("ranking") {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToMission = {
+                    navController.navigate("missions") {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToNotification = {
+                    navController.navigate("notifications") {
+                        launchSingleTop = true
+                    }
+                },
                 onNavigateToProfile = {
                     navController.navigate("profile")
                 },
-                onNavigateBack = { navController.popBackStack() },
                 onSelectChar = { charSymbol ->
                     val encodedChar = URLEncoder.encode(charSymbol, StandardCharsets.UTF_8.toString())
                     navController.navigate("canvas/$encodedChar")
+                }
+            )
+        }
+
+        // Ranking Screen placeholder
+        composable("ranking") {
+            RankingScreen(
+                onNavigateToHome = {
+                    navController.navigate("courses") {
+                        popUpTo("courses") { inclusive = false }
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToAlphabet = {
+                    navController.navigate("alphabet_list") {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToRanking = { /* Already here */ },
+                onNavigateToMission = {
+                    navController.navigate("missions") {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToNotification = {
+                    navController.navigate("notifications") {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToProfile = {
+                    navController.navigate("profile") {
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+
+        // Mission Screen placeholder
+        composable("missions") {
+            MissionScreen(
+                onNavigateToHome = {
+                    navController.navigate("courses") {
+                        popUpTo("courses") { inclusive = false }
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToAlphabet = {
+                    navController.navigate("alphabet_list") {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToRanking = {
+                    navController.navigate("ranking") {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToMission = { /* Already here */ },
+                onNavigateToNotification = {
+                    navController.navigate("notifications") {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToProfile = {
+                    navController.navigate("profile") {
+                        launchSingleTop = true
+                    }
                 }
             )
         }
@@ -248,6 +350,21 @@ fun AppNavigation(
                         launchSingleTop = true
                     }
                 },
+                onNavigateToAlphabet = {
+                    navController.navigate("alphabet_list") {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToRanking = {
+                    navController.navigate("ranking") {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToMission = {
+                    navController.navigate("missions") {
+                        launchSingleTop = true
+                    }
+                },
                 onNavigateToNotification = {
                     navController.navigate("notifications") {
                         launchSingleTop = true
@@ -281,12 +398,22 @@ fun AppNavigation(
                         }
                     },
                     onNavigateToNotification = {
-                    navController.navigate("notifications") {
-                        launchSingleTop = true
-                    }
+                        navController.navigate("notifications") {
+                            launchSingleTop = true
+                        }
                     },
                     onNavigateToAlphabet = {
                         navController.navigate("alphabet_list") {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateToRanking = {
+                        navController.navigate("ranking") {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateToMission = {
+                        navController.navigate("missions") {
                             launchSingleTop = true
                         }
                     },
@@ -331,12 +458,22 @@ fun AppNavigation(
                         }
                     },
                     onNavigateToNotification = {
-                    navController.navigate("notifications") {
-                        launchSingleTop = true
-                    }
+                        navController.navigate("notifications") {
+                            launchSingleTop = true
+                        }
                     },
                     onNavigateToAlphabet = {
                         navController.navigate("alphabet_list") {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateToRanking = {
+                        navController.navigate("ranking") {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateToMission = {
+                        navController.navigate("missions") {
                             launchSingleTop = true
                         }
                     },

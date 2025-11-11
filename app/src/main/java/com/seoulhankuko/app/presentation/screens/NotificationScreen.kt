@@ -50,6 +50,8 @@ import com.seoulhankuko.app.presentation.viewmodel.NotificationViewModel
 fun NotificationScreen(
     onNavigateToHome: () -> Unit,
     onNavigateToAlphabet: () -> Unit,
+    onNavigateToRanking: () -> Unit,
+    onNavigateToMission: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -66,8 +68,6 @@ fun NotificationScreen(
         }
     }
 
-    val unreadCount = uiState.unreadCount
-
     BackHandler { onNavigateBack() }
 
     MainScaffold(
@@ -77,20 +77,20 @@ fun NotificationScreen(
             exp = userData.exp,
             courseTitle = "Thông báo",
             courseThumbnailUrl = null,
+            avatarUrl = userData.avatarUrl,
             isVisible = true,
-            isShown = true,
-            notificationCount = unreadCount
+            isShown = true
         ),
         currentRoute = "notifications",
         onNavigateToHome = onNavigateToHome,
-        onNavigateToNotification = {},
         onNavigateToAlphabet = onNavigateToAlphabet,
+        onNavigateToRanking = onNavigateToRanking,
+        onNavigateToMission = onNavigateToMission,
+        onNavigateToNotification = {},
         onNavigateToProfile = onNavigateToProfile,
         onAvatarClick = onNavigateToProfile,
         containerColor = HomeColors.DuolingoLightGray,
         showBottomBar = true,
-        showBackButton = true,
-        onBackClick = onNavigateBack,
         modifier = modifier
     ) { innerPadding ->
         if (username.isBlank()) {

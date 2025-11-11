@@ -119,6 +119,17 @@ interface ApiService {
         @Header("Authorization") token: String? = null,
         @Body body: LessonProgressUpdateRequest
     ): Response<Map<String, Any>>
+
+    // Push tokens
+    @POST("v1/push-tokens/register")
+    suspend fun registerPushToken(
+        @Body request: PushTokenRegisterRequest
+    ): Response<Map<String, String>>
+
+    @HTTP(method = "DELETE", path = "v1/push-tokens/unregister", hasBody = true)
+    suspend fun unregisterPushToken(
+        @Body request: PushTokenUnregisterRequest
+    ): Response<Map<String, String>>
     
     // Practice question submit endpoints (increment lesson progress on correct answers)
     @POST("v1/lessons/{lesson_id}/practice-questions/{question_id}/submit")

@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -85,6 +86,10 @@ dependencies {
     
     // Google Sign-In
     implementation("com.google.android.gms:play-services-auth:21.0.0")
+
+    // Firebase Cloud Messaging
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
     
     // DataStore for user preferences
     implementation("androidx.datastore:datastore-preferences:1.0.0")

@@ -21,9 +21,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -49,6 +51,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -59,6 +63,8 @@ import com.seoulhankuko.app.R
 import com.seoulhankuko.app.presentation.utils.HomeColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 
 
 @Suppress("UNUSED_PARAMETER")
@@ -71,13 +77,13 @@ fun AppBarSection(
     exp: Int,
     courseTitle: String?,
     courseThumbnailUrl: String?,
+    avatarUrl: String?,
     isVisible: Boolean,
-    notificationCount: Int,
     showBackButton: Boolean = false,
-    onBackClick: () -> Unit = {},
-    onNotificationClick: () -> Unit = {}
+    onBackClick: () -> Unit = {}
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     var avatarScaleTarget by remember { mutableStateOf(1f) }
     val avatarScale by animateFloatAsState(
@@ -141,16 +147,6 @@ fun AppBarSection(
         label = "star_icon_scale"
     )
 
-    var notificationScaleTarget by remember { mutableStateOf(1f) }
-    val notificationScale by animateFloatAsState(
-        targetValue = notificationScaleTarget,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "notification_click_scale"
-    )
-
     AnimatedVisibility(
         visible = isVisible,
         enter = slideInVertically(
@@ -201,14 +197,14 @@ fun AppBarSection(
                                 text = streakDays.toString(),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = HomeColors.DuolingoDarkGreen
                             )
                             Icon(
-                                painter = painterResource(id = R.drawable.fire_svgrepo_com),
+                                painter = painterResource(id = R.drawable.fire),
                                 contentDescription = null,
                                 modifier = Modifier
                                     .size(iconSize)
-                                    .scale(fireIconScale)
+                                    .scale(fireIconScale),
+                                tint = Color.Unspecified
                             )
                         }
 
@@ -223,115 +219,73 @@ fun AppBarSection(
                                 text = exp.toString(),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = HomeColors.DuolingoDarkGreen
                             )
                             Icon(
-                                painter = painterResource(id = R.drawable.stars),
+                                painter = painterResource(id = R.drawable.star),
                                 contentDescription = null,
                                 modifier = Modifier
                                     .size(iconSize)
-                                    .scale(starIconScale)
+                                    .scale(starIconScale),
+                                tint = Color.Unspecified
                             )
                         }
                     }
 
                     Spacer(modifier = Modifier.weight(1f))
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        val fallbackCourseTitle = courseTitle ?: "khóa học hiện tại"
-                        val notificationDescription = if (notificationCount > 0) {
-                            "Bạn có $notificationCount thông báo mới cho $fallbackCourseTitle"
-                        } else {
-                            "Không có thông báo mới cho $fallbackCourseTitle"
-                        }
-                        val displayNotificationCount = if (notificationCount > 99) "99+" else notificationCount.toString()
+                    Icon(
+                        painter = painterResource(id = R.drawable.bottle_with_popping_cork),
+                        contentDescription = "Sự kiện đặc biệt",
+                        modifier = Modifier
+                            .size(48.dp)
+                            .padding(end = 8.dp),
+                        tint = Color.Unspecified
+                    )
 
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(HomeColors.DuolingoLightGreen.copy(alpha = 0.3f))
-                                .scale(notificationScale)
-                                .semantics { contentDescription = notificationDescription }
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null
-                                ) {
-                                    coroutineScope.launch {
-                                        notificationScaleTarget = 0.92f
-                                        delay(90)
-                                        notificationScaleTarget = 1.05f
-                                        delay(120)
-                                        notificationScaleTarget = 1f
-                                    }
-                                    onNotificationClick()
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.notifications_material),
-                                contentDescription = null,
-                                tint = HomeColors.DuolingoDarkGreen,
-                                modifier = Modifier.size(24.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .scale(avatarScale)
+                            .semantics { contentDescription = "Ảnh đại diện người dùng" }
+                            .clip(CircleShape)
+                            .then(
+                                if (avatarUrl.isNullOrBlank()) {
+                                    Modifier.background(HomeColors.DuolingoGreen)
+                                } else {
+                                    Modifier
+                                }
                             )
-
-                            if (notificationCount > 0) {
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .offset(x = 6.dp, y = (-6).dp)
-                                        .size(20.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFFFF4B4B)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = displayNotificationCount,
-                                        color = Color.White,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 10.sp
-                                    )
-                                }
-                            }
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .scale(avatarScale)
-                                .semantics { contentDescription = "Ảnh đại diện người dùng" }
-                                .clip(CircleShape)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null
-                                ) {
-                                    coroutineScope.launch {
-                                        avatarScaleTarget = 0.92f
-                                        delay(90)
-                                        avatarScaleTarget = 1.05f
-                                        delay(120)
-                                        avatarScaleTarget = 1f
-                                    }
-                                    onAvatarClick()
-                                }
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(HomeColors.DuolingoGreen),
-                                contentAlignment = Alignment.Center
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
                             ) {
-                                Text(
-                                    text = userName.take(1).uppercase(),
-                                    color = Color.White,
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                coroutineScope.launch {
+                                    avatarScaleTarget = 0.92f
+                                    delay(90)
+                                    avatarScaleTarget = 1.05f
+                                    delay(120)
+                                    avatarScaleTarget = 1f
+                                }
+                                onAvatarClick()
                             }
+                    ) {
+                        if (!avatarUrl.isNullOrBlank()) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(avatarUrl)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Ảnh đại diện người dùng",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Icon(
+                                painter = painterResource(id = R.drawable.profile_icomoon),
+                                contentDescription = "Ảnh đại diện mặc định",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
                     }
                 }

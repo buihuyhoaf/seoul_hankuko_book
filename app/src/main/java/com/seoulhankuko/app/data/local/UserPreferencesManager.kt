@@ -70,6 +70,10 @@ class UserPreferencesManager @Inject constructor(
         private val CURRENT_LESSON_UNIT_ID_KEY = stringPreferencesKey("current_lesson_unit_id")
         private val CURRENT_LESSON_COURSE_ID_KEY = stringPreferencesKey("current_lesson_course_id")
         private val CURRENT_LESSON_SAVED_AT_KEY = stringPreferencesKey("current_lesson_saved_at")
+
+        // Push notification tracking
+        private val FCM_TOKEN_KEY = stringPreferencesKey("fcm_token")
+        private val FCM_TOKEN_SYNCED_USER_ID_KEY = stringPreferencesKey("fcm_token_synced_user_id")
     }
 
     /**
@@ -274,6 +278,44 @@ class UserPreferencesManager @Inject constructor(
      */
     suspend fun getCurrentAccessToken(): String? {
         return context.dataStore.data.first()[ACCESS_TOKEN_KEY]
+    }
+
+    suspend fun getSavedUserId(): String? {
+        return context.dataStore.data.first()[USER_ID_KEY]
+    }
+
+    suspend fun saveFcmToken(token: String) {
+        context.dataStore.edit { preferences ->
+            preferences[FCM_TOKEN_KEY] = token
+            preferences.remove(FCM_TOKEN_SYNCED_USER_ID_KEY)
+        }
+    }
+
+    suspend fun getFcmToken(): String? {
+        return context.dataStore.data.first()[FCM_TOKEN_KEY]
+    }
+
+    suspend fun clearFcmToken() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(FCM_TOKEN_KEY)
+            preferences.remove(FCM_TOKEN_SYNCED_USER_ID_KEY)
+        }
+    }
+
+    suspend fun markFcmTokenSynced(userId: String) {
+        context.dataStore.edit { preferences ->
+            preferences[FCM_TOKEN_SYNCED_USER_ID_KEY] = userId
+        }
+    }
+
+    suspend fun getFcmTokenSyncedUserId(): String? {
+        return context.dataStore.data.first()[FCM_TOKEN_SYNCED_USER_ID_KEY]
+    }
+
+    suspend fun clearFcmTokenSyncState() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(FCM_TOKEN_SYNCED_USER_ID_KEY)
+        }
     }
 
     suspend fun saveCurrentLesson(

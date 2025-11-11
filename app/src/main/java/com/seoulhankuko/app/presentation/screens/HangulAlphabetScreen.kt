@@ -1,19 +1,29 @@
 package com.seoulhankuko.app.presentation.screens
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -22,9 +32,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seoulhankuko.app.R
 import com.seoulhankuko.app.domain.model.HangulChar
 import com.seoulhankuko.app.domain.model.HangulGroup
-import com.seoulhankuko.app.presentation.components.ModernBottomNavigationBar
+import com.seoulhankuko.app.presentation.components.MainScaffold
+import com.seoulhankuko.app.presentation.components.TopBarState
 import com.seoulhankuko.app.presentation.utils.UnitColors
 import com.seoulhankuko.app.presentation.viewmodel.HangulSelectionViewModel
+import com.seoulhankuko.app.presentation.viewmodel.MainUiViewModel
 
 /**
  * Hangul Alphabet Selection Screen
@@ -35,58 +47,50 @@ import com.seoulhankuko.app.presentation.viewmodel.HangulSelectionViewModel
 fun HangulAlphabetScreen(
     onNavigateToHome: () -> Unit = {},
     onNavigateToAlphabet: () -> Unit = {},
+    onNavigateToRanking: () -> Unit = {},
+    onNavigateToMission: () -> Unit = {},
+    onNavigateToNotification: () -> Unit = {},
     onNavigateToProfile: () -> Unit = {},
-    onNavigateBack: () -> Unit = {},
     onSelectChar: (String) -> Unit = {},
-    viewModel: HangulSelectionViewModel = hiltViewModel()
+    viewModel: HangulSelectionViewModel = hiltViewModel(),
+    mainUiViewModel: MainUiViewModel = hiltViewModel()
 ) {
     val hangulGroups by viewModel.hangulGroups.collectAsStateWithLifecycle()
+    val userData by mainUiViewModel.userData.collectAsStateWithLifecycle()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Bảng chữ cái Hangul",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = UnitColors.TextPrimary
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.back),
-                            tint = UnitColors.SoftIndigo
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    titleContentColor = UnitColors.TextPrimary,
-                    navigationIconContentColor = UnitColors.SoftIndigo
-                ),
-                modifier = Modifier.shadow(elevation = 4.dp, shape = RoundedCornerShape(0.dp))
-            )
-        },
-        bottomBar = {
-            ModernBottomNavigationBar(
-                currentRoute = "alphabet_list",
-                onNavigateToHome = onNavigateToHome,
-                onNavigateToNotification = onNavigateToAlphabet,
-                onNavigateToProfile = onNavigateToProfile
-            )
-        },
-        containerColor = UnitColors.BackgroundLight
+    MainScaffold(
+        topBarState = TopBarState(
+            userName = userData.name ?: userData.email ?: "Học viên",
+            streakDays = userData.streakDays,
+            exp = userData.exp,
+            courseTitle = "Bảng chữ cái Hangul",
+            courseThumbnailUrl = null,
+            avatarUrl = userData.avatarUrl,
+            isVisible = true,
+            isShown = true
+        ),
+        currentRoute = "alphabet_list",
+        onNavigateToHome = onNavigateToHome,
+        onNavigateToAlphabet = onNavigateToAlphabet,
+        onNavigateToRanking = onNavigateToRanking,
+        onNavigateToMission = onNavigateToMission,
+        onNavigateToNotification = onNavigateToNotification,
+        onNavigateToProfile = onNavigateToProfile,
+        onAvatarClick = onNavigateToProfile,
+        containerColor = UnitColors.BackgroundLight,
+        showBottomBar = true
     ) { paddingValues ->
-        HangulSelectionContent(
-            groups = hangulGroups,
-            onSelectChar = onSelectChar,
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-        )
+        ) {
+            HangulSelectionContent(
+                groups = hangulGroups,
+                onSelectChar = onSelectChar,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
     }
 }
 

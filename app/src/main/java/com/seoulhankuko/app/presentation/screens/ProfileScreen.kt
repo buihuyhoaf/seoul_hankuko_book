@@ -91,6 +91,9 @@ import kotlinx.coroutines.delay
 fun ProfileScreen(
     onLogout: () -> Unit,
     onNavigateToHome: () -> Unit = {},
+    onNavigateToAlphabet: () -> Unit = {},
+    onNavigateToRanking: () -> Unit = {},
+    onNavigateToMission: () -> Unit = {},
     onNavigateToNotification: () -> Unit = {},
     onNavigateToProfile: () -> Unit = {},
     onNavigateBack: () -> Unit = {},
@@ -117,8 +120,10 @@ fun ProfileScreen(
             ModernBottomNavigationBar(
                 currentRoute = "profile",
                 onNavigateToHome = onNavigateToHome,
-                onNavigateToNotification = onNavigateToNotification,
-                onNavigateToProfile = { /* Already here */ }
+                onNavigateToAlphabet = onNavigateToAlphabet,
+                onNavigateToRanking = onNavigateToRanking,
+                onNavigateToMission = onNavigateToMission,
+                onNavigateToNotification = onNavigateToNotification
             )
         },
         containerColor = ProfileColors.BackgroundLight

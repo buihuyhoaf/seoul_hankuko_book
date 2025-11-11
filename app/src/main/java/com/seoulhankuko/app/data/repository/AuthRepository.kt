@@ -29,6 +29,7 @@ import javax.inject.Singleton
 class AuthRepository @Inject constructor(
     private val apiService: ApiService,
     private val accountRepository: AccountRepository,
+    private val pushTokenRepository: PushTokenRepository,
     private val userPreferencesManager: UserPreferencesManager,
     @ApplicationContext private val context: Context
 ) {
@@ -144,6 +145,10 @@ class AuthRepository @Inject constructor(
                                 currentCourseName = null,
                                 entryTestScore = user.entryTestScore
                             )
+
+                            pushTokenRepository.registerCachedToken(user.id).onFailure {
+                                Timber.w(it, "Failed to register FCM token after login")
+                            }
                             
                             // Save logged account information with refresh token
                             saveLoggedAccount(
@@ -215,6 +220,9 @@ class AuthRepository @Inject constructor(
             Logger.AuthenticationUseCase.signOutApiFailed("Logout error: ${appException.message}")
             // Even if logout API call fails, we still want to sign out locally
         } finally {
+            pushTokenRepository.unregisterCachedToken().onFailure {
+                Timber.w(it, "Failed to unregister FCM token on sign out")
+            }
             Logger.AuthenticationUseCase.clearingAuthData()
             
             // Clear access token from the active account but keep refresh token for auto-login
@@ -387,6 +395,10 @@ class AuthRepository @Inject constructor(
                         lastLogin = System.currentTimeMillis()
                     )
                     accountRepository.setActiveAccount(freshAccount.email)
+
+                    pushTokenRepository.registerCachedToken(freshAccount.userId).onFailure {
+                        Timber.w(it, "Failed to register FCM token after auto-login")
+                    }
                     
                     _authState.value = AuthState.SignedIn(freshAccount.userId)
                     return Result.success(Unit)
@@ -491,7 +503,11 @@ class AuthRepository @Inject constructor(
                         refreshToken = tokenResponse.refreshToken,
                         lastLogin = System.currentTimeMillis()
                     )
-                    
+
+                    pushTokenRepository.registerCachedToken(currentAccount.userId).onFailure {
+                        Timber.w(it, "Failed to register FCM token after manual refresh")
+                    }
+
                     return Result.success(rawToken)
                 }
             }

@@ -4,21 +4,21 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import com.seoulhankuko.app.R
 
 /**
  * Controls row for canvas actions
  */
 @Composable
 fun CanvasControls(
-    showTemplate: Boolean,
-    onToggleTemplate: () -> Unit,
     onClear: () -> Unit,
     onAnalyze: () -> Unit,
     modifier: Modifier = Modifier
@@ -30,16 +30,6 @@ fun CanvasControls(
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Show Template Toggle
-        IconButton(onClick = onToggleTemplate) {
-            Icon(
-                painter = painterResource(
-                    id = if (showTemplate) R.drawable.visibility_off else R.drawable.visibility
-                ),
-                contentDescription = if (showTemplate) "Ẩn mẫu" else "Hiện mẫu"
-            )
-        }
-        
         // Clear Button
         Button(
             onClick = onClear,
