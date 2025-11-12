@@ -1,6 +1,7 @@
 package com.seoulhankuko.app.core
 
 import android.app.Application
+import com.google.firebase.FirebaseApp
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
@@ -22,7 +23,14 @@ class SeoulHankukoApplication : Application() {
             // In production, you might want to plant a custom tree for crash reporting
             Timber.plant(ReleaseTree())
         }
-        
+
+        // Initialize Firebase (required for FCM to function correctly)
+        try {
+            FirebaseApp.initializeApp(this)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to initialize FirebaseApp")
+        }
+
         Logger.appStarted()
         createNotificationChannel()
     }

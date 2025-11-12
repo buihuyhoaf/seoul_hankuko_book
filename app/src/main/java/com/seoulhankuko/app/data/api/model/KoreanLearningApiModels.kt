@@ -594,7 +594,30 @@ data class PracticeTextAnswerRequest(
 data class ExerciseSubmissionRequest(
     @SerializedName("response") val response: String? = null,
     @SerializedName("audio_url") val audioUrl: String? = null,
-    @SerializedName("selected_answers") val selectedAnswers: Map<String, String>? = null // Map of questionId to optionId for listening exercises with questions
+    @SerializedName("selected_answers") val selectedAnswers: Map<String, String>? = null,
+    @SerializedName("mode") val mode: String? = null
+)
+
+data class WritingResultResponse(
+    @SerializedName("submission_id") val submissionId: String,
+    @SerializedName("exercise_id") val exerciseId: String,
+    @SerializedName("mode") val mode: String,
+    @SerializedName("status") val status: String,
+    @SerializedName("ai_score") val aiScore: Float? = null,
+    @SerializedName("ai_feedback") val aiFeedback: String? = null,
+    @SerializedName("teacher_spelling_score") val teacherSpellingScore: Float? = null,
+    @SerializedName("teacher_grammar_score") val teacherGrammarScore: Float? = null,
+    @SerializedName("teacher_structure_score") val teacherStructureScore: Float? = null,
+    @SerializedName("teacher_vocabulary_score") val teacherVocabularyScore: Float? = null,
+    @SerializedName("teacher_feedback") val teacherFeedback: String? = null,
+    @SerializedName("final_score") val finalScore: Float? = null,
+    @SerializedName("submitted_at") val submittedAt: String? = null,
+    @SerializedName("updated_at") val updatedAt: String? = null
+)
+
+data class WritingResultsResponse(
+    @SerializedName("lesson_id") val lessonId: String,
+    @SerializedName("submissions") val submissions: List<WritingResultResponse> = emptyList()
 )
 
 data class LessonProgressUpdateRequest(

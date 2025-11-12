@@ -39,11 +39,23 @@ import java.nio.charset.StandardCharsets
 fun AppNavigation(
     initialDestination: String = "home",
     resumeLesson: CurrentLessonData? = null,
-    onResumeLessonConsumed: () -> Unit = {}
+    onResumeLessonConsumed: () -> Unit = {},
+    notificationLessonId: String? = null
 ) {
     val navController = rememberNavController()
     
     Logger.Navigation.navigationInitialized(initialDestination)
+    
+    // Handle navigation to lesson from notification
+    LaunchedEffect(notificationLessonId) {
+        notificationLessonId?.let { lessonId ->
+            // Navigate to lesson screen
+            navController.navigate("lesson/$lessonId") {
+                popUpTo("courses") { inclusive = false }
+                launchSingleTop = true
+            }
+        }
+    }
     
     NavHost(
         navController = navController,

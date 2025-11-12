@@ -116,6 +116,10 @@ dependencies {
     // Logging
     implementation(libs.timber)
     
+    // Firebase Cloud Messaging
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
+    
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)

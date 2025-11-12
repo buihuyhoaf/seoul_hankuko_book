@@ -15,6 +15,7 @@ import com.seoulhankuko.app.domain.model.ChallengeWithOptions
 import com.seoulhankuko.app.domain.model.LessonWithChallenges
 import com.seoulhankuko.app.presentation.components.PronunciationEvaluationUiState
 import com.seoulhankuko.app.presentation.components.TTSManager
+import com.seoulhankuko.app.data.api.model.WritingResultResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,6 +27,10 @@ import timber.log.Timber
 import java.time.LocalDate
 import javax.inject.Inject
 import kotlin.math.roundToInt
+import com.seoulhankuko.app.notifications.WritingNotificationCenter
+import com.seoulhankuko.app.notifications.WritingNotificationEvent
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 
 @HiltViewModel
 class LessonViewModel @Inject constructor(
@@ -38,6 +43,24 @@ class LessonViewModel @Inject constructor(
     
     private val _uiState = MutableStateFlow<LessonUiState>(LessonUiState.Loading)
     val uiState: StateFlow<LessonUiState> = _uiState.asStateFlow()
+    
+    private var currentLessonId: String? = null
+    
+    init {
+        // Listen to writing notification events and refresh results
+        WritingNotificationCenter.events
+            .onEach { event ->
+                when (event) {
+                    is WritingNotificationEvent.WritingGraded -> {
+                        // Refresh writing results if we're viewing the same lesson
+                        if (currentLessonId == event.lessonId) {
+                            fetchWritingResults(event.lessonId)
+                        }
+                    }
+                }
+            }
+            .launchIn(viewModelScope)
+    }
 
     private val _streakCelebration = MutableStateFlow<StreakCelebrationEvent?>(null)
     val streakCelebration: StateFlow<StreakCelebrationEvent?> = _streakCelebration.asStateFlow()
@@ -54,9 +77,18 @@ class LessonViewModel @Inject constructor(
         _pronunciationEvaluations.asStateFlow()
     private val _pronunciationProcessing = MutableStateFlow<Set<String>>(emptySet())
     val pronunciationProcessing: StateFlow<Set<String>> = _pronunciationProcessing.asStateFlow()
+    private val _writingSubmissionState = MutableStateFlow<WritingSubmissionUiState?>(null)
+    val writingSubmissionState: StateFlow<WritingSubmissionUiState?> = _writingSubmissionState.asStateFlow()
+    private val _writingResults = MutableStateFlow<List<WritingResultUi>>(emptyList())
+    val writingResults: StateFlow<List<WritingResultUi>> = _writingResults.asStateFlow()
+    private val _writingResultsLoading = MutableStateFlow(false)
+    val writingResultsLoading: StateFlow<Boolean> = _writingResultsLoading.asStateFlow()
+    private val _writingResultsError = MutableStateFlow<String?>(null)
+    val writingResultsError: StateFlow<String?> = _writingResultsError.asStateFlow()
     private var consecutiveCorrectAnswers = 0
     
     fun loadLesson(lessonId: String, showLoading: Boolean = true) {
+        currentLessonId = lessonId
         if (showLoading) {
             _uiState.update { LessonUiState.Loading }
         }
@@ -117,6 +149,54 @@ class LessonViewModel @Inject constructor(
         }
     }
 
+    fun submitWritingExercise(
+        exerciseId: String,
+        lessonId: String,
+        content: String,
+        mode: WritingSubmissionMode
+    ) {
+        if (content.isBlank()) {
+            _writingSubmissionState.value = WritingSubmissionUiState(
+                isSubmitting = false,
+                submissionStatus = null,
+                mode = mode,
+                errorMessage = "Vui lòng nhập nội dung trước khi gửi."
+            )
+            return
+        }
+
+        _writingSubmissionState.value = WritingSubmissionUiState(
+            isSubmitting = true,
+            submissionStatus = null,
+            mode = mode
+        )
+
+        submitExercise(
+            exerciseId = exerciseId,
+            lessonId = lessonId,
+            response = content,
+            mode = mode.apiValue,
+            onResult = { payload ->
+                _writingSubmissionState.value = mapWritingSubmissionPayload(
+                    payload = payload,
+                    mode = mode
+                )
+            },
+            onError = { throwable ->
+                _writingSubmissionState.value = WritingSubmissionUiState(
+                    isSubmitting = false,
+                    submissionStatus = null,
+                    mode = mode,
+                    errorMessage = throwable.message ?: "Gửi bài viết thất bại."
+                )
+            }
+        )
+    }
+
+    fun resetWritingSubmissionState() {
+        _writingSubmissionState.value = null
+    }
+
     private fun persistCurrentLesson(lessonWithChallenges: LessonWithChallenges) {
         viewModelScope.launch {
             try {
@@ -131,6 +211,82 @@ class LessonViewModel @Inject constructor(
                 Timber.w(e, "Failed to persist current lesson")
             }
         }
+    }
+
+    private fun mapWritingSubmissionPayload(
+        payload: Map<String, Any>,
+        mode: WritingSubmissionMode
+    ): WritingSubmissionUiState {
+        val submission = payload["submission"] as? Map<*, *>
+        val status = (payload["status"] ?: submission?.get("status"))?.toString()
+        val aiResult = payload["ai_result"] as? Map<*, *>
+        val aiScore = (aiResult?.get("score") ?: submission?.get("ai_score")).toFloatOrNull()
+        val aiFeedback = (aiResult?.get("feedback") ?: submission?.get("ai_feedback")).toStringOrNull()
+
+        val teacherScoresCandidate = TeacherScoreBreakdown(
+            spelling = submission?.get("teacher_spelling_score").toFloatOrNull(),
+            grammar = submission?.get("teacher_grammar_score").toFloatOrNull(),
+            structure = submission?.get("teacher_structure_score").toFloatOrNull(),
+            vocabulary = submission?.get("teacher_vocabulary_score").toFloatOrNull()
+        )
+        val teacherScores = teacherScoresCandidate.takeIf { it.hasAnyScore }
+
+        val teacherFeedback = (submission?.get("teacher_feedback")).toStringOrNull()
+        val finalScore = (submission?.get("final_score")).toFloatOrNull()
+        val expEarned = payload["exp_earned"].toIntOrNull()
+        val message = payload["message"]?.toString()
+            ?: payload["feedback"]?.toString()
+
+        val resolvedStatus = status ?: when (mode) {
+            WritingSubmissionMode.AI -> "ai_graded"
+            WritingSubmissionMode.TEACHER -> "submitted"
+        }
+
+        return WritingSubmissionUiState(
+            isSubmitting = false,
+            submissionStatus = resolvedStatus,
+            aiScore = aiScore,
+            aiFeedback = aiFeedback,
+            teacherFinalScore = finalScore,
+            teacherFeedback = teacherFeedback,
+            teacherScores = teacherScores,
+            expEarned = expEarned,
+            message = message,
+            errorMessage = null,
+            mode = mode
+        )
+    }
+
+    private fun mapWritingResult(response: WritingResultResponse): WritingResultUi {
+        val mode = WritingSubmissionMode.fromApiValue(response.mode)
+        val teacherScores = TeacherScoreBreakdown(
+            spelling = response.teacherSpellingScore,
+            grammar = response.teacherGrammarScore,
+            structure = response.teacherStructureScore,
+            vocabulary = response.teacherVocabularyScore
+        ).takeIf { it.hasAnyScore }
+
+        return WritingResultUi(
+            submissionId = response.submissionId,
+            exerciseId = response.exerciseId,
+            mode = mode,
+            status = response.status,
+            aiScore = response.aiScore,
+            aiFeedback = response.aiFeedback,
+            teacherScores = teacherScores,
+            finalScore = response.finalScore,
+            teacherFeedback = response.teacherFeedback
+        )
+    }
+
+    private fun Any?.toFloatOrNull(): Float? = (this as? Number)?.toFloat()
+
+    private fun Any?.toIntOrNull(): Int? = (this as? Number)?.toInt()
+
+    private fun Any?.toStringOrNull(): String? = when (this) {
+        null -> null
+        is String -> this
+        else -> this.toString()
     }
 
     fun clearCurrentLesson() {
@@ -307,7 +463,10 @@ class LessonViewModel @Inject constructor(
         lessonId: String,
         selectedAnswers: Map<String, String>? = null,
         response: String? = null,
-        audioUrl: String? = null
+        audioUrl: String? = null,
+        mode: String? = null,
+        onResult: ((Map<String, Any>) -> Unit)? = null,
+        onError: ((Throwable) -> Unit)? = null
     ) {
         viewModelScope.launch {
             try {
@@ -318,24 +477,29 @@ class LessonViewModel @Inject constructor(
                         token = token,
                         response = response,
                         audioUrl = audioUrl,
-                        selectedAnswers = selectedAnswers
+                        selectedAnswers = selectedAnswers,
+                        mode = mode
                     )
                     val responseMap = result.getOrNull()
                     if (responseMap != null) {
                         Timber.d("Exercise submit API success for exercise=$exerciseId lesson=$lessonId")
+                        onResult?.invoke(responseMap)
                         handleStreakInfoPayload((responseMap as? Map<*, *>)?.get("streak_info"))
                         markExerciseCompletion(exerciseId)
                             loadLesson(lessonId, showLoading = false)
                     } else {
                         result.exceptionOrNull()?.let { err ->
                             Timber.e(err, "Exercise submit API failed")
+                            onError?.invoke(err)
                         }
                     }
                 } else {
                     Timber.w("Skip exercise submit: token=${token?.take(5)}..., exerciseId=$exerciseId, lessonId=$lessonId")
+                    onError?.invoke(IllegalStateException("Thiếu thông tin xác thực hoặc bài tập."))
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to submit exercise to backend")
+                onError?.invoke(e)
             }
         }
     }
@@ -362,6 +526,34 @@ class LessonViewModel @Inject constructor(
         } catch (e: Exception) {
             Timber.e(e, "Failed to fetch additional challenges for lesson $lessonId")
             Result.failure(e)
+        }
+    }
+    
+    fun fetchWritingResults(lessonId: String) {
+        viewModelScope.launch {
+            _writingResultsLoading.value = true
+            val token = authRepository.getCurrentToken()
+            if (token.isNullOrBlank()) {
+                _writingResults.value = emptyList()
+                _writingResultsError.value = "Không tìm thấy thông tin đăng nhập."
+                _writingResultsLoading.value = false
+                return@launch
+            }
+
+            _writingResultsError.value = null
+
+            val result = lessonRepository.getWritingResults(lessonId, token)
+            result.fold(
+                onSuccess = { response ->
+                    _writingResults.value = response.submissions.map { mapWritingResult(it) }
+                },
+                onFailure = { error ->
+                    Timber.e(error, "Failed to fetch writing results for lesson $lessonId")
+                    _writingResultsError.value = error.message
+                }
+            )
+
+            _writingResultsLoading.value = false
         }
     }
     
@@ -713,6 +905,62 @@ data class AdditionalChallengesResult(
     val questionResponses: Map<String, QuestionResponse>,
     val hasMore: Boolean
 )
+
+data class WritingSubmissionUiState(
+    val isSubmitting: Boolean,
+    val submissionStatus: String?,
+    val aiScore: Float? = null,
+    val aiFeedback: String? = null,
+    val teacherFinalScore: Float? = null,
+    val teacherFeedback: String? = null,
+    val teacherScores: TeacherScoreBreakdown? = null,
+    val expEarned: Int? = null,
+    val message: String? = null,
+    val errorMessage: String? = null,
+    val mode: WritingSubmissionMode? = null
+)
+
+data class WritingResultUi(
+    val submissionId: String,
+    val exerciseId: String,
+    val mode: WritingSubmissionMode,
+    val status: String,
+    val aiScore: Float?,
+    val aiFeedback: String?,
+    val teacherScores: TeacherScoreBreakdown?,
+    val finalScore: Float?,
+    val teacherFeedback: String?
+)
+
+data class TeacherScoreBreakdown(
+    val spelling: Float? = null,
+    val grammar: Float? = null,
+    val structure: Float? = null,
+    val vocabulary: Float? = null
+) {
+    val hasAnyScore: Boolean
+        get() = listOf(spelling, grammar, structure, vocabulary).any { it != null }
+}
+
+enum class WritingSubmissionMode {
+    AI,
+    TEACHER;
+
+    val apiValue: String
+        get() = when (this) {
+            AI -> "AI"
+            TEACHER -> "Teacher"
+        }
+
+    companion object {
+        fun fromApiValue(value: String?): WritingSubmissionMode {
+            return when (value?.lowercase()) {
+                "teacher" -> TEACHER
+                else -> AI
+            }
+        }
+    }
+}
 
 // UI State - exported for use in Composables
 sealed class LessonUiState {

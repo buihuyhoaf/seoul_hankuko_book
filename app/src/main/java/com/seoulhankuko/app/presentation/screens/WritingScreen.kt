@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -33,6 +34,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -58,6 +60,9 @@ import com.seoulhankuko.app.presentation.utils.AppColors
 import com.seoulhankuko.app.presentation.utils.LessonFlowColors
 import com.seoulhankuko.app.presentation.viewmodel.LessonUiState
 import com.seoulhankuko.app.presentation.viewmodel.LessonViewModel
+import com.seoulhankuko.app.presentation.viewmodel.WritingSubmissionMode
+import com.seoulhankuko.app.presentation.viewmodel.WritingSubmissionUiState
+import com.seoulhankuko.app.presentation.viewmodel.TeacherScoreBreakdown
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,8 +72,9 @@ fun WritingScreen(
     viewModel: LessonViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-
+    
     LaunchedEffect(lessonId) {
+        viewModel.resetWritingSubmissionState()
         val currentLessonId = (viewModel.uiState.value as? LessonUiState.Success)
             ?.lessonWithChallenges
             ?.lesson
@@ -94,6 +100,8 @@ fun WritingScreen(
         ?: writingExercise?.content?.takeIf { it.isNotBlank() }
         ?: "Viết bài luyện tập"
 
+    val submissionState by viewModel.writingSubmissionState.collectAsStateWithLifecycle()
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = LessonFlowColors.BackgroundColor,
@@ -104,34 +112,33 @@ fun WritingScreen(
             )
         }
     ) { innerPadding ->
-        when (val state = uiState) {
-            is LessonUiState.Loading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
+    when (val state = uiState) {
+        is LessonUiState.Loading -> {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
                         .padding(innerPadding)
-                        .background(LessonFlowColors.BackgroundColor),
-                    contentAlignment = Alignment.Center
-                ) {
-                    SouthKoreaLoadingIcon(size = 56.dp)
-                }
+                    .background(LessonFlowColors.BackgroundColor),
+                contentAlignment = Alignment.Center
+            ) {
+                SouthKoreaLoadingIcon(size = 56.dp)
             }
-
-            is LessonUiState.Success -> {
+        }
+        
+        is LessonUiState.Success -> {
                 when {
                     writingExercise != null -> {
-                        WritingContent(
+                WritingContent(
                             exercise = writingExercise,
                             screenTitle = screenTitle,
+                            submissionState = submissionState,
                             onSubmit = { userAnswer, submissionType ->
-                                viewModel.submitExercise(
+                                viewModel.submitWritingExercise(
                                     exerciseId = writingExercise.id,
                                     lessonId = lessonId,
-                                    response = userAnswer
+                                    content = userAnswer,
+                                    mode = submissionType
                                 )
-                                // Future handling can utilize submissionType if different flows are required
-                                viewModel.updateLessonProgress(lessonId)
-                                onNavigateBack()
                             },
                             modifier = Modifier.padding(innerPadding)
                         )
@@ -173,23 +180,23 @@ fun WritingScreen(
                             }
                         }
                     }
-                }
             }
-
-            is LessonUiState.Error -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
+        }
+        
+        is LessonUiState.Error -> {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
                         .padding(innerPadding)
-                        .background(LessonFlowColors.BackgroundColor),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = state.message,
-                        style = MaterialTheme.typography.bodyLarge,
-                        textAlign = TextAlign.Center
-                    )
-                }
+                    .background(LessonFlowColors.BackgroundColor),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = state.message,
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center
+                )
+            }
             }
         }
     }
@@ -258,16 +265,12 @@ private fun ActionButton(
     }
 }
 
-enum class WritingSubmissionType {
-    AI,
-    Teacher
-}
-
 @Composable
 fun WritingContent(
     exercise: ExerciseResponse,
     screenTitle: String,
-    onSubmit: (String, WritingSubmissionType) -> Unit,
+    submissionState: WritingSubmissionUiState?,
+    onSubmit: (String, WritingSubmissionMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var userInput by remember { mutableStateOf("") }
@@ -282,7 +285,8 @@ fun WritingContent(
         ?.takeIf { it.isNotBlank() }
         ?: exercise.content
         ?: exercise.title.orEmpty()
-
+    val isSubmitting = submissionState?.isSubmitting == true
+    
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -301,7 +305,7 @@ fun WritingContent(
             ),
             color = LessonFlowColors.TextPrimary
         )
-
+        
         Card(
             modifier = Modifier.fillMaxWidth().weight(1f),
             shape = RoundedCornerShape(22.dp),
@@ -349,6 +353,68 @@ fun WritingContent(
                 )
             }
         }
+        
+        submissionState?.let { state ->
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (state.isSubmitting) {
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp),
+                        color = LessonFlowColors.PrimaryColor,
+                        trackColor = LessonFlowColors.SecondaryColor.copy(alpha = 0.35f)
+                    )
+                    Text(
+                        text = "Đang gửi bài, vui lòng chờ...",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = LessonFlowColors.TextSecondary
+                    )
+                }
+
+                state.errorMessage?.let {
+                    WritingInfoBanner(
+                        text = it,
+                        isError = true
+                    )
+                }
+
+                state.message?.takeIf { it.isNotBlank() }?.let {
+                    WritingInfoBanner(text = it)
+                }
+
+                if (state.submissionStatus == "ai_graded" || state.aiScore != null || !state.aiFeedback.isNullOrBlank()) {
+                    AiEvaluationCard(
+                        score = state.aiScore,
+                        feedback = state.aiFeedback
+                    )
+                }
+
+                if (
+                    state.teacherFinalScore != null ||
+                    (state.teacherScores?.hasAnyScore == true) ||
+                    !state.teacherFeedback.isNullOrBlank()
+                ) {
+                    TeacherEvaluationCard(
+                        status = state.submissionStatus,
+                        finalScore = state.teacherFinalScore,
+                        teacherFeedback = state.teacherFeedback,
+                        scores = state.teacherScores
+                    )
+                } else if (
+                    state.mode == WritingSubmissionMode.TEACHER &&
+                    state.errorMessage == null &&
+                    (state.submissionStatus == "submitted" || state.message != null)
+                ) {
+                    WritingInfoBanner(
+                        text = "Bài viết đang chờ giáo viên chấm.",
+                        isError = false
+                    )
+                }
+            }
+        }
 
         val aiInteractionSource = remember { MutableInteractionSource() }
         val teacherInteractionSource = remember { MutableInteractionSource() }
@@ -360,19 +426,19 @@ fun WritingContent(
             ActionButton(
                 modifier = Modifier.weight(1f),
                 text = "Chấm AI",
-                enabled = userInput.isNotBlank(),
+                enabled = userInput.isNotBlank() && !isSubmitting,
                 interactionSource = aiInteractionSource
             ) {
-                onSubmit(userInput.trim(), WritingSubmissionType.AI)
+                onSubmit(userInput.trim(), WritingSubmissionMode.AI)
             }
 
             ActionButton(
                 modifier = Modifier.weight(1f),
                 text = "Chấm giáo viên",
-                enabled = userInput.isNotBlank(),
+                enabled = userInput.isNotBlank() && !isSubmitting,
                 interactionSource = teacherInteractionSource
             ) {
-                onSubmit(userInput.trim(), WritingSubmissionType.Teacher)
+                onSubmit(userInput.trim(), WritingSubmissionMode.TEACHER)
             }
         }
     }
@@ -423,5 +489,160 @@ private fun WritingTopBar(
                 titleContentColor = Color(0xFF1E293B)
             )
         )
+    }
+}
+
+@Composable
+private fun WritingInfoBanner(
+    text: String,
+    isError: Boolean = false
+) {
+    val background = if (isError) Color(0xFFFFE5E5) else Color(0xFFE6F4FF)
+    val textColor = if (isError) Color(0xFFD32F2F) else LessonFlowColors.TextPrimary
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = background),
+        shape = RoundedCornerShape(14.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = textColor,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+        )
+    }
+}
+
+@Composable
+private fun AiEvaluationCard(
+    score: Float?,
+    feedback: String?
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(18.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Kết quả AI",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = LessonFlowColors.TextPrimary
+            )
+
+            score?.let {
+                Text(
+                    text = "Điểm chính tả & ngữ pháp: ${String.format("%.2f", it)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = LessonFlowColors.TextPrimary
+                )
+            }
+
+            feedback?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = LessonFlowColors.TextSecondary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TeacherEvaluationCard(
+    status: String?,
+    finalScore: Float?,
+    teacherFeedback: String?,
+    scores: TeacherScoreBreakdown?
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(18.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Đánh giá giáo viên",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = LessonFlowColors.TextPrimary
+            )
+
+            status?.let {
+                val label = when (it.lowercase()) {
+                    "teacher_graded" -> "Trạng thái: đã chấm"
+                    else -> "Trạng thái: $it"
+                }
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = LessonFlowColors.TextSecondary
+                )
+            }
+
+            scores?.let { breakdown ->
+                TeacherScoreRow(label = "Chính tả", score = breakdown.spelling)
+                TeacherScoreRow(label = "Ngữ pháp", score = breakdown.grammar)
+                TeacherScoreRow(label = "Cấu trúc", score = breakdown.structure)
+                TeacherScoreRow(label = "Từ vựng", score = breakdown.vocabulary)
+            }
+
+            finalScore?.let {
+                Text(
+                    text = "Điểm tổng kết: ${String.format("%.2f", it)}",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = LessonFlowColors.TextPrimary
+            )
+        }
+
+            teacherFeedback?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = LessonFlowColors.TextSecondary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TeacherScoreRow(
+    label: String,
+    score: Float?
+) {
+    score?.let {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = LessonFlowColors.TextPrimary
+            )
+            Text(
+                text = String.format("%.2f", it),
+                style = MaterialTheme.typography.bodyMedium,
+                color = LessonFlowColors.PrimaryColor,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
     }
 }

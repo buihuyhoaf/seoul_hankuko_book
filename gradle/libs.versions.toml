@@ -23,6 +23,7 @@ gson = "2.10.1"
 timber = "5.0.1"
 animationGraphics = "1.9.4"
 lottie = "6.4.0"
+firebaseBom = "33.5.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -81,7 +82,7 @@ kotlin-test-junit = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit"
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
 androidx-compose-animation-graphics = { group = "androidx.compose.animation", name = "animation-graphics", version.ref = "animationGraphics" }
 lottie-compose = { group = "com.airbnb.android", name = "lottie-compose", version.ref = "lottie" }
-firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version = "33.5.1" }
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging-ktx" }
 
 [plugins]

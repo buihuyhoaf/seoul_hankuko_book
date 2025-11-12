@@ -14,6 +14,8 @@ import com.seoulhankuko.app.MainActivity
 import com.seoulhankuko.app.R
 import com.seoulhankuko.app.data.local.UserPreferencesManager
 import com.seoulhankuko.app.data.repository.PushTokenRepository
+import com.seoulhankuko.app.notifications.WritingNotificationCenter
+import com.seoulhankuko.app.notifications.WritingNotificationEvent
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -55,6 +57,12 @@ class SeoulHankukoFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
 
+        val payloadType = remoteMessage.data["type"]
+        if (payloadType == WritingNotificationCenter.TYPE_WRITING_GRADED) {
+            handleWritingGraded(remoteMessage)
+            return
+        }
+
         val title = remoteMessage.notification?.title
             ?: remoteMessage.data["title"]
             ?: getString(R.string.app_name)
@@ -69,10 +77,46 @@ class SeoulHankukoFirebaseMessagingService : FirebaseMessagingService() {
             return
         }
 
-        showNotification(title, body, remoteMessage)
+        showNotification(title, body, remoteMessage, null)
     }
 
-    private fun showNotification(title: String, body: String, remoteMessage: RemoteMessage) {
+    private fun handleWritingGraded(remoteMessage: RemoteMessage) {
+        val data = remoteMessage.data
+        val lessonId = data["lesson_id"]
+        val submissionId = data["submission_id"]
+        val title = data["title"] ?: getString(R.string.writing_notification_title)
+        val body = data["body"] ?: getString(R.string.writing_notification_body)
+
+        if (lessonId.isNullOrBlank()) {
+            Timber.w("writing_graded notification missing lesson_id: %s", data)
+            return
+        }
+
+        WritingNotificationCenter.publish(
+            WritingNotificationEvent.WritingGraded(
+                lessonId = lessonId,
+                submissionId = submissionId,
+                title = title,
+                body = body
+            )
+        )
+
+        val enrichedData = mutableMapOf<String, String>()
+        enrichedData.putAll(data)
+        enrichedData[WritingNotificationCenter.EXTRA_TARGET_LESSON_ID] = lessonId
+        submissionId?.let {
+            enrichedData[WritingNotificationCenter.EXTRA_SUBMISSION_ID] = it
+        }
+
+        showNotification(title, body, remoteMessage, enrichedData)
+    }
+
+    private fun showNotification(
+        title: String,
+        body: String,
+        remoteMessage: RemoteMessage,
+        extraData: Map<String, String>?
+    ) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
@@ -80,10 +124,14 @@ class SeoulHankukoFirebaseMessagingService : FirebaseMessagingService() {
             return
         }
 
+        val notificationExtras = mutableMapOf<String, String>()
+        notificationExtras.putAll(remoteMessage.data)
+        extraData?.let { notificationExtras.putAll(it) }
+
         val launchIntent = Intent(this, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             putExtras(Intent().apply {
-                remoteMessage.data.forEach { (key, value) ->
+                notificationExtras.forEach { (key, value) ->
                     putExtra(key, value)
                 }
             })

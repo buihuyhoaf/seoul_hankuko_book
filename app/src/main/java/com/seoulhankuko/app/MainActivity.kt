@@ -36,6 +36,10 @@ import com.seoulhankuko.app.domain.model.AuthState
 import dagger.hilt.android.AndroidEntryPoint
 import com.seoulhankuko.app.core.Logger
 import timber.log.Timber
+import com.seoulhankuko.app.notifications.WritingNotificationCenter
+import com.seoulhankuko.app.notifications.WritingNotificationEvent
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -48,6 +52,9 @@ class MainActivity : ComponentActivity() {
         
         Logger.MainActivity.setContentView()
         
+        // Check if launched from notification
+        val lessonIdFromNotification = intent.getStringExtra(WritingNotificationCenter.EXTRA_TARGET_LESSON_ID)
+
         setContent {
             SeoulhankukobookTheme {
                 Surface(
@@ -56,7 +63,7 @@ class MainActivity : ComponentActivity() {
                         .windowInsetsPadding(WindowInsets.safeDrawing),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    AppNavigationWithAutoLogin()
+                    AppNavigationWithAutoLogin(initialLessonId = lessonIdFromNotification)
                     NotificationPermissionHandler()
                 }
             }
@@ -70,6 +77,7 @@ class MainActivity : ComponentActivity() {
  */
 @Composable
 fun AppNavigationWithAutoLogin(
+    initialLessonId: String? = null,
     viewModel: GoogleSignInViewModel = hiltViewModel(),
     entryTestViewModel: EntryTestFlowViewModel = hiltViewModel(),
     loggedAccountsViewModel: LoggedAccountsViewModel = hiltViewModel(),
@@ -83,7 +91,8 @@ fun AppNavigationWithAutoLogin(
     // State để track initial destination
     var initialDestination by remember { mutableStateOf<String?>(null) }
     var resumeHandled by remember { mutableStateOf(false) }
-    
+    var notificationLessonId by remember { mutableStateOf<String?>(initialLessonId) }
+
     // Effect để xác định initial destination
     LaunchedEffect(authState, loggedAccounts) {
         if (initialDestination == null) {
@@ -140,14 +149,29 @@ fun AppNavigationWithAutoLogin(
         }
     }
     
+    // Listen to writing notification events
+    LaunchedEffect(Unit) {
+        WritingNotificationCenter.events
+            .onEach { event ->
+                when (event) {
+                    is WritingNotificationEvent.WritingGraded -> {
+                        notificationLessonId = event.lessonId
+                    }
+                }
+            }
+            .launchIn(this)
+    }
+
     // Render AppNavigation khi đã xác định destination
     initialDestination?.let { destination ->
         val resumeLessonForNav = if (!resumeHandled && destination == "courses") currentLesson else null
+        val navLessonId = notificationLessonId
 
         AppNavigation(
             initialDestination = destination,
             resumeLesson = resumeLessonForNav,
-            onResumeLessonConsumed = { resumeHandled = true }
+            onResumeLessonConsumed = { resumeHandled = true },
+            notificationLessonId = navLessonId
         )
     }
 

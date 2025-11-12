@@ -7,6 +7,7 @@ import com.seoulhankuko.app.data.api.model.PronunciationEvaluationResponse
 import com.seoulhankuko.app.data.api.model.PracticeSelectedOptionRequest
 import com.seoulhankuko.app.data.api.model.PracticeTextAnswerRequest
 import com.seoulhankuko.app.data.api.model.QuestionResponse
+import com.seoulhankuko.app.data.api.model.WritingResultsResponse
 import com.seoulhankuko.app.data.api.service.ApiService
 import com.seoulhankuko.app.domain.model.ChallengeLite
 import com.seoulhankuko.app.domain.model.ChallengeOptionLite
@@ -182,14 +183,16 @@ class LessonRepository @Inject constructor(
         token: String,
         response: String? = null,
         audioUrl: String? = null,
-        selectedAnswers: Map<String, String>? = null
+        selectedAnswers: Map<String, String>? = null,
+        mode: String? = null
     ): Result<Map<String, Any>> {
         return try {
             val authHeader = "Bearer $token"
             val submissionRequest = ExerciseSubmissionRequest(
                 response = response,
                 audioUrl = audioUrl,
-                selectedAnswers = selectedAnswers
+                selectedAnswers = selectedAnswers,
+                mode = mode
             )
             val apiResponse = apiService.submitExercise(exerciseId, authHeader, submissionRequest)
             
@@ -202,6 +205,27 @@ class LessonRepository @Inject constructor(
             }
         } catch (e: Exception) {
             Timber.e(e, "Exception submitting exercise")
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getWritingResults(
+        lessonId: String,
+        token: String
+    ): Result<WritingResultsResponse> {
+        return try {
+            val authHeader = "Bearer $token"
+            val response = apiService.getWritingResults(lessonId, authHeader)
+            if (response.isSuccessful) {
+                response.body()?.let { Result.success(it) }
+                    ?: Result.failure(IllegalStateException("Writing results response body is null"))
+            } else {
+                val error = response.errorBody()?.string()
+                Timber.e("Fetch writing results failed: code=${response.code()}, error=$error")
+                Result.failure(Exception("Fetch writing results failed: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Exception fetching writing results for lesson $lessonId")
             Result.failure(e)
         }
     }

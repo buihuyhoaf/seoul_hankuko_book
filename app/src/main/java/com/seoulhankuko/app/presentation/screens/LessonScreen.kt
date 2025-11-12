@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -36,6 +37,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.Divider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -65,6 +67,8 @@ import com.seoulhankuko.app.presentation.utils.LessonColors
 import com.seoulhankuko.app.presentation.viewmodel.LessonUiState
 import com.seoulhankuko.app.presentation.viewmodel.LessonViewModel
 import com.seoulhankuko.app.presentation.viewmodel.MainUiViewModel
+import com.seoulhankuko.app.presentation.viewmodel.WritingResultUi
+import com.seoulhankuko.app.presentation.viewmodel.WritingSubmissionMode
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -90,9 +94,13 @@ fun LessonScreen(
 ) {
     LaunchedEffect(lessonId) {
         viewModel.loadLesson(lessonId)
+        viewModel.fetchWritingResults(lessonId)
     }
     
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val writingResults by viewModel.writingResults.collectAsStateWithLifecycle()
+    val writingResultsLoading by viewModel.writingResultsLoading.collectAsStateWithLifecycle()
+    val writingResultsError by viewModel.writingResultsError.collectAsStateWithLifecycle()
     val lessonTitle = (uiState as? LessonUiState.Success)?.lessonWithChallenges?.lesson?.title
     val topBarTitle = lessonTitle?.takeIf { it.isNotBlank() }
         ?.let { "Bài học: $it" }
@@ -169,6 +177,9 @@ fun LessonScreen(
                             .padding(paddingValues)
                             .fillMaxSize(),
                         lessonInfo = lessonInfo,
+                        writingResults = writingResults,
+                        writingResultsLoading = writingResultsLoading,
+                        writingResultsError = writingResultsError,
                         onNavigateToLessonFlow = onNavigateToLessonFlow,
                         onNavigateToListening = onNavigateToListening,
                         onNavigateToSpeaking = onNavigateToSpeaking,
@@ -194,6 +205,9 @@ fun LessonScreen(
 private fun LessonContent(
     modifier: Modifier = Modifier,
     lessonInfo: LessonWithChallenges,
+    writingResults: List<WritingResultUi>,
+    writingResultsLoading: Boolean,
+    writingResultsError: String?,
     onNavigateToLessonFlow: () -> Unit,
     onNavigateToListening: (exerciseId: String) -> Unit,
     onNavigateToSpeaking: (exerciseId: String) -> Unit,
@@ -213,6 +227,16 @@ private fun LessonContent(
                 lessonMeaning = lessonInfo.lesson.description,
                 progressPercent = lessonInfo.progressPercent
             )
+        }
+
+        if (writingResultsLoading || writingResults.isNotEmpty() || !writingResultsError.isNullOrBlank()) {
+            item {
+                WritingResultsCard(
+                    results = writingResults,
+                    isLoading = writingResultsLoading,
+                    errorMessage = writingResultsError
+                )
+            }
         }
         
         if (timelineItems.isEmpty()) {
@@ -312,6 +336,182 @@ private fun LessonSummaryCard(
     }
 }
 
+@Composable
+private fun WritingResultsCard(
+    results: List<WritingResultUi>,
+    isLoading: Boolean,
+    errorMessage: String?
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Kết quả luyện viết",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = LessonColors.TextPrimary
+            )
+
+            when {
+                isLoading -> {
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp),
+                        color = LessonColors.WritingColor,
+                        trackColor = LessonColors.ConnectorLineColor.copy(alpha = 0.3f)
+                    )
+                    Text(
+                        text = "Đang tải kết quả viết...",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = LessonColors.TextSecondary
+                    )
+                }
+
+                !errorMessage.isNullOrBlank() -> {
+                    Text(
+                        text = errorMessage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color(0xFFD32F2F)
+                    )
+                }
+
+                results.isEmpty() -> {
+                    Text(
+                        text = "Chưa có bài viết nào được chấm.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = LessonColors.TextSecondary
+                    )
+                }
+
+                else -> {
+                    results.forEachIndexed { index, result ->
+                        WritingResultItem(result)
+                        if (index < results.lastIndex) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Divider(color = LessonColors.ConnectorLineColor.copy(alpha = 0.25f))
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WritingResultItem(result: WritingResultUi) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        val modeLabel = when (result.mode) {
+            WritingSubmissionMode.AI -> "Chấm AI"
+            WritingSubmissionMode.TEACHER -> "Chấm giáo viên"
+        }
+        val statusLabel = when (result.status.lowercase()) {
+            "ai_graded" -> "Đã có kết quả"
+            "teacher_graded" -> "Giáo viên đã chấm"
+            "submitted" -> "Đang chờ chấm"
+            else -> result.status
+        }
+
+        Text(
+            text = "$modeLabel • $statusLabel",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = LessonColors.TextPrimary
+        )
+
+        when (result.mode) {
+            WritingSubmissionMode.AI -> {
+                if (result.aiScore != null) {
+                    Text(
+                        text = "Điểm AI: ${String.format("%.2f", result.aiScore)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = LessonColors.TextPrimary
+                    )
+                }
+                result.aiFeedback?.takeIf { it.isNotBlank() }?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = LessonColors.TextSecondary
+                    )
+                }
+            }
+
+            WritingSubmissionMode.TEACHER -> {
+                if (result.status.equals("teacher_graded", ignoreCase = true)) {
+                    result.finalScore?.let {
+                        Text(
+                            text = "Điểm tổng: ${String.format("%.2f", it)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = LessonColors.WritingColor,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    result.teacherScores?.let { scores ->
+                        TeacherScoreLine("Chính tả", scores.spelling)
+                        TeacherScoreLine("Ngữ pháp", scores.grammar)
+                        TeacherScoreLine("Cấu trúc", scores.structure)
+                        TeacherScoreLine("Từ vựng", scores.vocabulary)
+                    }
+                    result.teacherFeedback?.takeIf { it.isNotBlank() }?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = LessonColors.TextSecondary
+                        )
+                    }
+                } else {
+                    Text(
+                        text = "Bài viết đang chờ giáo viên chấm.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = LessonColors.TextSecondary
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TeacherScoreLine(
+    label: String,
+    score: Float?
+) {
+    score?.let {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodySmall,
+                color = LessonColors.TextSecondary
+            )
+            Text(
+                text = String.format("%.2f", it),
+                style = MaterialTheme.typography.bodySmall,
+                color = LessonColors.TextPrimary,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
 @Composable
 private fun LessonTimelineCard(
     item: TimelineItem,
