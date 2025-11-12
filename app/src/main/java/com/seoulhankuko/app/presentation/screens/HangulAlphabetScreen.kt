@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -51,7 +52,7 @@ fun HangulAlphabetScreen(
     onNavigateToMission: () -> Unit = {},
     onNavigateToNotification: () -> Unit = {},
     onNavigateToProfile: () -> Unit = {},
-    onSelectChar: (String) -> Unit = {},
+    onNavigateToPractice: () -> Unit = {},
     viewModel: HangulSelectionViewModel = hiltViewModel(),
     mainUiViewModel: MainUiViewModel = hiltViewModel()
 ) {
@@ -80,14 +81,24 @@ fun HangulAlphabetScreen(
         containerColor = UnitColors.BackgroundLight,
         showBottomBar = true
     ) { paddingValues ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            Button(
+                onClick = onNavigateToPractice,
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                Text(text = "Luyện viết")
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             HangulSelectionContent(
                 groups = hangulGroups,
-                onSelectChar = onSelectChar,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -101,7 +112,6 @@ fun HangulAlphabetScreen(
 @Composable
 private fun HangulSelectionContent(
     groups: List<HangulGroup>,
-    onSelectChar: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -114,8 +124,7 @@ private fun HangulSelectionContent(
             key = { it.title }
         ) { group ->
             HangulGroupSection(
-                group = group,
-                onSelectChar = onSelectChar
+                group = group
             )
         }
     }
@@ -127,8 +136,7 @@ private fun HangulSelectionContent(
  */
 @Composable
 private fun HangulGroupSection(
-    group: HangulGroup,
-    onSelectChar: (String) -> Unit
+    group: HangulGroup
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -145,8 +153,7 @@ private fun HangulGroupSection(
 
         // Character grid
         HangulCharacterGrid(
-            characters = group.items,
-            onSelectChar = onSelectChar
+            characters = group.items
         )
     }
 }
@@ -157,8 +164,7 @@ private fun HangulGroupSection(
  */
 @Composable
 private fun HangulCharacterGrid(
-    characters: List<HangulChar>,
-    onSelectChar: (String) -> Unit
+    characters: List<HangulChar>
 ) {
     val columns = 6 // 6 characters per row
 
@@ -170,7 +176,6 @@ private fun HangulCharacterGrid(
             row.forEach { hangulChar ->
                 HangulCharacterCard(
                     hangulChar = hangulChar,
-                    onSelectChar = onSelectChar,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -189,7 +194,6 @@ private fun HangulCharacterGrid(
 @Composable
 private fun HangulCharacterCard(
     hangulChar: HangulChar,
-    onSelectChar: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -200,8 +204,7 @@ private fun HangulCharacterCard(
         colors = CardDefaults.cardColors(
             containerColor = Color.White
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        onClick = { onSelectChar(hangulChar.symbol) }
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier

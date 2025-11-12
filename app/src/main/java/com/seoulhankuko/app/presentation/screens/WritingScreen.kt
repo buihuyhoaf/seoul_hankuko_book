@@ -72,6 +72,8 @@ fun WritingScreen(
     viewModel: LessonViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val submissionState by viewModel.writingSubmissionState.collectAsStateWithLifecycle()
+    val writingResults by viewModel.writingResults.collectAsStateWithLifecycle()
     
     LaunchedEffect(lessonId) {
         viewModel.resetWritingSubmissionState()
@@ -83,6 +85,7 @@ fun WritingScreen(
         if (currentLessonId != lessonId || viewModel.uiState.value !is LessonUiState.Success) {
             viewModel.loadLesson(lessonId)
         }
+        viewModel.fetchWritingResults(lessonId)
     }
 
     val writingExercise = when (val state = uiState) {
@@ -100,7 +103,25 @@ fun WritingScreen(
         ?: writingExercise?.content?.takeIf { it.isNotBlank() }
         ?: "Viết bài luyện tập"
 
-    val submissionState by viewModel.writingSubmissionState.collectAsStateWithLifecycle()
+    val teacherResultsForExercise = writingExercise?.id?.let { exerciseId ->
+        writingResults.filter { it.exerciseId == exerciseId && it.mode == WritingSubmissionMode.TEACHER }
+    } ?: emptyList()
+    val gradedResult = teacherResultsForExercise.firstOrNull { it.status.equals("teacher_graded", ignoreCase = true) }
+    val pendingResult = teacherResultsForExercise.firstOrNull { it.status.equals("submitted", ignoreCase = true) }
+    val submissionSnapshot = submissionState
+    val isTeacherGraded = gradedResult != null ||
+        submissionSnapshot?.submissionStatus?.equals("teacher_graded", ignoreCase = true) == true ||
+        submissionSnapshot?.teacherFinalScore != null
+    val isAwaitingTeacherReview = !isTeacherGraded && (
+        (submissionSnapshot?.mode == WritingSubmissionMode.TEACHER &&
+            submissionSnapshot.submissionStatus?.equals("submitted", ignoreCase = true) == true) ||
+            pendingResult != null
+        )
+    val lockedText = when {
+        isTeacherGraded -> gradedResult?.text ?: submissionSnapshot?.submittedText ?: pendingResult?.text
+        isAwaitingTeacherReview -> submissionSnapshot?.submittedText ?: pendingResult?.text
+        else -> null
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -128,16 +149,19 @@ fun WritingScreen(
         is LessonUiState.Success -> {
                 when {
                     writingExercise != null -> {
-                WritingContent(
+                        WritingContent(
                             exercise = writingExercise,
                             screenTitle = screenTitle,
                             submissionState = submissionState,
-                            onSubmit = { userAnswer, submissionType ->
+                            isTeacherGraded = isTeacherGraded,
+                            isAwaitingTeacherReview = isAwaitingTeacherReview,
+                            lockedText = lockedText,
+                            onSubmit = { userAnswer ->
                                 viewModel.submitWritingExercise(
                                     exerciseId = writingExercise.id,
                                     lessonId = lessonId,
                                     content = userAnswer,
-                                    mode = submissionType
+                                    mode = WritingSubmissionMode.TEACHER
                                 )
                             },
                             modifier = Modifier.padding(innerPadding)
@@ -270,10 +294,23 @@ fun WritingContent(
     exercise: ExerciseResponse,
     screenTitle: String,
     submissionState: WritingSubmissionUiState?,
-    onSubmit: (String, WritingSubmissionMode) -> Unit,
+    isTeacherGraded: Boolean,
+    isAwaitingTeacherReview: Boolean,
+    lockedText: String?,
+    onSubmit: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var userInput by remember { mutableStateOf("") }
+    var userInput by remember { mutableStateOf(submissionState?.submittedText.orEmpty()) }
+    LaunchedEffect(submissionState?.submittedText) {
+        if (!isTeacherGraded && !isAwaitingTeacherReview) {
+            submissionState?.submittedText?.let { userInput = it }
+        }
+    }
+    LaunchedEffect(lockedText, isTeacherGraded, isAwaitingTeacherReview) {
+        if (isTeacherGraded || isAwaitingTeacherReview) {
+            userInput = lockedText.orEmpty()
+        }
+    }
     val scrollState = rememberScrollState()
     val focusColor = Color(0xFF0EA5E9)
     var isTextFieldFocused by remember { mutableStateOf(false) }
@@ -348,8 +385,13 @@ fun WritingContent(
                         unfocusedBorderColor = animatedBorderColor.copy(alpha = 0.55f),
                         focusedContainerColor = AppColors.White,
                         unfocusedContainerColor = AppColors.White,
-                        cursorColor = focusColor
-                    )
+                        cursorColor = focusColor,
+                        disabledBorderColor = animatedBorderColor.copy(alpha = 0.4f),
+                        disabledContainerColor = AppColors.White,
+                        disabledTextColor = LessonFlowColors.TextPrimary.copy(alpha = 0.8f),
+                        disabledPlaceholderColor = LessonFlowColors.TextSecondary.copy(alpha = 0.5f)
+                    ),
+                    enabled = !isTeacherGraded && !isAwaitingTeacherReview
                 )
             }
         }
@@ -385,13 +427,6 @@ fun WritingContent(
                     WritingInfoBanner(text = it)
                 }
 
-                if (state.submissionStatus == "ai_graded" || state.aiScore != null || !state.aiFeedback.isNullOrBlank()) {
-                    AiEvaluationCard(
-                        score = state.aiScore,
-                        feedback = state.aiFeedback
-                    )
-                }
-
                 if (
                     state.teacherFinalScore != null ||
                     (state.teacherScores?.hasAnyScore == true) ||
@@ -404,7 +439,6 @@ fun WritingContent(
                         scores = state.teacherScores
                     )
                 } else if (
-                    state.mode == WritingSubmissionMode.TEACHER &&
                     state.errorMessage == null &&
                     (state.submissionStatus == "submitted" || state.message != null)
                 ) {
@@ -416,30 +450,32 @@ fun WritingContent(
             }
         }
 
-        val aiInteractionSource = remember { MutableInteractionSource() }
+        if (isTeacherGraded && (submissionState?.message.isNullOrBlank())) {
+            WritingInfoBanner(
+                text = "Giáo viên đã chấm bài viết này.",
+                isError = false
+            )
+        } else if (isAwaitingTeacherReview && (submissionState?.message.isNullOrBlank())) {
+            WritingInfoBanner(
+                text = "Bài viết đang chờ giáo viên chấm.",
+                isError = false
+            )
+        }
+
         val teacherInteractionSource = remember { MutableInteractionSource() }
+        val canSubmit = userInput.isNotBlank() && !isSubmitting && !isTeacherGraded && !isAwaitingTeacherReview
 
-        Row(
+        ActionButton(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            text = when {
+                isTeacherGraded -> "Đã chấm xong"
+                isAwaitingTeacherReview -> "Đang chờ giáo viên"
+                else -> "Gửi giáo viên"
+            },
+            enabled = canSubmit,
+            interactionSource = teacherInteractionSource
         ) {
-            ActionButton(
-                modifier = Modifier.weight(1f),
-                text = "Chấm AI",
-                enabled = userInput.isNotBlank() && !isSubmitting,
-                interactionSource = aiInteractionSource
-            ) {
-                onSubmit(userInput.trim(), WritingSubmissionMode.AI)
-            }
-
-            ActionButton(
-                modifier = Modifier.weight(1f),
-                text = "Chấm giáo viên",
-                enabled = userInput.isNotBlank() && !isSubmitting,
-                interactionSource = teacherInteractionSource
-            ) {
-                onSubmit(userInput.trim(), WritingSubmissionMode.TEACHER)
-            }
+            onSubmit(userInput.trim())
         }
     }
 }
@@ -515,49 +551,6 @@ private fun WritingInfoBanner(
 }
 
 @Composable
-private fun AiEvaluationCard(
-    score: Float?,
-    feedback: String?
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(18.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = "Kết quả AI",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = LessonFlowColors.TextPrimary
-            )
-
-            score?.let {
-                Text(
-                    text = "Điểm chính tả & ngữ pháp: ${String.format("%.2f", it)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = LessonFlowColors.TextPrimary
-                )
-            }
-
-            feedback?.takeIf { it.isNotBlank() }?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = LessonFlowColors.TextSecondary
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun TeacherEvaluationCard(
     status: String?,
     finalScore: Float?,
@@ -607,8 +600,8 @@ private fun TeacherEvaluationCard(
                     text = "Điểm tổng kết: ${String.format("%.2f", it)}",
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = LessonFlowColors.TextPrimary
-            )
-        }
+                )
+            }
 
             teacherFeedback?.takeIf { it.isNotBlank() }?.let {
                 Text(

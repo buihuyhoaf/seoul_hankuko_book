@@ -216,6 +216,13 @@ interface ApiService {
         @Body body: ExerciseSubmissionRequest
     ): Response<Map<String, Any>>
 
+    @POST("v1/writing/{exercise_id}/submit")
+    suspend fun submitWritingExercise(
+        @Path("exercise_id") exerciseId: String,
+        @Header("Authorization") token: String,
+        @Body body: ExerciseSubmissionRequest
+    ): Response<Map<String, Any>>
+
     @GET("v1/writing/results/{lesson_id}")
     suspend fun getWritingResults(
         @Path("lesson_id") lessonId: String,

@@ -190,6 +190,7 @@ class LessonRepository @Inject constructor(
             val authHeader = "Bearer $token"
             val submissionRequest = ExerciseSubmissionRequest(
                 response = response,
+                text = response,
                 audioUrl = audioUrl,
                 selectedAnswers = selectedAnswers,
                 mode = mode
@@ -205,6 +206,55 @@ class LessonRepository @Inject constructor(
             }
         } catch (e: Exception) {
             Timber.e(e, "Exception submitting exercise")
+            Result.failure(e)
+        }
+    }
+
+    suspend fun submitWritingExercise(
+        exerciseId: String,
+        token: String,
+        response: String,
+        mode: String
+    ): Result<Map<String, Any>> {
+        val authHeader = "Bearer $token"
+        val submissionRequest = ExerciseSubmissionRequest(
+            response = response,
+            text = response,
+            mode = mode
+        )
+
+        suspend fun executeSubmit(): Result<Map<String, Any>> {
+            val apiResponse = apiService.submitWritingExercise(exerciseId, authHeader, submissionRequest)
+            return if (apiResponse.isSuccessful) {
+                Result.success(apiResponse.body() ?: emptyMap())
+            } else {
+                val error = apiResponse.errorBody()?.string()
+                Timber.e("Submit writing exercise failed (writing endpoint): code=${apiResponse.code()}, error=$error")
+                Result.failure(Exception("Submit writing exercise failed: ${apiResponse.code()}"))
+            }
+        }
+
+        return try {
+            val result = executeSubmit()
+            if (result.isSuccess) {
+                result
+            } else {
+                val exception = result.exceptionOrNull()
+                if (exception is Exception && exception.message?.contains("404") == true) {
+                    Timber.w("Writing submit endpoint returned 404, falling back to generic submit for exerciseId=$exerciseId")
+                    submitExercise(
+                        exerciseId = exerciseId,
+                        token = token,
+                        response = response,
+                        mode = mode
+                    )
+                } else {
+                    exception?.let { Timber.e(it, "Writing submit failed without fallback for exerciseId=$exerciseId") }
+                    result
+                }
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Exception submitting writing exercise")
             Result.failure(e)
         }
     }

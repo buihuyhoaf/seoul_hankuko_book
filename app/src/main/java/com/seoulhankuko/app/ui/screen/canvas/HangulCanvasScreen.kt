@@ -1,13 +1,11 @@
 package com.seoulhankuko.app.ui.screen.canvas
 
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -20,7 +18,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -31,86 +28,37 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seoulhankuko.app.R
-import com.seoulhankuko.app.domain.model.MatchLabel
 import com.seoulhankuko.app.domain.model.Stroke
 import com.seoulhankuko.app.domain.model.StrokePoint
 import com.seoulhankuko.app.presentation.utils.UnitColors
 import com.seoulhankuko.app.presentation.viewmodel.canvas.CanvasUiState
 import com.seoulhankuko.app.presentation.viewmodel.canvas.HangulCanvasViewModel
-import com.seoulhankuko.app.presentation.components.rememberSoundManager
 import kotlin.math.roundToInt
 
 /**
- * Hangul Canvas Screen for drawing and learning Hangul characters
- * 
+ * Hangul Canvas Screen for free-mode Hangul practice
+ *
  * Features:
  * - Touch drawing with stroke capture
- * - Stroke analysis and matching
- * - Success animations
+ * - Sends strokes to backend for IBM-model prediction
+ * - Displays top prediction and confidence feedback
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HangulCanvasScreen(
-    character: String,
-    viewModel: HangulCanvasViewModel = hiltViewModel(),
-    onBack: () -> Unit = {}
+    onBack: () -> Unit = {},
+    viewModel: HangulCanvasViewModel = hiltViewModel()
 ) {
-    // Initialize ViewModel with character
-    LaunchedEffect(character) {
-        viewModel.initialize(character)
-    }
-    
-    // Collect state
     val strokes by viewModel.strokes.collectAsStateWithLifecycle()
     val currentStroke by viewModel.currentStroke.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    
-    val soundManager = rememberSoundManager()
 
-    LaunchedEffect(uiState) {
-        extractConfidence(uiState)?.let { confidence ->
-            if (confidence > 0.5f) {
-                soundManager.playCorrect()
-            } else {
-                soundManager.playIncorrect()
-            }
-        }
-    }
-
-    // Animation for success check (ML or heuristic)
-    val isPerfect = when (val state = uiState) {
-        is CanvasUiState.MLResult -> {
-            state.confidence >= 0.85f && state.isCorrect
-        }
-        is CanvasUiState.StrokeAnalysisResult -> {
-            state.confidence >= 0.85f && 
-            (state.targetChar == null || state.predictedChar == state.targetChar)
-        }
-        is CanvasUiState.Result -> {
-            state.matchResult.label == MatchLabel.PERFECT
-        }
-        else -> false
-    }
-    val scale by animateFloatAsState(
-        targetValue = if (isPerfect) 1.2f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "successScale"
-    )
-    val alpha by animateFloatAsState(
-        targetValue = if (isPerfect) 1f else 0f,
-        animationSpec = tween(300),
-        label = "successAlpha"
-    )
-    
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        text = character,
+                        text = "Luyện viết Hangul",
                         style = MaterialTheme.typography.displayMedium,
                         fontWeight = FontWeight.Bold,
                         color = UnitColors.SoftIndigo
@@ -140,14 +88,12 @@ fun HangulCanvasScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Canvas Area
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
                     .padding(16.dp)
             ) {
-                // Drawing canvas with touch handling
                 CanvasDrawingArea(
                     strokes = strokes,
                     currentStroke = currentStroke,
@@ -161,34 +107,13 @@ fun HangulCanvasScreen(
                         viewModel.endStroke()
                     }
                 )
-                
-                // Success animation overlay
-                if (isPerfect) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .alpha(alpha),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = "Hoàn hảo!",
-                            modifier = Modifier
-                                .size(120.dp * scale)
-                                .align(Alignment.Center),
-                            tint = Color(0xFF4CAF50)
-                        )
-                    }
-                }
             }
-            
-            // Controls
+
             CanvasControls(
                 onClear = { viewModel.clear() },
                 onAnalyze = { viewModel.analyze() }
             )
-            
-            // Feedback area
+
             FeedbackArea(uiState = uiState)
         }
     }
@@ -242,12 +167,9 @@ private fun CanvasDrawingArea(
 @Composable
 private fun FeedbackArea(uiState: CanvasUiState) {
     when (uiState) {
-        is CanvasUiState.Idle -> {
-            // Empty state
-        }
-        is CanvasUiState.Drawing -> {
+        CanvasUiState.Idle -> {
             Text(
-                text = "Đang vẽ...",
+                text = "Vẽ một chữ Hangul để bắt đầu luyện tập.",
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
@@ -256,30 +178,18 @@ private fun FeedbackArea(uiState: CanvasUiState) {
                 color = UnitColors.TextSecondary
             )
         }
-        is CanvasUiState.Analyzing -> {
-            LinearProgressIndicator(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            )
+        CanvasUiState.Drawing -> {
             Text(
-                text = "Đang phân tích...",
+                text = "Đang ghi nhận nét vẽ...",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(16.dp),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodyMedium,
                 color = UnitColors.TextSecondary
             )
         }
-        is CanvasUiState.Result,
-        is CanvasUiState.MLResult,
-        is CanvasUiState.StrokeAnalysisResult -> {
-            val confidence = extractConfidence(uiState) ?: return
-            val confidencePercent = (confidence * 100).roundToInt().coerceIn(0, 100)
-            val message = encouragementMessage(confidencePercent)
-            val color = feedbackColor(confidencePercent)
-
+        CanvasUiState.Analyzing -> {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -287,50 +197,75 @@ private fun FeedbackArea(uiState: CanvasUiState) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 Text(
-                    text = "Độ tin cậy: $confidencePercent%",
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = color
-                )
-                Text(
-                    text = message,
+                    text = "Đang phân tích nét vẽ...",
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium,
                     color = UnitColors.TextSecondary
                 )
             }
         }
-    }
-}
+        is CanvasUiState.FreePracticeResult -> {
+            val confidencePercent = (uiState.confidence * 100).roundToInt().coerceIn(0, 100)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Âm tiết dự đoán: ${uiState.predictedChar}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = UnitColors.TextPrimary
+                )
+                Text(
+                    text = "Độ tự tin: $confidencePercent%",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = UnitColors.TextSecondary
+                )
+                Text(
+                    text = uiState.message,
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = UnitColors.TextSecondary
+                )
 
-private fun extractConfidence(uiState: CanvasUiState): Float? {
-    return when (uiState) {
-        is CanvasUiState.Result -> uiState.matchResult.score
-        is CanvasUiState.MLResult -> uiState.confidence
-        is CanvasUiState.StrokeAnalysisResult -> uiState.confidence
-        else -> null
-    }?.coerceIn(0f, 1f)
-}
-
-private fun encouragementMessage(confidencePercent: Int): String {
-    return when {
-        confidencePercent >= 85 -> "Tuyệt vời! Bạn làm rất xuất sắc!"
-        confidencePercent >= 65 -> "Bạn làm tốt lắm!"
-        confidencePercent > 50 -> "Khá ổn rồi, tiếp tục phát huy nhé!"
-        confidencePercent >= 30 -> "Cố lên! Bạn sắp làm được rồi!"
-        else -> "Hãy thử lại nhé, bạn sẽ làm được!"
-    }
-}
-
-private fun feedbackColor(confidencePercent: Int): Color {
-    return when {
-        confidencePercent >= 85 -> Color(0xFF4CAF50)
-        confidencePercent >= 65 -> Color(0xFF81C784)
-        confidencePercent > 50 -> Color(0xFFFFC107)
-        confidencePercent >= 30 -> Color(0xFFFF9800)
-        else -> Color(0xFFF44336)
+                if (uiState.topPredictions.isNotEmpty()) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Gợi ý thêm",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = UnitColors.TextPrimary
+                        )
+                        uiState.topPredictions.forEach { prediction ->
+                            Text(
+                                text = "${prediction.char} (${(prediction.confidence * 100).roundToInt()}%)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = UnitColors.TextSecondary
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        is CanvasUiState.Error -> {
+            Text(
+                text = uiState.message,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFFD32F2F)
+            )
+        }
     }
 }
 

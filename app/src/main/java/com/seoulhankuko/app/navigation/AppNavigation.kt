@@ -255,9 +255,8 @@ fun AppNavigation(
                 onNavigateToProfile = {
                     navController.navigate("profile")
                 },
-                onSelectChar = { charSymbol ->
-                    val encodedChar = URLEncoder.encode(charSymbol, StandardCharsets.UTF_8.toString())
-                    navController.navigate("canvas/$encodedChar")
+                onNavigateToPractice = {
+                    navController.navigate("canvas")
                 }
             )
         }
@@ -328,12 +327,9 @@ fun AppNavigation(
             )
         }
 
-        // Canvas Screen for drawing/learning Hangul character
-        composable("canvas/{char}") { backStackEntry ->
-            val encodedChar = backStackEntry.arguments?.getString("char") ?: ""
-            val charSymbol = java.net.URLDecoder.decode(encodedChar, StandardCharsets.UTF_8.toString())
+        // Canvas Screen for free-mode Hangul practice
+        composable("canvas") {
             HangulCanvasScreen(
-                character = charSymbol,
                 onBack = { navController.popBackStack() }
             )
         }

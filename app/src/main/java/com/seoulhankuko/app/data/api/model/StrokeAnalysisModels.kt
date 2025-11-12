@@ -16,17 +16,23 @@ data class StrokeAnalysisRequest(
     val targetChar: String? = null
 )
 
-/**
- * Response model for stroke analysis API
- */
+data class StrokeTopPredictionResponse(
+    @SerializedName("index") val index: Int,
+    @SerializedName("char") val char: String,
+    @SerializedName("confidence") val confidence: Float,
+)
+
 data class StrokeAnalysisResponse(
     @SerializedName("predicted_char")
     val predictedChar: String,
-    
+
     @SerializedName("confidence")
     val confidence: Float,
-    
+
     @SerializedName("message")
-    val message: String
+    val message: String,
+
+    @SerializedName("top_predictions")
+    val topPredictions: List<StrokeTopPredictionResponse> = emptyList()
 )
 

@@ -39,7 +39,14 @@ class AnalyzeStrokeUseCase @Inject constructor(
                     StrokeAnalysisResult(
                         predictedChar = response.predictedChar,
                         confidence = response.confidence,
-                        message = response.message
+                        message = response.message,
+                        topPredictions = response.topPredictions.map {
+                            StrokeTopPrediction(
+                                index = it.index,
+                                char = it.char,
+                                confidence = it.confidence
+                            )
+                        }
                     )
                 )
             },
@@ -56,6 +63,13 @@ class AnalyzeStrokeUseCase @Inject constructor(
 data class StrokeAnalysisResult(
     val predictedChar: String,
     val confidence: Float,
-    val message: String
+    val message: String,
+    val topPredictions: List<StrokeTopPrediction>
+)
+
+data class StrokeTopPrediction(
+    val index: Int,
+    val char: String,
+    val confidence: Float
 )
 

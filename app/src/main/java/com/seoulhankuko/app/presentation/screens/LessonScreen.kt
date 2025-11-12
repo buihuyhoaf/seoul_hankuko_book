@@ -396,13 +396,15 @@ private fun WritingResultsCard(
                 }
 
                 else -> {
-                    results.forEachIndexed { index, result ->
-                        WritingResultItem(result)
-                        if (index < results.lastIndex) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Divider(color = LessonColors.ConnectorLineColor.copy(alpha = 0.25f))
-                            Spacer(modifier = Modifier.height(8.dp))
-                        }
+                    val teacherResults = results.filter { it.mode == WritingSubmissionMode.TEACHER }
+                    if (teacherResults.isEmpty()) {
+                        Text(
+                            text = "Chưa có bài viết nào được giáo viên chấm.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = LessonColors.TextSecondary
+                        )
+                    } else {
+                        WritingResultItem(teacherResults.first())
                     }
                 }
             }
@@ -416,73 +418,47 @@ private fun WritingResultItem(result: WritingResultUi) {
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        val modeLabel = when (result.mode) {
-            WritingSubmissionMode.AI -> "Chấm AI"
-            WritingSubmissionMode.TEACHER -> "Chấm giáo viên"
-        }
         val statusLabel = when (result.status.lowercase()) {
-            "ai_graded" -> "Đã có kết quả"
             "teacher_graded" -> "Giáo viên đã chấm"
             "submitted" -> "Đang chờ chấm"
             else -> result.status
         }
 
         Text(
-            text = "$modeLabel • $statusLabel",
+            text = "Chấm giáo viên • $statusLabel",
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             color = LessonColors.TextPrimary
         )
 
-        when (result.mode) {
-            WritingSubmissionMode.AI -> {
-                if (result.aiScore != null) {
-                    Text(
-                        text = "Điểm AI: ${String.format("%.2f", result.aiScore)}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = LessonColors.TextPrimary
-                    )
-                }
-                result.aiFeedback?.takeIf { it.isNotBlank() }?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = LessonColors.TextSecondary
-                    )
-                }
+        if (result.status.equals("teacher_graded", ignoreCase = true)) {
+            result.finalScore?.let {
+                Text(
+                    text = "Điểm tổng: ${String.format("%.2f", it)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = LessonColors.WritingColor,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
-
-            WritingSubmissionMode.TEACHER -> {
-                if (result.status.equals("teacher_graded", ignoreCase = true)) {
-                    result.finalScore?.let {
-                        Text(
-                            text = "Điểm tổng: ${String.format("%.2f", it)}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = LessonColors.WritingColor,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    result.teacherScores?.let { scores ->
-                        TeacherScoreLine("Chính tả", scores.spelling)
-                        TeacherScoreLine("Ngữ pháp", scores.grammar)
-                        TeacherScoreLine("Cấu trúc", scores.structure)
-                        TeacherScoreLine("Từ vựng", scores.vocabulary)
-                    }
-                    result.teacherFeedback?.takeIf { it.isNotBlank() }?.let {
-                        Text(
-                            text = it,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = LessonColors.TextSecondary
-                        )
-                    }
-                } else {
-                    Text(
-                        text = "Bài viết đang chờ giáo viên chấm.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = LessonColors.TextSecondary
-                    )
-                }
+            result.teacherScores?.let { scores ->
+                TeacherScoreLine("Chính tả", scores.spelling)
+                TeacherScoreLine("Ngữ pháp", scores.grammar)
+                TeacherScoreLine("Cấu trúc", scores.structure)
+                TeacherScoreLine("Từ vựng", scores.vocabulary)
             }
+            result.teacherFeedback?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = LessonColors.TextSecondary
+                )
+            }
+        } else {
+            Text(
+                text = "Bài viết đang chờ giáo viên chấm.",
+                style = MaterialTheme.typography.bodySmall,
+                color = LessonColors.TextSecondary
+            )
         }
     }
 }

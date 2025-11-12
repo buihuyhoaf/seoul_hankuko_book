@@ -160,7 +160,43 @@ class LessonViewModel @Inject constructor(
                 isSubmitting = false,
                 submissionStatus = null,
                 mode = mode,
+                submittedText = null,
                 errorMessage = "Vui lòng nhập nội dung trước khi gửi."
+            )
+            return
+        }
+
+        val existingTeacherResult = writingResults.value.firstOrNull { result ->
+            result.exerciseId == exerciseId &&
+                result.mode == WritingSubmissionMode.TEACHER &&
+                result.status.equals("teacher_graded", ignoreCase = true)
+        }
+        if (existingTeacherResult != null) {
+            _writingSubmissionState.value = WritingSubmissionUiState(
+                isSubmitting = false,
+                submissionStatus = existingTeacherResult.status,
+                mode = WritingSubmissionMode.TEACHER,
+                teacherFinalScore = existingTeacherResult.finalScore,
+                teacherFeedback = existingTeacherResult.teacherFeedback,
+                teacherScores = existingTeacherResult.teacherScores,
+                submittedText = existingTeacherResult.text,
+                message = "Giáo viên đã chấm bài viết này."
+            )
+            return
+        }
+
+        val pendingTeacherResult = writingResults.value.firstOrNull { result ->
+            result.exerciseId == exerciseId &&
+                result.mode == WritingSubmissionMode.TEACHER &&
+                result.status.equals("submitted", ignoreCase = true)
+        }
+        if (pendingTeacherResult != null) {
+            _writingSubmissionState.value = WritingSubmissionUiState(
+                isSubmitting = false,
+                submissionStatus = pendingTeacherResult.status,
+                mode = WritingSubmissionMode.TEACHER,
+                submittedText = pendingTeacherResult.text,
+                message = "Bài viết đang chờ giáo viên chấm."
             )
             return
         }
@@ -168,29 +204,60 @@ class LessonViewModel @Inject constructor(
         _writingSubmissionState.value = WritingSubmissionUiState(
             isSubmitting = true,
             submissionStatus = null,
-            mode = mode
+            mode = mode,
+            submittedText = content
         )
 
-        submitExercise(
-            exerciseId = exerciseId,
-            lessonId = lessonId,
-            response = content,
-            mode = mode.apiValue,
-            onResult = { payload ->
-                _writingSubmissionState.value = mapWritingSubmissionPayload(
-                    payload = payload,
-                    mode = mode
+        viewModelScope.launch {
+            try {
+                val token = authRepository.getCurrentToken()
+                if (token.isNullOrBlank()) {
+                    _writingSubmissionState.value = WritingSubmissionUiState(
+                        isSubmitting = false,
+                        submissionStatus = null,
+                        mode = mode,
+                        errorMessage = "Không tìm thấy thông tin xác thực."
+                    )
+                    return@launch
+                }
+
+                val result = lessonRepository.submitWritingExercise(
+                    exerciseId = exerciseId,
+                    token = token,
+                    response = content,
+                    mode = mode.apiValue
                 )
-            },
-            onError = { throwable ->
+
+                result.fold(
+                    onSuccess = { payload ->
+                        _writingSubmissionState.value = mapWritingSubmissionPayload(
+                            payload = payload,
+                            mode = mode
+                        )
+                        markExerciseCompletion(exerciseId)
+                        loadLesson(lessonId, showLoading = false)
+                    },
+                    onFailure = { throwable ->
+                        _writingSubmissionState.value = WritingSubmissionUiState(
+                            isSubmitting = false,
+                            submissionStatus = null,
+                            mode = mode,
+                            submittedText = content,
+                            errorMessage = throwable.message ?: "Gửi bài viết thất bại."
+                        )
+                    }
+                )
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to submit writing exercise")
                 _writingSubmissionState.value = WritingSubmissionUiState(
                     isSubmitting = false,
                     submissionStatus = null,
                     mode = mode,
-                    errorMessage = throwable.message ?: "Gửi bài viết thất bại."
+                    submittedText = content,
+                    errorMessage = "Gửi bài viết thất bại: ${e.message}"
                 )
             }
-        )
+        }
     }
 
     fun resetWritingSubmissionState() {
@@ -232,6 +299,7 @@ class LessonViewModel @Inject constructor(
         val teacherScores = teacherScoresCandidate.takeIf { it.hasAnyScore }
 
         val teacherFeedback = (submission?.get("teacher_feedback")).toStringOrNull()
+        val submittedText = submission?.get("text").toStringOrNull()
         val finalScore = (submission?.get("final_score")).toFloatOrNull()
         val expEarned = payload["exp_earned"].toIntOrNull()
         val message = payload["message"]?.toString()
@@ -253,7 +321,8 @@ class LessonViewModel @Inject constructor(
             expEarned = expEarned,
             message = message,
             errorMessage = null,
-            mode = mode
+            mode = mode,
+            submittedText = submittedText
         )
     }
 
@@ -271,6 +340,7 @@ class LessonViewModel @Inject constructor(
             exerciseId = response.exerciseId,
             mode = mode,
             status = response.status,
+            text = response.text,
             aiScore = response.aiScore,
             aiFeedback = response.aiFeedback,
             teacherScores = teacherScores,
@@ -917,7 +987,8 @@ data class WritingSubmissionUiState(
     val expEarned: Int? = null,
     val message: String? = null,
     val errorMessage: String? = null,
-    val mode: WritingSubmissionMode? = null
+    val mode: WritingSubmissionMode? = null,
+    val submittedText: String? = null
 )
 
 data class WritingResultUi(
@@ -925,6 +996,7 @@ data class WritingResultUi(
     val exerciseId: String,
     val mode: WritingSubmissionMode,
     val status: String,
+    val text: String?,
     val aiScore: Float?,
     val aiFeedback: String?,
     val teacherScores: TeacherScoreBreakdown?,

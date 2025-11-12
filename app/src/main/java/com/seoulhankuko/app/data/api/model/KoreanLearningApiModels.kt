@@ -593,6 +593,7 @@ data class PracticeTextAnswerRequest(
 // Exercise submission request
 data class ExerciseSubmissionRequest(
     @SerializedName("response") val response: String? = null,
+    @SerializedName("text") val text: String? = null,
     @SerializedName("audio_url") val audioUrl: String? = null,
     @SerializedName("selected_answers") val selectedAnswers: Map<String, String>? = null,
     @SerializedName("mode") val mode: String? = null
@@ -603,6 +604,7 @@ data class WritingResultResponse(
     @SerializedName("exercise_id") val exerciseId: String,
     @SerializedName("mode") val mode: String,
     @SerializedName("status") val status: String,
+    @SerializedName("text") val text: String? = null,
     @SerializedName("ai_score") val aiScore: Float? = null,
     @SerializedName("ai_feedback") val aiFeedback: String? = null,
     @SerializedName("teacher_spelling_score") val teacherSpellingScore: Float? = null,
