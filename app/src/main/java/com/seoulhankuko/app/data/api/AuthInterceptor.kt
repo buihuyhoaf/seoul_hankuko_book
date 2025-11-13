@@ -58,13 +58,16 @@ class AuthInterceptor @Inject constructor(
         val requestWithAuth = if (!hasAuthHeader) {
             val currentToken = sharedPreferences.getString("auth_token", null)
             if (currentToken != null && !currentToken.isBlank()) {
+                Timber.d("AuthInterceptor: Adding token to request for path: ${originalRequest.url.encodedPath}")
                 originalRequest.newBuilder()
                     .addHeader("Authorization", "Bearer $currentToken")
                     .build()
             } else {
+                Timber.w("AuthInterceptor: No token found in sharedPreferences for path: ${originalRequest.url.encodedPath}")
                 originalRequest
             }
         } else {
+            Timber.d("AuthInterceptor: Authorization header already present for path: ${originalRequest.url.encodedPath}")
             originalRequest
         }
 

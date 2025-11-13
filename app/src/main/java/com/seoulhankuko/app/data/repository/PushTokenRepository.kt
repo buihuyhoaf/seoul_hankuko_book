@@ -1,5 +1,7 @@
 package com.seoulhankuko.app.data.repository
 
+import com.google.android.gms.tasks.Tasks
+import com.google.firebase.messaging.FirebaseMessaging
 import com.seoulhankuko.app.data.api.model.PushTokenRegisterRequest
 import com.seoulhankuko.app.data.api.model.PushTokenUnregisterRequest
 import com.seoulhankuko.app.data.api.service.ApiService
@@ -22,15 +24,32 @@ class PushTokenRepository @Inject constructor(
     suspend fun getCachedFcmToken(): String? = userPreferencesManager.getFcmToken()
 
     suspend fun registerCachedToken(userId: String?): Result<Unit> {
-        val token = userPreferencesManager.getFcmToken()
-        if (token.isNullOrBlank()) {
-            Timber.w("No cached FCM token found, skip register")
-            return Result.failure(IllegalStateException("FCM token not available"))
-        }
-
         if (userId.isNullOrBlank()) {
             Timber.w("User ID missing when attempting to register FCM token")
             return Result.failure(IllegalStateException("User ID not available"))
+        }
+
+        // First, try to get token from cache
+        var token = userPreferencesManager.getFcmToken()
+        
+        // If no cached token, try to get it from Firebase
+        if (token.isNullOrBlank()) {
+            Timber.d("No cached FCM token found, attempting to get from Firebase")
+            token = try {
+                val task = FirebaseMessaging.getInstance().token
+                Tasks.await(task)
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to get FCM token from Firebase")
+                null
+            }
+            
+            if (!token.isNullOrBlank()) {
+                Timber.d("Got FCM token from Firebase (length=%d), caching it", token.length)
+                cacheFcmToken(token)
+            } else {
+                Timber.w("No FCM token available from Firebase or cache, skip register")
+                return Result.failure(IllegalStateException("FCM token not available"))
+            }
         }
 
         val lastSyncedUser = userPreferencesManager.getFcmTokenSyncedUserId()

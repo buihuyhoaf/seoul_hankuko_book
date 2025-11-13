@@ -256,9 +256,15 @@ class AuthRepository @Inject constructor(
     
     private fun storeToken(token: String) {
         Logger.AuthenticationUseCase.storingToken()
-        sharedPreferences.edit()
+        Timber.d("AuthRepository: Storing token (length: ${token.length}, first 10 chars: ${token.take(10)})")
+        val result = sharedPreferences.edit()
             .putString("auth_token", token)
-            .apply()
+            .commit() // Use commit() instead of apply() to ensure it's written immediately
+        Timber.d("AuthRepository: Token stored successfully: $result")
+        
+        // Verify token was stored
+        val storedToken = sharedPreferences.getString("auth_token", null)
+        Timber.d("AuthRepository: Verified stored token exists: ${storedToken != null}, length: ${storedToken?.length ?: 0}")
     }
     
     private fun storeRefreshToken(refreshToken: String) {
