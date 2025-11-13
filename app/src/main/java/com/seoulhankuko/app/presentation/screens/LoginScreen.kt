@@ -8,25 +8,27 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.seoulhankuko.app.presentation.ui.theme.WhiteBackground
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seoulhankuko.app.R
-import com.seoulhankuko.app.presentation.components.SocialSignInSection
-import com.seoulhankuko.app.presentation.components.SouthKoreaLoadingIcon
-import com.seoulhankuko.app.presentation.viewmodel.AuthViewModel
-import com.seoulhankuko.app.presentation.utils.LoginColors
-import com.seoulhankuko.app.presentation.utils.AppColors
 import com.seoulhankuko.app.core.Logger
 import com.seoulhankuko.app.domain.model.AuthState.SignedIn
 import com.seoulhankuko.app.domain.model.AuthState.SignedOut
+import com.seoulhankuko.app.presentation.components.SocialSignInSection
+import com.seoulhankuko.app.presentation.components.SouthKoreaLoadingIcon
+import com.seoulhankuko.app.presentation.ui.theme.WhiteBackground
+import com.seoulhankuko.app.presentation.utils.AppColors
+import com.seoulhankuko.app.presentation.utils.LoginColors
+import com.seoulhankuko.app.presentation.viewmodel.AuthViewModel
 
 @Composable
 fun LoginScreen(
@@ -37,6 +39,7 @@ fun LoginScreen(
 ) {
     var email by remember { mutableStateOf(initialEmail) }
     var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     
@@ -121,8 +124,20 @@ fun LoginScreen(
                     value = password,
                     onValueChange = { password = it },
                     label = { Text(stringResource(R.string.password_label)) },
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                painter = painterResource(
+                                    id = if (passwordVisible) R.drawable.visibility_off else R.drawable.visibility
+                                ),
+                                contentDescription = if (passwordVisible) "Ẩn mật khẩu" else "Hiện mật khẩu",
+                                tint = LoginColors.SubtitleGreen,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     shape = MaterialTheme.shapes.medium,

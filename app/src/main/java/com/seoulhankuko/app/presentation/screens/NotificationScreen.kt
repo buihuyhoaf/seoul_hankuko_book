@@ -60,7 +60,15 @@ fun NotificationScreen(
 ) {
     val userData by mainUiViewModel.userData.collectAsStateWithLifecycle()
     val uiState by notificationViewModel.uiState.collectAsStateWithLifecycle()
-    val username = userData.name?.takeIf { it.isNotBlank() } ?: userData.email ?: ""
+    val username = userData.username?.takeIf { it.isNotBlank() } ?: ""
+
+    // Fetch username from API if user is logged in but username is missing
+    LaunchedEffect(userData.isLoggedIn, userData.username) {
+        if (userData.isLoggedIn && userData.username.isNullOrBlank()) {
+            // Refresh user data to get username
+            mainUiViewModel.refreshUserData()
+        }
+    }
 
     LaunchedEffect(username) {
         if (username.isNotBlank()) {

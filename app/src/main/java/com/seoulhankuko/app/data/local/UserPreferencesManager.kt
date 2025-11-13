@@ -30,6 +30,7 @@ class UserPreferencesManager @Inject constructor(
         private val USER_ID_KEY = stringPreferencesKey("user_id")
         private val USER_EMAIL_KEY = stringPreferencesKey("user_email")
         private val USER_NAME_KEY = stringPreferencesKey("user_name")
+        private val USERNAME_KEY = stringPreferencesKey("username")
         private val USER_AVATAR_URL_KEY = stringPreferencesKey("user_avatar_url")
         private val ACCESS_TOKEN_KEY = stringPreferencesKey("access_token")
         private val REFRESH_TOKEN_KEY = stringPreferencesKey("refresh_token")
@@ -83,6 +84,7 @@ class UserPreferencesManager @Inject constructor(
         userId: String,
         email: String,
         name: String,
+        username: String? = null,
         avatarUrl: String? = null,
         accessToken: String,
         refreshToken: String? = null,
@@ -98,6 +100,7 @@ class UserPreferencesManager @Inject constructor(
             preferences[USER_ID_KEY] = userId
             preferences[USER_EMAIL_KEY] = email
             preferences[USER_NAME_KEY] = name
+            username?.let { preferences[USERNAME_KEY] = it }
             preferences[ACCESS_TOKEN_KEY] = accessToken
             preferences[IS_LOGGED_IN_KEY] = true
             preferences[IS_PREMIUM_KEY] = isPremium
@@ -134,6 +137,7 @@ class UserPreferencesManager @Inject constructor(
         userId: String? = null,
         email: String? = null,
         name: String? = null,
+        username: String? = null,
         avatarUrl: String? = null,
         exp: Int? = null,
         streakDays: Int? = null,
@@ -146,6 +150,7 @@ class UserPreferencesManager @Inject constructor(
             userId?.let { preferences[USER_ID_KEY] = it }
             email?.let { preferences[USER_EMAIL_KEY] = it }
             name?.let { preferences[USER_NAME_KEY] = it }
+            username?.let { preferences[USERNAME_KEY] = it }
             avatarUrl?.let { preferences[USER_AVATAR_URL_KEY] = it }
             exp?.let { preferences[EXP_KEY] = it.coerceAtLeast(0) }
             streakDays?.let { preferences[STREAK_DAYS_KEY] = it.coerceAtLeast(0) }
@@ -164,6 +169,7 @@ class UserPreferencesManager @Inject constructor(
             preferences.remove(USER_ID_KEY)
             preferences.remove(USER_EMAIL_KEY)
             preferences.remove(USER_NAME_KEY)
+            preferences.remove(USERNAME_KEY)
             preferences.remove(USER_AVATAR_URL_KEY)
             preferences.remove(ACCESS_TOKEN_KEY)
             preferences.remove(REFRESH_TOKEN_KEY)
@@ -248,6 +254,7 @@ class UserPreferencesManager @Inject constructor(
             userId = preferences[USER_ID_KEY],
             email = preferences[USER_EMAIL_KEY],
             name = preferences[USER_NAME_KEY],
+            username = preferences[USERNAME_KEY],
             avatarUrl = preferences[USER_AVATAR_URL_KEY],
             accessToken = preferences[ACCESS_TOKEN_KEY],
             refreshToken = preferences[REFRESH_TOKEN_KEY],
@@ -623,6 +630,7 @@ data class UserData(
     val userId: String?,
     val email: String?,
     val name: String?,
+    val username: String?,
     val avatarUrl: String?,
     val accessToken: String?,
     val refreshToken: String?,

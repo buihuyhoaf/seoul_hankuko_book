@@ -288,15 +288,24 @@ class AuthInterceptor @Inject constructor(
     }
 
     private fun shouldSkipAuth(path: String): Boolean {
-        val skipPaths = listOf(
+        // Exact paths that don't require authentication
+        val exactSkipPaths = listOf(
             "/api/v1/login",
             "/api/v1/refresh", 
-            "/api/v1/auth/google",
-            "/api/v1/user" // User creation doesn't need auth
+            "/api/v1/auth/google"
         )
         
-        return skipPaths.any { skipPath -> 
-            path.contains(skipPath)
+        // Check exact matches first
+        if (exactSkipPaths.any { path == it || path.startsWith("$it?") || path.startsWith("$it/") }) {
+            return true
         }
+        
+        // POST /api/v1/user (user registration) doesn't need auth
+        // But other /api/v1/user/* endpoints DO need auth
+        if (path == "/api/v1/user" || path.startsWith("/api/v1/user?")) {
+            return true
+        }
+        
+        return false
     }
 }

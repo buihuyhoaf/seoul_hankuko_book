@@ -16,19 +16,19 @@
     <string name="duolingo_logo_description">Duolingo Logo</string>
     
     <!-- Login Screen -->
-    <string name="welcome_back">Welcome Back!</string>
-    <string name="sign_in_subtitle">Sign in to continue your Korean learning journey</string>
+    <string name="welcome_back">Chào mừng trở lại!</string>
+    <string name="sign_in_subtitle">Đăng nhập để tiếp tục hành trình học tiếng Hàn của bạn</string>
     <string name="email_label">Email</string>
-    <string name="password_label">Password</string>
-    <string name="sign_in_button">Sign In</string>
-    <string name="demo_credentials">Demo Credentials</string>
-    <string name="demo_credentials_text">Email: demo@example.com\nPassword: password123</string>
-    <string name="validation_empty_fields">Please fill in all fields</string>
-    <string name="login_error">Invalid email or password</string>
-    <string name="back_to_home">← Back to Home</string>
-    <string name="or_continue_with">or continue with</string>
-    <string name="dont_have_account">Don\'t have an account?</string>
-    <string name="sign_up">Sign up</string>
+    <string name="password_label">Mật khẩu</string>
+    <string name="sign_in_button">Đăng nhập</string>
+    <string name="demo_credentials">Thông tin đăng nhập demo</string>
+    <string name="demo_credentials_text">Email: demo@example.com\nMật khẩu: password123</string>
+    <string name="validation_empty_fields">Vui lòng điền đầy đủ thông tin</string>
+    <string name="login_error">Email hoặc mật khẩu không đúng</string>
+    <string name="back_to_home">← Về trang chủ</string>
+    <string name="or_continue_with">hoặc tiếp tục với</string>
+    <string name="dont_have_account">Chưa có tài khoản?</string>
+    <string name="sign_up">Đăng ký</string>
     
     <!-- Google Sign In -->
     <string name="or_text">Or</string>

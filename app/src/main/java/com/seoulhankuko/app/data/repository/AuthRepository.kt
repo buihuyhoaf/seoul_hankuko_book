@@ -126,7 +126,8 @@ class AuthRepository @Inject constructor(
                             userPreferencesManager.saveUserData(
                                 userId = user.id,
                                 email = user.email,
-                                name = user.username,
+                                name = user.username, // Display name (can be username or display name)
+                                username = user.username, // Actual username for API calls
                                 avatarUrl = user.picture,
                                 accessToken = rawToken,
                                 refreshToken = loginResponse.refreshToken,
@@ -608,7 +609,8 @@ class AuthRepository @Inject constructor(
                     userPreferencesManager.updateUserProfile(
                         userId = user.id,
                         email = user.email,
-                        name = user.username,
+                        name = user.username, // Display name
+                        username = user.username, // Actual username for API calls
                         avatarUrl = user.picture,
                         exp = user.exp,
                         streakDays = user.streakDays,

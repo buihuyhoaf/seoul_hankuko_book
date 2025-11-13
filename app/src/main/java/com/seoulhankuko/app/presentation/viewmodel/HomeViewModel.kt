@@ -52,6 +52,7 @@ class HomeViewModel @Inject constructor(
         userId = null,
         email = null,
         name = null,
+        username = null,
         avatarUrl = null,
         accessToken = null,
         refreshToken = null,

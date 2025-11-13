@@ -78,86 +78,89 @@ class GoogleSignInRepository @Inject constructor(
                 val responseBody = response.body()
                 if (responseBody != null) {
                     // Handle GoogleSignInResponse
-                    if (responseBody is GoogleSignInResponse) {
-                        val accessToken = responseBody.token
-                        val refreshToken = responseBody.refreshToken
+                    val accessToken = responseBody.token
+                    val refreshToken = responseBody.refreshToken
+                    
+                    if (accessToken != null && accessToken.isNotBlank()) {
+                        // Log if refresh token is missing (this could cause auto-login issues)
+                        if (refreshToken.isNullOrBlank()) {
+                            Logger.GoogleSignIn.signInError("WARNING: No refresh token received from backend for Google Sign-In. Auto-login will not work for this account.")
+                        }
                         
-                        if (accessToken != null) {
-                            // Log if refresh token is missing (this could cause auto-login issues)
-                            if (refreshToken.isNullOrBlank()) {
-                                Logger.GoogleSignIn.signInError("WARNING: No refresh token received from backend for Google Sign-In. Auto-login will not work for this account.")
-                            }
-                            
-                            // Lấy user data từ backend để có đúng userId
-                            var backendUserId = account.id ?: "" // Fallback to Google ID
-                            var streakDays = 0
-                            var exp = 0
-                            var fallback = false
-                            try {
-                                val userResponse = apiService.getCurrentUser("Bearer $accessToken")
-                                if (userResponse.isSuccessful && userResponse.body() != null) {
-                                    val fetchedUser = userResponse.body()!!
-                                    backendUserId = fetchedUser.id // Use backend user ID
-                                    streakDays = fetchedUser.streakDays
-                                    exp = fetchedUser.exp
-                                    
-                                    userPreferencesManager.saveEntryTestResult(
-                                        hasCompletedEntryTest = fetchedUser.hasCompletedEntryTest,
-                                        currentCourseId = fetchedUser.currentCourseId,
-                                        currentCourseName = null,
-                                        entryTestScore = fetchedUser.entryTestScore
-                                    )
-                                    Logger.GoogleSignIn.signInSuccess("User data synced from backend")
+                        // Lấy user data từ backend để có đúng userId
+                        var backendUserId = account.id ?: "" // Fallback to Google ID
+                        var streakDays = 0
+                        var exp = 0
+                        var fallback = false
+                        try {
+                            val userResponse = apiService.getCurrentUser("Bearer $accessToken")
+                            if (userResponse.isSuccessful && userResponse.body() != null) {
+                                val fetchedUser = userResponse.body()!!
+                                backendUserId = fetchedUser.id // Use backend user ID
+                                streakDays = fetchedUser.streakDays
+                                exp = fetchedUser.exp
+                                
+                                userPreferencesManager.saveEntryTestResult(
+                                    hasCompletedEntryTest = fetchedUser.hasCompletedEntryTest,
+                                    currentCourseId = fetchedUser.currentCourseId,
+                                    currentCourseName = null,
+                                    entryTestScore = fetchedUser.entryTestScore
+                                )
+                                Logger.GoogleSignIn.signInSuccess("User data synced from backend")
 
-                                    // Save full profile using the fetched data
-                                    userPreferencesManager.saveUserData(
-                                        userId = fetchedUser.id,
-                                        email = fetchedUser.email,
-                                        name = fetchedUser.username,
-                                        avatarUrl = account.photoUrl?.toString(),
-                                        accessToken = accessToken,
-                                        refreshToken = refreshToken ?: "",
-                                        isPremium = false,
-                                        streakDays = fetchedUser.streakDays,
-                                        exp = fetchedUser.exp,
-                                        createdAt = fetchedUser.createdAt,
-                                        hasCompletedEntryTest = fetchedUser.hasCompletedEntryTest,
-                                        currentCourseId = fetchedUser.currentCourseId,
-                                        entryTestScore = fetchedUser.entryTestScore
-                                    )
-                                } else {
-                                    fallback = true
-                                }
-                            } catch (e: Exception) {
-                                Logger.GoogleSignIn.signInError("Failed to sync user data: ${e.message}")
-                                // Continue with login even if sync fails
-                                fallback = true
-                            }
-                             
-                            if (fallback) {
+                                // Save full profile using the fetched data
                                 userPreferencesManager.saveUserData(
-                                    userId = backendUserId,
-                                    email = account.email ?: "",
-                                    name = account.displayName ?: "",
+                                    userId = fetchedUser.id,
+                                    email = fetchedUser.email,
+                                    name = account.displayName ?: fetchedUser.username, // Display name
+                                    username = fetchedUser.username, // Actual username for API calls
                                     avatarUrl = account.photoUrl?.toString(),
                                     accessToken = accessToken,
                                     refreshToken = refreshToken ?: "",
                                     isPremium = false,
-                                    streakDays = streakDays,
-                                    exp = exp
+                                    streakDays = fetchedUser.streakDays,
+                                    exp = fetchedUser.exp,
+                                    createdAt = fetchedUser.createdAt,
+                                    hasCompletedEntryTest = fetchedUser.hasCompletedEntryTest,
+                                    currentCourseId = fetchedUser.currentCourseId,
+                                    entryTestScore = fetchedUser.entryTestScore
                                 )
+                            } else {
+                                fallback = true
                             }
-                            
-                            // Save logged account information for future auto-login với đúng userId từ backend
-                            authRepository.saveLoggedAccount(
-                                userId = backendUserId, // Sử dụng backend user ID, không phải Google ID
+                        } catch (e: Exception) {
+                            Logger.GoogleSignIn.signInError("Failed to sync user data: ${e.message}")
+                            // Continue with login even if sync fails
+                            fallback = true
+                        }
+                         
+                        if (fallback) {
+                            // Extract username from email as fallback (will be updated when user data is fetched)
+                            val fallbackUsername = account.email?.split("@")?.get(0)?.lowercase()?.replace(Regex("[^a-z0-9]"), "")?.take(20) ?: null
+                            userPreferencesManager.saveUserData(
+                                userId = backendUserId,
                                 email = account.email ?: "",
                                 name = account.displayName ?: "",
+                                username = fallbackUsername, // Will be updated when user data is fetched from backend
                                 avatarUrl = account.photoUrl?.toString(),
-                                refreshToken = refreshToken,
-                                accessToken = accessToken
+                                accessToken = accessToken,
+                                refreshToken = refreshToken ?: "",
+                                isPremium = false,
+                                streakDays = streakDays,
+                                exp = exp
                             )
+                        }
                         
+                        // Save logged account information for future auto-login với đúng userId từ backend
+                        authRepository.saveLoggedAccount(
+                            userId = backendUserId, // Sử dụng backend user ID, không phải Google ID
+                            email = account.email ?: "",
+                            name = account.displayName ?: "",
+                            avatarUrl = account.photoUrl?.toString(),
+                            refreshToken = refreshToken,
+                            accessToken = accessToken
+                        )
+                    
                         // Sync offline entry test result if any
                         try {
                             val syncSuccess = entryTestRepository.syncOfflineEntryTestToServer()
@@ -180,9 +183,6 @@ class GoogleSignInRepository @Inject constructor(
                         emit(GoogleSignInResult.Success(userInfo))
                     } else {
                         emit(GoogleSignInResult.Error("Backend authentication failed: No access token in response"))
-                    }
-                    } else {
-                        emit(GoogleSignInResult.Error("Backend authentication failed: Invalid response format"))
                     }
                 } else {
                     emit(GoogleSignInResult.Error("Backend authentication failed: Empty response"))

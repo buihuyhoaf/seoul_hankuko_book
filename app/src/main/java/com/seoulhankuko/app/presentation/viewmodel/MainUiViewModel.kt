@@ -23,6 +23,7 @@ class MainUiViewModel @Inject constructor(
         userId = null,
         email = null,
         name = "Học viên",
+        username = null,
         avatarUrl = null,
         accessToken = null,
         refreshToken = null,
@@ -61,6 +62,12 @@ class MainUiViewModel @Inject constructor(
     fun setCurrentCourseId(courseId: String?) {
         viewModelScope.launch {
             userPreferencesManager.updateCurrentCourseId(courseId)
+        }
+    }
+
+    fun refreshUserData() {
+        viewModelScope.launch {
+            authRepository.refreshCurrentUserData()
         }
     }
 }

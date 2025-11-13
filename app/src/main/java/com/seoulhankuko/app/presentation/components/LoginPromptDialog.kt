@@ -32,7 +32,7 @@ fun LoginPromptDialog(
             onDismissRequest = onRemindLaterClick,
             title = {
                 Text(
-                    text = "🎉 Great job!",
+                    text = "🎉 Làm tốt lắm!",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
@@ -44,12 +44,12 @@ fun LoginPromptDialog(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "You've completed the entry test! 🎯",
+                        text = "Bạn đã hoàn thành bài kiểm tra đầu vào! 🎯",
                         style = MaterialTheme.typography.bodyLarge,
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        text = "\nTo save your progress and access personalized features, please sign in to your account.",
+                        text = "\nĐể lưu tiến độ và truy cập các tính năng cá nhân hóa, vui lòng đăng nhập vào tài khoản của bạn.",
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center
                     )
@@ -60,7 +60,7 @@ fun LoginPromptDialog(
                     onClick = onLoginClick,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 ) {
-                    Text("Sign In Now")
+                    Text("Đăng nhập ngay")
                 }
             },
             dismissButton = {
@@ -68,7 +68,7 @@ fun LoginPromptDialog(
                     onClick = onRemindLaterClick,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 ) {
-                    Text("Remind Me Later")
+                    Text("Nhắc tôi sau")
                 }
             },
             modifier = modifier
