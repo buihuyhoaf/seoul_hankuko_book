@@ -443,6 +443,37 @@ data class ExpLogResponse(
     val createdAt: String
 )
 
+// EXP Series Models for Weekly Chart
+data class ExpSeriesResponse(
+    @SerializedName("date_range")
+    val dateRange: DateRange,
+    val series: List<UserExpSeries>
+)
+
+data class DateRange(
+    val start: String,  // Format: "YYYY-MM-DD"
+    val end: String     // Format: "YYYY-MM-DD"
+)
+
+data class UserExpSeries(
+    @SerializedName("user_id")
+    val userId: String,
+    val username: String,
+    @SerializedName("starting_exp")
+    val startingExp: Int,
+    @SerializedName("total_exp")
+    val totalExp: Int,
+    val series: List<ExpPoint>
+)
+
+data class ExpPoint(
+    val date: String,  // Format: "YYYY-MM-DD"
+    @SerializedName("exp_delta")
+    val expDelta: Int,
+    @SerializedName("cumulative_exp")
+    val cumulativeExp: Int
+)
+
 data class StreakUpdateResponse(
     val message: String,
     @SerializedName("new_streak")
@@ -559,4 +590,41 @@ data class LessonProgressUpdateRequest(
     @SerializedName("listening_exp") val listeningExp: Int,
     @SerializedName("speaking_exp") val speakingExp: Int,
     @SerializedName("writing_exp") val writingExp: Int
+)
+
+// Mistakes Review Models
+data class MistakeResponse(
+    val id: String,
+    @SerializedName("question_id")
+    val questionId: String,
+    @SerializedName("question_content")
+    val questionContent: String,
+    val explanation: String?,
+    @SerializedName("last_wrong_answer")
+    val lastWrongAnswer: String?,
+    @SerializedName("last_wrong_at")
+    val lastWrongAt: String?,
+    @SerializedName("error_count")
+    val errorCount: Int,
+    @SerializedName("lesson_id")
+    val lessonId: String?,
+    @SerializedName("question_type")
+    val questionType: MistakeQuestionTypeResponse?
+)
+
+data class MistakeQuestionTypeResponse(
+    val id: String?,
+    val code: String?,
+    val name: String?,
+    val description: String?
+)
+
+data class MistakesListResponse(
+    val data: List<MistakeResponse>,
+    val total: Int,
+    val page: Int,
+    @SerializedName("items_per_page")
+    val itemsPerPage: Int,
+    @SerializedName("total_pages")
+    val totalPages: Int
 )

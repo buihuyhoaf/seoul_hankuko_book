@@ -15,7 +15,9 @@ data class LeaderboardEntry(
     @SerializedName("is_current_user")
     val isCurrentUser: Boolean = false,
     @SerializedName("rank_change")
-    val rankChange: Int? = null  // Positive = up, Negative = down
+    val rankChange: Int? = null,  // Positive = up, Negative = down
+    @SerializedName("streak_days")
+    val streakDays: Int? = null  // User's streak days
 )
 
 // Weekly Leaderboard Response

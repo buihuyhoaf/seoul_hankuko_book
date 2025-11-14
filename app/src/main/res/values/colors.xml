@@ -19,6 +19,6 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     
-    <!-- Màu xanh lá cây cho splash screen -->
-    <color name="splash_background">#4CAF50</color>
+    <!-- Màu trắng cho splash screen -->
+    <color name="splash_background">#FFFFFF</color>
 </resources>

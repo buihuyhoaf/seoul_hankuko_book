@@ -8,9 +8,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -125,12 +122,6 @@ fun MissionCard(
                     horizontalArrangement = Arrangement.Start,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = getMissionIcon(mission.type),
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp),
-                        tint = Color(0xFF4CAF50)
-                    )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
                         text = getMissionTypeLabel(mission.type),
@@ -144,13 +135,12 @@ fun MissionCard(
                 // Progress bar (only show if not completed)
                 if (!mission.isCompleted) {
                     LinearProgressIndicator(
-                        progress = { animatedProgress },
+                        progress = animatedProgress,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(6.dp),
                         color = Color(0xFF4CAF50),
-                        trackColor = Color(0xFFE0E0E0),
-                        shape = RoundedCornerShape(3.dp)
+                        trackColor = Color(0xFFE0E0E0)
                     )
                 }
                 
@@ -207,15 +197,6 @@ private fun CompletionBadge() {
             color = Color(0xFF2E7D32),
             fontSize = 12.sp
         )
-    }
-}
-
-private fun getMissionIcon(type: String): ImageVector {
-    return when (type) {
-        "lesson" -> Icons.Default.Book
-        "speaking" -> Icons.Default.Mic
-        "listening" -> Icons.Default.Headset
-        else -> Icons.Default.Book
     }
 }
 

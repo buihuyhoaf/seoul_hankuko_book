@@ -10,6 +10,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -32,10 +33,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExitToApp
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
@@ -67,7 +65,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -77,13 +74,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.LaunchedEffect
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.seoulhankuko.app.R
 import com.seoulhankuko.app.presentation.components.ModernBottomNavigationBar
+import com.seoulhankuko.app.presentation.components.WeeklyExpChart
 import com.seoulhankuko.app.presentation.utils.MiscColors
 import com.seoulhankuko.app.presentation.utils.ProfileColors
 import com.seoulhankuko.app.presentation.viewmodel.GoogleSignInViewModel
+import com.seoulhankuko.app.presentation.viewmodel.ProfileViewModel
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -98,16 +98,27 @@ fun ProfileScreen(
     onNavigateToProfile: () -> Unit = {},
     onNavigateBack: () -> Unit = {},
     onNavigateToSettings: (() -> Unit)? = null,
-    onEditProfile: () -> Unit = {},
-    onChangeLanguage: () -> Unit = {},
     onReviewMistakes: () -> Unit = {},
     onAvatarClick: (() -> Unit)? = null,
-    viewModel: GoogleSignInViewModel = hiltViewModel()
+    viewModel: GoogleSignInViewModel = hiltViewModel(),
+    profileViewModel: ProfileViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val userData by viewModel.userData.collectAsStateWithLifecycle()
+    val weeklyExpData by profileViewModel.weeklyExpData.collectAsStateWithLifecycle()
 
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var isLoadingChart by remember { mutableStateOf(false) }
+
+    // Load weekly exp data
+    LaunchedEffect(userData.username) {
+        if (userData.username != null) {
+            isLoadingChart = true
+            val token = userData.accessToken?.let { "Bearer $it" }
+            profileViewModel.loadWeeklyExpData(userData.username!!, 7, token)
+            isLoadingChart = false
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -147,16 +158,32 @@ fun ProfileScreen(
                 )
             }
 
+            // Thêm biểu đồ EXP tuần
             item {
-                MistakesReviewSection(
-                    onReviewClick = onReviewMistakes
-                )
+                if (isLoadingChart) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Đang tải...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = ProfileColors.TextSecondary
+                        )
+                    }
+                } else {
+                    WeeklyExpChart(
+                        weeklyData = weeklyExpData,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
 
             item {
-                SettingsSection(
-                    onEditProfile = onEditProfile,
-                    onChangeLanguage = onChangeLanguage
+                MistakesReviewSection(
+                    onReviewClick = onReviewMistakes
                 )
             }
 
@@ -197,7 +224,7 @@ private fun ProfileTopBar(
     TopAppBar(
         title = {
             Text(
-                text = "Profile",
+                text = "Hồ sơ",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
@@ -271,6 +298,7 @@ private fun UserInfoCard(
                 ) {
                     UserAvatar(
                         avatarUrl = avatarUrl,
+                        username = username,
                         size = 96.dp,
                         onClick = onAvatarClick
                     )
@@ -342,7 +370,7 @@ private fun ProfileStatsRow(
             ProfileStatItem(
                 iconPainter = streakIcon,
                 value = streak.toString(),
-                label = "Streak",
+                label = "Chuỗi ngày",
                 accentColor = MiscColors.Orange
             )
         }
@@ -356,7 +384,7 @@ private fun ProfileStatsRow(
             ProfileStatItem(
                 iconImageVector = Icons.Default.Star,
                 value = exp.toString(),
-                label = "EXP",
+                label = "Điểm kinh nghiệm",
                 accentColor = MiscColors.Amber
             )
         }
@@ -448,7 +476,7 @@ private fun MistakesReviewSection(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    text = "Mistakes Review",
+                    text = "Ôn tập lỗi sai",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = ProfileColors.TextPrimary
@@ -474,121 +502,13 @@ private fun MistakesReviewSection(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Review Mistakes",
+                        text = "Xem lại lỗi",
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun SettingsSection(
-    onEditProfile: () -> Unit,
-    onChangeLanguage: () -> Unit
-) {
-    val visibilityState = remember {
-        MutableTransitionState(false).apply { targetState = true }
-    }
-
-    AnimatedVisibility(
-        visibleState = visibilityState,
-        enter = fadeIn(tween(300, delayMillis = 80)) + slideInVertically(initialOffsetY = { it / 3 }),
-        exit = fadeOut(tween(180)) + slideOutVertically(targetOffsetY = { it / 3 })
-    ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = "Settings",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = ProfileColors.TextPrimary,
-                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 8.dp)
-                )
-                SettingsOptionItem(
-                    iconPainter = rememberVectorPainter(Icons.Default.Edit),
-                    title = "Edit Profile",
-                    subtitle = "Cập nhật thông tin và mục tiêu của bạn",
-                    onClick = onEditProfile
-                )
-                Divider(color = ProfileColors.GradientStart.copy(alpha = 0.1f))
-                SettingsOptionItem(
-                    iconPainter = painterResource(R.drawable.kr),
-                    title = "Change Language",
-                    subtitle = "Đổi ngôn ngữ hiển thị ứng dụng",
-                    onClick = onChangeLanguage
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SettingsOptionItem(
-    iconPainter: Painter,
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 24.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Surface(
-            modifier = Modifier.size(40.dp),
-            shape = CircleShape,
-            color = ProfileColors.GradientStart.copy(alpha = 0.14f)
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painter = iconPainter,
-                    contentDescription = null,
-                    tint = ProfileColors.GradientEnd
-                )
-            }
-        }
-
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                color = ProfileColors.TextPrimary
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = ProfileColors.TextSecondary
-            )
-        }
-
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = ProfileColors.TextSecondary.copy(alpha = 0.6f)
-        )
     }
 }
 
@@ -708,6 +628,7 @@ private fun LogoutConfirmationDialog(
 @Composable
 private fun UserAvatar(
     avatarUrl: String?,
+    username: String,
     modifier: Modifier = Modifier,
     size: Dp = 96.dp,
     onClick: (() -> Unit)?
@@ -740,14 +661,14 @@ private fun UserAvatar(
         contentAlignment = Alignment.Center
     ) {
         if (avatarUrl.isNullOrBlank()) {
-            DefaultAvatarIcon()
+            DefaultAvatarIcon(username = username)
         } else {
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(avatarUrl)
                     .crossfade(true)
                     .build(),
-                contentDescription = "User avatar",
+                contentDescription = "Ảnh đại diện",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
@@ -756,18 +677,12 @@ private fun UserAvatar(
 }
 
 @Composable
-private fun DefaultAvatarIcon() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(ProfileColors.GradientEnd),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = Icons.Default.Person,
-            contentDescription = "Default avatar",
-            tint = Color.White
-        )
-    }
+private fun DefaultAvatarIcon(username: String) {
+    Image(
+        painter = painterResource(id = R.drawable.hanbok),
+        contentDescription = "Ảnh đại diện mặc định",
+        contentScale = ContentScale.Crop,
+        modifier = Modifier.fillMaxSize()
+    )
 }
 

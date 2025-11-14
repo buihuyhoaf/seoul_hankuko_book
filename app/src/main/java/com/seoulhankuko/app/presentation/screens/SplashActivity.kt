@@ -144,7 +144,7 @@ fun SplashScreenWithAutoLogin(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(AppColors.GreenMediumDark),
+            .background(Color.White),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -153,7 +153,7 @@ fun SplashScreenWithAutoLogin(
         ) {
             // Logo với fade in animation
             Image(
-                painter = painterResource(id = R.drawable.duolingo_icon_logo),
+                painter = painterResource(id = R.drawable.korean_logo),
                 contentDescription = stringResource(R.string.duolingo_logo_description),
                 modifier = Modifier
                     .size(120.dp)
@@ -168,7 +168,7 @@ fun SplashScreenWithAutoLogin(
                 text = stringResource(R.string.splash_title),
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White, // Màu trắng cho text trên nền xanh lá
+                color = Color(0xFF1B5E20), // Màu xanh đậm cho text trên nền trắng
                 modifier = Modifier.alpha(appNameAlpha.value)
             )
             
@@ -178,7 +178,7 @@ fun SplashScreenWithAutoLogin(
             Text(
                 text = stringResource(R.string.splash_subtitle),
                 fontSize = 16.sp,
-                color = Color.White.copy(alpha = 0.9f), // Màu trắng nhạt cho slogan
+                color = Color(0xFF424242), // Màu xám đậm cho slogan trên nền trắng
                 modifier = Modifier.alpha(sloganAlpha.value)
             )
         }

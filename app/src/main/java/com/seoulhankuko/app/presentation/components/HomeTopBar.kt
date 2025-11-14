@@ -14,6 +14,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -61,11 +62,21 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.painterResource
 import com.seoulhankuko.app.R
 import com.seoulhankuko.app.presentation.utils.HomeColors
+import com.seoulhankuko.app.domain.manager.ExpBonusManager
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface ExpBonusManagerEntryPoint {
+    fun expBonusManager(): ExpBonusManager
+}
 
 @Suppress("UNUSED_PARAMETER")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -84,6 +95,25 @@ fun AppBarSection(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    
+    // Get ExpBonusManager from Hilt
+    val expBonusManager = remember {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            ExpBonusManagerEntryPoint::class.java
+        ).expBonusManager()
+    }
+    
+    // Track 2x EXP event status
+    var hasExpEvent by remember { mutableStateOf(false) }
+    
+    // Poll ExpBonusManager status periodically
+    LaunchedEffect(expBonusManager) {
+        while (true) {
+            hasExpEvent = expBonusManager.isActive()
+            delay(1000) // Check every second
+        }
+    }
 
     var avatarScaleTarget by remember { mutableStateOf(1f) }
     val avatarScale by animateFloatAsState(
@@ -145,6 +175,15 @@ fun AppBarSection(
             repeatMode = RepeatMode.Reverse
         ),
         label = "star_icon_scale"
+    )
+    val bottleIconScale by iconPulseTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.12f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bottle_icon_scale"
     )
 
     AnimatedVisibility(
@@ -233,14 +272,30 @@ fun AppBarSection(
 
                     Spacer(modifier = Modifier.weight(1f))
 
-                    Icon(
-                        painter = painterResource(id = R.drawable.bottle_with_popping_cork),
-                        contentDescription = "Sự kiện đặc biệt",
-                        modifier = Modifier
-                            .size(48.dp)
-                            .padding(end = 8.dp),
-                        tint = Color.Unspecified
-                    )
+                    // Show bottle icon only when 2x EXP event is active
+                    AnimatedVisibility(
+                        visible = hasExpEvent,
+                        enter = fadeIn(animationSpec = tween(durationMillis = 300)) + 
+                                slideInVertically(
+                                    initialOffsetY = { -it / 2 },
+                                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+                                ),
+                        exit = fadeOut(animationSpec = tween(durationMillis = 200)) + 
+                               slideOutVertically(
+                                   targetOffsetY = { -it / 2 },
+                                   animationSpec = tween(durationMillis = 200)
+                               )
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.bottle_with_popping_cork),
+                            contentDescription = "Sự kiện x2 EXP đang hoạt động",
+                            modifier = Modifier
+                                .size(48.dp)
+                                .scale(bottleIconScale)
+                                .padding(end = 8.dp),
+                            tint = Color.Unspecified
+                        )
+                    }
 
                     Box(
                         modifier = Modifier
@@ -267,7 +322,8 @@ fun AppBarSection(
                                     avatarScaleTarget = 1f
                                 }
                                 onAvatarClick()
-                            }
+                            },
+                        contentAlignment = Alignment.Center
                     ) {
                         if (!avatarUrl.isNullOrBlank()) {
                             AsyncImage(
@@ -280,11 +336,11 @@ fun AppBarSection(
                                 modifier = Modifier.fillMaxSize()
                             )
                         } else {
-                            Icon(
-                                painter = painterResource(id = R.drawable.profile_icomoon),
+                            Image(
+                                painter = painterResource(id = R.drawable.hanbok),
                                 contentDescription = "Ảnh đại diện mặc định",
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
                             )
                         }
                     }

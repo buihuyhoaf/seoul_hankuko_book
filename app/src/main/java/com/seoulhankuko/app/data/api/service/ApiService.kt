@@ -252,6 +252,13 @@ interface ApiService {
         @Header("Authorization") token: String? = null
     ): Response<PaginatedResponse<ExpLogResponse>>
     
+    @GET("v1/user/{username}/exp-series")
+    suspend fun getUserExpSeries(
+        @Path("username") username: String,
+        @Query("days") days: Int = 7,
+        @Header("Authorization") token: String? = null
+    ): Response<ExpSeriesResponse>
+    
     @POST("v1/user/{username}/update-streak")
     suspend fun updateUserStreak(
         @Path("username") username: String,
@@ -361,4 +368,14 @@ interface ApiService {
         @Header("Authorization") token: String? = null,
         @Body body: WeeklyLeaderboardUpdateRequest
     ): Response<WeeklyLeaderboardUpdateResponse>
+    
+    // Mistakes Review endpoints
+    @GET("v1/user/{username}/mistakes")
+    suspend fun getUserMistakes(
+        @Path("username") username: String,
+        @Query("page") page: Int = 1,
+        @Query("items_per_page") itemsPerPage: Int = 20,
+        @Query("question_type") questionType: String? = null,
+        @Header("Authorization") token: String? = null
+    ): Response<MistakesListResponse>
 }

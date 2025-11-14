@@ -3,3 +3,4 @@
     <background android:drawable="@color/splash_background" />
     <foreground android:drawable="@drawable/korean_logo" />
 </adaptive-icon>
+

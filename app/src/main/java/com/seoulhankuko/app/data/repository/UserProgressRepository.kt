@@ -4,11 +4,13 @@ import com.seoulhankuko.app.data.api.model.*
 import com.seoulhankuko.app.data.api.service.ApiService
 import com.seoulhankuko.app.data.api.util.ExceptionMapper
 import com.seoulhankuko.app.domain.exception.AppException
+import com.seoulhankuko.app.presentation.components.DailyExpData
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -27,6 +29,9 @@ class UserProgressRepository @Inject constructor(
     
     private val _dailyGoals = MutableStateFlow<DailyGoalsResponse?>(null)
     val dailyGoals: StateFlow<DailyGoalsResponse?> = _dailyGoals.asStateFlow()
+    
+    private val _weeklyExpData = MutableStateFlow<List<DailyExpData>>(emptyList())
+    val weeklyExpData: StateFlow<List<DailyExpData>> = _weeklyExpData.asStateFlow()
     
     suspend fun getUserProgress(username: String, token: String? = null): Result<UserProgressResponse> {
         return try {
@@ -172,6 +177,38 @@ class UserProgressRepository @Inject constructor(
         }
     }
     
+    suspend fun getWeeklyExpData(
+        username: String,
+        days: Int = 7,
+        token: String? = null
+    ): Result<List<DailyExpData>> {
+        return try {
+            val response = apiService.getUserExpSeries(username, days, token)
+            
+            if (response.isSuccessful) {
+                val expSeriesResponse = response.body()
+                if (expSeriesResponse != null && expSeriesResponse.series.isNotEmpty()) {
+                    val userSeries = expSeriesResponse.series.first()
+                    val weeklyData = userSeries.series.map { point ->
+                        val date = LocalDate.parse(point.date)
+                        DailyExpData(date, point.expDelta)
+                    }
+                    _weeklyExpData.value = weeklyData
+                    Result.success(weeklyData)
+                } else {
+                    _weeklyExpData.value = emptyList()
+                    Result.success(emptyList())
+                }
+            } else {
+                val errorMessage = response.errorBody()?.string() ?: "Failed to get EXP series"
+                Result.failure(Exception(errorMessage))
+            }
+        } catch (e: Throwable) {
+            val appException = ExceptionMapper.mapToAppException(e)
+            Result.failure(appException)
+        }
+    }
+    
     fun clearUserProgress() {
         _userProgress.value = null
     }
@@ -186,5 +223,9 @@ class UserProgressRepository @Inject constructor(
     
     fun clearDailyGoals() {
         _dailyGoals.value = null
+    }
+    
+    fun clearWeeklyExpData() {
+        _weeklyExpData.value = emptyList()
     }
 }

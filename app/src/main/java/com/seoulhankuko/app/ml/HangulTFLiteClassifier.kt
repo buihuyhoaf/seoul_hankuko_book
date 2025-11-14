@@ -294,7 +294,18 @@ class HangulTFLiteClassifier private constructor(
             Timber.d("Number of classes: $numClasses")
             
             // Prepare input ByteBuffer with shape [1, 64, 64, 1]
-            val inputBuffer = preprocessBitmapToByteBuffer(bitmap, inputTensor)
+            // Get FloatArray from preprocessing
+            val (floatArray, totalSize) = preprocessBitmapToFloatArray(bitmap, inputTensor)
+            
+            // CRITICAL FIX: Create a fresh ByteBuffer from FloatArray right before inference
+            // This ensures data is not corrupted by previous operations
+            val inputBuffer = ByteBuffer.allocateDirect(totalSize * 4)
+            inputBuffer.order(ByteOrder.nativeOrder())
+            
+            // Write FloatArray to ByteBuffer
+            for (value in floatArray) {
+                inputBuffer.putFloat(value)
+            }
             
             // Verify input buffer size matches tensor size
             val expectedInputSize = inputShape.fold(1) { acc, dim -> acc * dim } * 4 // 4 bytes per float
@@ -304,46 +315,28 @@ class HangulTFLiteClassifier private constructor(
                 Timber.e("Input buffer size mismatch! Expected $expectedInputSize, got $actualInputSize")
             }
             
-            // Log input values for debugging - check at specific indices where we know there's data
-            // Use the same indices that were checked in preprocessing
-            val totalFloats = inputBuffer.capacity() / 4
-            val checkIndices = listOf(0, 85, totalFloats / 2, totalFloats - 10).filter { it >= 0 && it < totalFloats }
+            // Verify buffer was written correctly
+            inputBuffer.rewind()
+            val totalFloats = totalSize
+            val checkIndices = listOf(0, 149, totalFloats / 2, totalFloats - 10).filter { it >= 0 && it < totalFloats }
             val checkValues = mutableListOf<Float>()
-            val originalPosition = inputBuffer.position()
-            
-            // Read values at check indices
             for (idx in checkIndices) {
                 inputBuffer.position(idx * 4)
                 checkValues.add(inputBuffer.float)
             }
+            inputBuffer.rewind()
             
-            // Also check a few more random indices to see if data is there
-            val randomIndices = (0 until totalFloats).shuffled().take(10)
-            val randomValues = mutableListOf<Float>()
-            for (idx in randomIndices) {
-                inputBuffer.position(idx * 4)
-                randomValues.add(inputBuffer.float)
-            }
-            
-            // Restore original position
-            inputBuffer.position(originalPosition)
-            
-            Timber.d("Input buffer values at indices $checkIndices: $checkValues")
-            Timber.d("Input buffer random sample (10 values): min=${randomValues.minOrNull()}, max=${randomValues.maxOrNull()}, non-zero=${randomValues.count { it > 0.01f }}")
-            Timber.d("Input buffer position before inference: ${inputBuffer.position()}, limit: ${inputBuffer.limit()}, capacity: ${inputBuffer.capacity()}")
+            Timber.d("Fresh input buffer values at indices $checkIndices: $checkValues")
+            Timber.d("Input buffer position: ${inputBuffer.position()}, limit: ${inputBuffer.limit()}, capacity: ${inputBuffer.capacity()}")
             
             // Check if all checked values are 0
             val allZeros = checkValues.all { it == 0.0f }
-            if (allZeros && randomValues.all { it == 0.0f }) {
-                Timber.w("Warning: All checked input values are 0.0! This may indicate a problem with data transfer.")
+            if (allZeros) {
+                Timber.e("ERROR: Fresh input buffer has all zeros! FloatArray max: ${floatArray.maxOrNull()}, non-zero count: ${floatArray.count { it > 0.01f }}")
             } else {
-                val maxValue = (checkValues + randomValues).maxOrNull() ?: 0f
-                Timber.d("Max checked input value: $maxValue")
+                val maxValue = checkValues.maxOrNull() ?: 0f
+                Timber.d("Fresh input buffer max value: $maxValue")
             }
-            
-            // Ensure buffer is at position 0 for inference
-            inputBuffer.rewind()
-            Timber.d("Input buffer position after rewind (before inference): ${inputBuffer.position()}")
             
             // Prepare output ByteBuffer
             val outputSize = if (outputShape.size == 2) {
@@ -359,8 +352,9 @@ class HangulTFLiteClassifier private constructor(
             val actualOutputSize = outputBuffer.capacity()
             Timber.d("Output buffer size: $actualOutputSize bytes, expected: $expectedOutputSize bytes")
             
-            // Ensure input buffer is at position 0 before inference
+            // Ensure input buffer is properly positioned and has correct limit
             inputBuffer.rewind()
+            inputBuffer.limit(inputBuffer.capacity()) // Reset limit to full capacity
             outputBuffer.rewind()
             keepProbBuffer?.rewind()
             
@@ -477,6 +471,83 @@ class HangulTFLiteClassifier private constructor(
     
     /**
      * Preprocess bitmap: resize to 64x64 and normalize to [0.0, 1.0]
+     * Returns FloatArray and total size for creating ByteBuffer
+     */
+    private fun preprocessBitmapToFloatArray(bitmap: Bitmap, inputTensor: org.tensorflow.lite.Tensor): Pair<FloatArray, Int> {
+        // Resize to 64x64 (exactly like tensorflow project PaintView.getPixelData())
+        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, FEED_DIMENSION, FEED_DIMENSION, false)
+        
+        val width = FEED_DIMENSION
+        val height = FEED_DIMENSION
+        
+        // Log original bitmap info before resize
+        val originalSample = IntArray(100)
+        bitmap.getPixels(originalSample, 0, 10, 0, 0, 10, 10)
+        val originalHasData = originalSample.any { (it and 0xFFFFFF) != 0 }
+        Timber.d("Original bitmap (128x128) has non-black pixels in top-left: $originalHasData")
+        
+        // Get pixels from resized bitmap (exactly like tensorflow project)
+        val pixels = IntArray(width * height)
+        resizedBitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+        
+        // Log resized bitmap info
+        val resizedHasData = pixels.any { (it and 0xFFFFFF) != 0 }
+        val maxPixelValue = pixels.maxOfOrNull { (it and 0xFF) } ?: 0
+        Timber.d("Resized bitmap (64x64) has non-black pixels: $resizedHasData, max pixel value: $maxPixelValue")
+        
+        // Get input tensor shape
+        val inputShape = inputTensor.shape()
+        val batchSize = inputShape[0]
+        val tensorHeight = inputShape[1]
+        val tensorWidth = inputShape[2]
+        val channels = inputShape[3]
+        
+        // Create FloatArray first, then convert to ByteBuffer
+        // This ensures data is properly written
+        val totalSize = batchSize * tensorHeight * tensorWidth * channels
+        val floatArray = FloatArray(totalSize)
+        
+        // Convert to float array and normalize (EXACTLY like tensorflow project)
+        // Here we want to convert each pixel to a floating point number between 0.0 and 1.0
+        // with 1.0 being white and 0.0 being black.
+        // Write in row-major order: [batch][height][width][channel]
+        var maxNormalized = 0f
+        var nonZeroCount = 0
+        var arrayIndex = 0
+        for (row in 0 until tensorHeight) {
+            for (col in 0 until tensorWidth) {
+                val index = row * width + col
+                val pix = pixels[index]
+                // Extract blue channel (lowest 8 bits) - same as original: int b = pix & 0xff;
+                val b = pix and 0xff
+                // Normalize to [0.0, 1.0] where 1.0 = white, 0.0 = black
+                val normalized = b / 255.0f
+                floatArray[arrayIndex++] = normalized
+                
+                if (normalized > maxNormalized) {
+                    maxNormalized = normalized
+                }
+                if (normalized > 0.01f) { // Threshold to count as non-zero
+                    nonZeroCount++
+                }
+            }
+        }
+        
+        Timber.d("Preprocessing complete: max normalized value = $maxNormalized, non-zero pixels = $nonZeroCount / ${width * height}")
+        
+        // Find where non-zero values are in the array
+        val firstNonZeroIndex = floatArray.indexOfFirst { it > 0.01f }
+        val sampleIndices = listOf(0, firstNonZeroIndex, totalSize / 2, totalSize - 10).filter { it >= 0 && it < totalSize }
+        val sampleValues = sampleIndices.map { floatArray[it] }
+        Timber.d("FloatArray samples at indices $sampleIndices: $sampleValues, max: ${floatArray.maxOrNull()}")
+        
+        resizedBitmap.recycle()
+        
+        return Pair(floatArray, totalSize)
+    }
+    
+    /**
+     * Preprocess bitmap: resize to 64x64 and normalize to [0.0, 1.0]
      * EXACTLY like PaintView.getPixelData() in tensorflow project
      * 
      * TensorFlow project code:
@@ -562,33 +633,35 @@ class HangulTFLiteClassifier private constructor(
         val sampleValues = sampleIndices.map { floatArray[it] }
         Timber.d("FloatArray samples at indices $sampleIndices: $sampleValues, max: ${floatArray.maxOrNull()}")
         
-        // Convert FloatArray to ByteBuffer using FloatBuffer for better control
+        // Convert FloatArray to ByteBuffer - write directly to avoid FloatBuffer view issues
         val inputBuffer = ByteBuffer.allocateDirect(totalSize * 4)
         inputBuffer.order(ByteOrder.nativeOrder())
         
-        // Use FloatBuffer view for easier writing
-        val floatBuffer = inputBuffer.asFloatBuffer()
-        floatBuffer.put(floatArray)
-        floatBuffer.rewind() // Rewind FloatBuffer
+        // Write directly to ByteBuffer to ensure data is properly written
+        for (value in floatArray) {
+            inputBuffer.putFloat(value)
+        }
         
-        // Now rewind the underlying ByteBuffer
+        // Rewind ByteBuffer to position 0
         inputBuffer.rewind()
         
         resizedBitmap.recycle()
         
-            // Verify buffer was written correctly by reading back values at same indices
-            val verifyValues = mutableListOf<Float>()
-            val verifyPosition = inputBuffer.position()
-            for (idx in sampleIndices) {
-                inputBuffer.position(idx * 4)
-                verifyValues.add(inputBuffer.float)
-            }
-            inputBuffer.position(verifyPosition)
-            Timber.d("Verification: ByteBuffer values at indices $sampleIndices: $verifyValues")
-        
-        // Ensure buffer is at position 0 and limit is set correctly
+        // Verify buffer was written correctly by reading back values at same indices
+        val verifyValues = mutableListOf<Float>()
+        val originalPosition = inputBuffer.position()
+        for (idx in sampleIndices) {
+            inputBuffer.position(idx * 4)
+            verifyValues.add(inputBuffer.float)
+        }
+        // CRITICAL: Always rewind to position 0 after verification, don't restore original position
         inputBuffer.rewind()
-        inputBuffer.limit(totalSize * 4) // Set limit to actual data size
+        Timber.d("Verification: ByteBuffer values at indices $sampleIndices: $verifyValues")
+        
+        // Ensure buffer is at position 0 and limit is set to full capacity
+        // Don't set limit to totalSize * 4, keep it at capacity to allow full read
+        inputBuffer.rewind()
+        inputBuffer.limit(inputBuffer.capacity()) // Set limit to full capacity
         Timber.d("Buffer position: ${inputBuffer.position()}, capacity: ${inputBuffer.capacity()}, limit: ${inputBuffer.limit()}")
         
         return inputBuffer

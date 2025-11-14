@@ -8,7 +8,7 @@
         <!-- Màu nền xanh lá cây cho splash screen -->
         <item name="windowSplashScreenBackground">@color/splash_background</item>
         <!-- Logo hiển thị giữa màn hình - sử dụng mipmap để tránh nháy -->
-        <item name="windowSplashScreenAnimatedIcon">@mipmap/duolingo_logo_icon</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/korean_logo_icon</item>
         <!-- Thời gian hiển thị splash screen (2 giây) -->
         <item name="windowSplashScreenAnimationDuration">2000</item>
         <!-- Màu nền cho icon -->
