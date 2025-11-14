@@ -206,7 +206,8 @@ class NotificationViewModel @Inject constructor(
             type = notification.type,
             createdAt = notification.createdAt,
             displayTime = formatRelativeTime(notification.createdAt),
-            isRead = notification.isRead
+            isRead = notification.isRead,
+            metadata = notification.metadata
         )
     }
 
@@ -266,7 +267,8 @@ data class NotificationItemUi(
     val type: String,
     val createdAt: String,
     val displayTime: String,
-    val isRead: Boolean
+    val isRead: Boolean,
+    val metadata: Map<String, String>? = null
 )
 
 

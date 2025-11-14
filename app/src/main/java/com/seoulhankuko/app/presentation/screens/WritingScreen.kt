@@ -106,20 +106,38 @@ fun WritingScreen(
     val teacherResultsForExercise = writingExercise?.id?.let { exerciseId ->
         writingResults.filter { it.exerciseId == exerciseId && it.mode == WritingSubmissionMode.TEACHER }
     } ?: emptyList()
+    val aiResultsForExercise = writingExercise?.id?.let { exerciseId ->
+        writingResults.filter { it.exerciseId == exerciseId && it.mode == WritingSubmissionMode.AI }
+    } ?: emptyList()
+    
     val gradedResult = teacherResultsForExercise.firstOrNull { it.status.equals("teacher_graded", ignoreCase = true) }
-    val pendingResult = teacherResultsForExercise.firstOrNull { it.status.equals("submitted", ignoreCase = true) }
+    val pendingTeacherResult = teacherResultsForExercise.firstOrNull { it.status.equals("submitted", ignoreCase = true) }
     val submissionSnapshot = submissionState
+    
+    // Chỉ lock text khi:
+    // 1. Có teacher result đã chấm xong (teacher_graded), HOẶC
+    // 2. Có teacher submission đang chờ (submitted) VÀ submissionState hiện tại cũng là TEACHER mode
+    // Không lock text nếu chỉ có AI submission
     val isTeacherGraded = gradedResult != null ||
         submissionSnapshot?.submissionStatus?.equals("teacher_graded", ignoreCase = true) == true ||
         submissionSnapshot?.teacherFinalScore != null
+    
+    // Chỉ hiển thị "đang chờ giáo viên" khi:
+    // - Không có teacher graded result, VÀ
+    // - Có teacher submission đang chờ (status = submitted) VÀ submissionState hiện tại là TEACHER mode
+    // - Hoặc có pending teacher result VÀ (submissionState null hoặc không phải AI mode)
+    // Lưu ý: pendingTeacherResult chỉ đáng tin nếu nó không có ai_score (thật sự là teacher submission)
     val isAwaitingTeacherReview = !isTeacherGraded && (
         (submissionSnapshot?.mode == WritingSubmissionMode.TEACHER &&
             submissionSnapshot.submissionStatus?.equals("submitted", ignoreCase = true) == true) ||
-            pendingResult != null
+        (pendingTeacherResult != null && 
+            (submissionSnapshot == null || submissionSnapshot.mode != WritingSubmissionMode.AI) &&
+            pendingTeacherResult.aiScore == null) // Chỉ coi là teacher submission nếu không có ai_score
         )
+    
     val lockedText = when {
-        isTeacherGraded -> gradedResult?.text ?: submissionSnapshot?.submittedText ?: pendingResult?.text
-        isAwaitingTeacherReview -> submissionSnapshot?.submittedText ?: pendingResult?.text
+        isTeacherGraded -> gradedResult?.text ?: submissionSnapshot?.submittedText ?: pendingTeacherResult?.text
+        isAwaitingTeacherReview -> submissionSnapshot?.submittedText ?: pendingTeacherResult?.text
         else -> null
     }
 
@@ -162,6 +180,14 @@ fun WritingScreen(
                                     lessonId = lessonId,
                                     content = userAnswer,
                                     mode = WritingSubmissionMode.TEACHER
+                                )
+                            },
+                            onSubmitAI = { userAnswer ->
+                                viewModel.submitWritingExercise(
+                                    exerciseId = writingExercise.id,
+                                    lessonId = lessonId,
+                                    content = userAnswer,
+                                    mode = WritingSubmissionMode.AI
                                 )
                             },
                             modifier = Modifier.padding(innerPadding)
@@ -298,6 +324,7 @@ fun WritingContent(
     isAwaitingTeacherReview: Boolean,
     lockedText: String?,
     onSubmit: (String) -> Unit,
+    onSubmitAI: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var userInput by remember { mutableStateOf(submissionState?.submittedText.orEmpty()) }
@@ -410,7 +437,11 @@ fun WritingContent(
                         trackColor = LessonFlowColors.SecondaryColor.copy(alpha = 0.35f)
                     )
                     Text(
-                        text = "Đang gửi bài, vui lòng chờ...",
+                        text = when (state.mode) {
+                            WritingSubmissionMode.AI -> "Đang chấm với AI, vui lòng chờ..."
+                            WritingSubmissionMode.TEACHER -> "Đang gửi bài, vui lòng chờ..."
+                            else -> "Đang xử lý, vui lòng chờ..."
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = LessonFlowColors.TextSecondary
                     )
@@ -427,6 +458,19 @@ fun WritingContent(
                     WritingInfoBanner(text = it)
                 }
 
+                // Hiển thị kết quả AI nếu có
+                if (
+                    state.mode == WritingSubmissionMode.AI &&
+                    (state.aiScore != null || !state.aiFeedback.isNullOrBlank())
+                ) {
+                    AiEvaluationCard(
+                        aiScore = state.aiScore,
+                        aiFeedback = state.aiFeedback,
+                        status = state.submissionStatus
+                    )
+                }
+
+                // Hiển thị kết quả giáo viên nếu có
                 if (
                     state.teacherFinalScore != null ||
                     (state.teacherScores?.hasAnyScore == true) ||
@@ -440,6 +484,7 @@ fun WritingContent(
                     )
                 } else if (
                     state.errorMessage == null &&
+                    state.mode == WritingSubmissionMode.TEACHER &&
                     (state.submissionStatus == "submitted" || state.message != null)
                 ) {
                     WritingInfoBanner(
@@ -463,10 +508,17 @@ fun WritingContent(
         }
 
         val teacherInteractionSource = remember { MutableInteractionSource() }
+        val aiInteractionSource = remember { MutableInteractionSource() }
         val canSubmit = userInput.isNotBlank() && !isSubmitting && !isTeacherGraded && !isAwaitingTeacherReview
+        val canSubmitAI = userInput.isNotBlank() && !isSubmitting && !isTeacherGraded && !isAwaitingTeacherReview
 
-        ActionButton(
+        // Hiển thị 2 nút cạnh nhau khi chưa submit hoặc đã submit AI
+        Row(
             modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ActionButton(
+                modifier = Modifier.weight(1f),
             text = when {
                 isTeacherGraded -> "Đã chấm xong"
                 isAwaitingTeacherReview -> "Đang chờ giáo viên"
@@ -476,6 +528,25 @@ fun WritingContent(
             interactionSource = teacherInteractionSource
         ) {
             onSubmit(userInput.trim())
+            }
+
+            // Nút kiểm tra với AI - chỉ hiển thị khi chưa submit teacher
+            if (!isTeacherGraded && !isAwaitingTeacherReview) {
+                ActionButton(
+                    modifier = Modifier.weight(1f),
+                    text = if (submissionState?.mode == WritingSubmissionMode.AI && submissionState?.aiScore != null) {
+                        "Đã chấm AI"
+                    } else if (submissionState?.mode == WritingSubmissionMode.AI && submissionState?.isSubmitting == true) {
+                        "Đang chấm..."
+                    } else {
+                        "Kiểm tra với AI"
+                    },
+                    enabled = canSubmitAI,
+                    interactionSource = aiInteractionSource
+                ) {
+                    onSubmitAI(userInput.trim())
+                }
+            }
         }
     }
 }
@@ -547,6 +618,74 @@ private fun WritingInfoBanner(
             color = textColor,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
         )
+    }
+}
+
+@Composable
+private fun AiEvaluationCard(
+    aiScore: Float?,
+    aiFeedback: String?,
+    status: String?
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+        shape = RoundedCornerShape(18.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Đánh giá AI",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = LessonFlowColors.TextPrimary
+            )
+
+            status?.let {
+                val label = when (it.lowercase()) {
+                    "ai_graded" -> "Trạng thái: đã chấm"
+                    else -> "Trạng thái: $it"
+                }
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = LessonFlowColors.TextSecondary
+                )
+            }
+
+            aiScore?.let {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Điểm AI",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = LessonFlowColors.TextPrimary
+                    )
+                    Text(
+                        text = String.format("%.2f / 10.00", it),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = LessonFlowColors.PrimaryColor,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            aiFeedback?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    text = "Phản hồi: $it",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = LessonFlowColors.TextSecondary
+                )
+            }
+        }
     }
 }
 

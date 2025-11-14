@@ -403,7 +403,9 @@ class LessonViewModel @Inject constructor(
     fun submitPracticeCorrectAnswer(
         lessonId: String,
         questionId: String,
-        selectedOptionId: String
+        selectedOptionId: String? = null,
+        textAnswer: String? = null,
+        sentenceOrder: List<String>? = null
     ) {
         viewModelScope.launch {
             try {
@@ -413,7 +415,9 @@ class LessonViewModel @Inject constructor(
                         lessonId = lessonId,
                         questionId = questionId,
                         token = token,
-                        selectedOptionId = selectedOptionId
+                        selectedOptionId = selectedOptionId,
+                        textAnswer = textAnswer,
+                        sentenceOrder = sentenceOrder
                     )
                     if (result.isSuccess) {
                         Timber.d("Practice submit API success for lesson=$lessonId question=$questionId")

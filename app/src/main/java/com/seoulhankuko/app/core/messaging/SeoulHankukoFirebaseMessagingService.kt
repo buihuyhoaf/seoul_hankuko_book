@@ -135,11 +135,10 @@ class SeoulHankukoFirebaseMessagingService : FirebaseMessagingService() {
 
         val launchIntent = Intent(this, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            putExtras(Intent().apply {
-                notificationExtras.forEach { (key, value) ->
-                    putExtra(key, value)
-                }
-            })
+            // Put extras trực tiếp vào Intent (không wrap trong Intent().apply)
+            notificationExtras.forEach { (key, value) ->
+                putExtra(key, value)
+            }
         }
 
         val pendingIntent = PendingIntent.getActivity(

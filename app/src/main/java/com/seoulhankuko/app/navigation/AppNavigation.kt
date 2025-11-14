@@ -220,7 +220,13 @@ fun AppNavigation(
                         launchSingleTop = true
                     }
                 },
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToLesson = { lessonId ->
+                    navController.navigate("lesson/$lessonId") {
+                        popUpTo("courses") { inclusive = false }
+                        launchSingleTop = true
+                    }
+                }
             )
         }
         

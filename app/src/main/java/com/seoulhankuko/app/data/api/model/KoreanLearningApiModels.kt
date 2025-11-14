@@ -553,6 +553,10 @@ data class PracticeTextAnswerRequest(
     @SerializedName("answer") val answer: String
 )
 
+data class PracticeSentenceOrderRequest(
+    @SerializedName("sentence_order") val sentenceOrder: List<String>
+)
+
 // Exercise submission request
 data class ExerciseSubmissionRequest(
     @SerializedName("response") val response: String? = null,

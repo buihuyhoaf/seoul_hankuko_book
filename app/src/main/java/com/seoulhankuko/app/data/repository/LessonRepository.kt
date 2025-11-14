@@ -5,6 +5,7 @@ import com.seoulhankuko.app.data.api.model.LessonDetailResponse
 import com.seoulhankuko.app.data.api.model.LessonProgressUpdateRequest
 import com.seoulhankuko.app.data.api.model.PronunciationEvaluationResponse
 import com.seoulhankuko.app.data.api.model.PracticeSelectedOptionRequest
+import com.seoulhankuko.app.data.api.model.PracticeSentenceOrderRequest
 import com.seoulhankuko.app.data.api.model.PracticeTextAnswerRequest
 import com.seoulhankuko.app.data.api.model.QuestionResponse
 import com.seoulhankuko.app.data.api.model.WritingResultsResponse
@@ -144,7 +145,8 @@ class LessonRepository @Inject constructor(
         questionId: String,
         token: String,
         selectedOptionId: String? = null,
-        textAnswer: String? = null
+        textAnswer: String? = null,
+        sentenceOrder: List<String>? = null
     ): Result<Map<String, Any>> {
         return try {
             val authHeader = "Bearer $token"
@@ -161,8 +163,14 @@ class LessonRepository @Inject constructor(
                         PracticeTextAnswerRequest(textAnswer)
                     )
                 }
+                sentenceOrder != null -> {
+                    apiService.submitPracticeQuestionSentenceOrder(
+                        lessonId, questionId, authHeader,
+                        PracticeSentenceOrderRequest(sentenceOrder)
+                    )
+                }
                 else -> {
-                    throw IllegalArgumentException("Either selectedOptionId or textAnswer must be provided")
+                    throw IllegalArgumentException("Either selectedOptionId, textAnswer, or sentenceOrder must be provided")
                 }
             }
             if (response.isSuccessful) {

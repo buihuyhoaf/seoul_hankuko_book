@@ -1,6 +1,7 @@
 package com.seoulhankuko.app
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -9,36 +10,38 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import kotlinx.coroutines.delay
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.seoulhankuko.app.navigation.AppNavigation
-import com.seoulhankuko.app.presentation.ui.theme.SeoulhankukobookTheme
-import com.seoulhankuko.app.presentation.viewmodel.GoogleSignInViewModel
-import com.seoulhankuko.app.presentation.viewmodel.LoggedAccountsViewModel
-import com.seoulhankuko.app.presentation.viewmodel.AuthViewModel
-import com.seoulhankuko.app.presentation.viewmodel.MainUiViewModel
-import com.seoulhankuko.app.domain.model.AuthState
-import dagger.hilt.android.AndroidEntryPoint
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seoulhankuko.app.core.Logger
-import timber.log.Timber
+import com.seoulhankuko.app.navigation.AppNavigation
 import com.seoulhankuko.app.notifications.WritingNotificationCenter
 import com.seoulhankuko.app.notifications.WritingNotificationEvent
+import com.seoulhankuko.app.presentation.ui.theme.SeoulhankukobookTheme
+import com.seoulhankuko.app.presentation.viewmodel.AuthViewModel
+import com.seoulhankuko.app.presentation.viewmodel.GoogleSignInViewModel
+import com.seoulhankuko.app.presentation.viewmodel.LoggedAccountsViewModel
+import com.seoulhankuko.app.presentation.viewmodel.MainUiViewModel
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import timber.log.Timber
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -66,6 +69,27 @@ class MainActivity : ComponentActivity() {
                     NotificationPermissionHandler()
                 }
             }
+        }
+    }
+    
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent) // Important: Update the intent để có thể đọc lại
+        
+        // Check if launched from notification khi app đang chạy
+        val lessonIdFromNotification = intent?.getStringExtra(WritingNotificationCenter.EXTRA_TARGET_LESSON_ID)
+        
+        if (lessonIdFromNotification != null) {
+            Timber.d("MainActivity: Received notification click with lesson_id=$lessonIdFromNotification")
+            // Publish event để trigger navigation
+            WritingNotificationCenter.publish(
+                WritingNotificationEvent.WritingGraded(
+                    lessonId = lessonIdFromNotification,
+                    submissionId = intent?.getStringExtra("submission_id"),
+                    title = intent?.getStringExtra("title") ?: "Bài viết đã được chấm",
+                    body = intent?.getStringExtra("body") ?: "Giáo viên đã chấm bài viết của bạn"
+                )
+            )
         }
     }
 }
@@ -116,17 +140,31 @@ fun AppNavigationWithAutoLogin(
         }
     }
     
-    // Listen to writing notification events
+    // Get current activity context để observe intent changes
+    val activity = LocalContext.current as? MainActivity
+    
+    // Listen to writing notification events (from FCM hoặc onNewIntent)
     LaunchedEffect(Unit) {
         WritingNotificationCenter.events
             .onEach { event ->
                 when (event) {
                     is WritingNotificationEvent.WritingGraded -> {
                         notificationLessonId = event.lessonId
+                        Timber.d("AppNavigationWithAutoLogin: Received WritingGraded event, lessonId=${event.lessonId}")
                     }
                 }
             }
             .launchIn(this)
+    }
+    
+    // Also observe initialLessonId changes (khi app được launch từ notification)
+    LaunchedEffect(initialLessonId) {
+        initialLessonId?.let { lessonId ->
+            if (lessonId != notificationLessonId) {
+                notificationLessonId = lessonId
+                Timber.d("AppNavigationWithAutoLogin: Set notificationLessonId from initialLessonId=$lessonId")
+            }
+        }
     }
 
     // Render AppNavigation khi đã xác định destination

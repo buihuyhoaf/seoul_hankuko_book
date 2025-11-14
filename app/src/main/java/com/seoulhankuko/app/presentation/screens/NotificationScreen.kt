@@ -70,6 +70,7 @@ fun NotificationScreen(
     onNavigateToMission: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateBack: () -> Unit,
+    onNavigateToLesson: (lessonId: String) -> Unit = {},
     modifier: Modifier = Modifier,
     mainUiViewModel: MainUiViewModel = hiltViewModel(),
     notificationViewModel: NotificationViewModel = hiltViewModel()
@@ -127,7 +128,8 @@ fun NotificationScreen(
                 onLoadMore = { notificationViewModel.loadNextPage() },
                 onMarkAsRead = { notificationViewModel.markNotificationRead(it) },
                 onMarkAllRead = { notificationViewModel.markAllRead() },
-                onDismissError = { notificationViewModel.clearError() }
+                onDismissError = { notificationViewModel.clearError() },
+                onNavigateToLesson = onNavigateToLesson
             )
         }
     }
@@ -142,7 +144,8 @@ private fun NotificationScreenContent(
     onLoadMore: () -> Unit,
     onMarkAsRead: (String) -> Unit,
     onMarkAllRead: () -> Unit,
-    onDismissError: () -> Unit
+    onDismissError: () -> Unit,
+    onNavigateToLesson: (String) -> Unit = {}
 ) {
     val pullRefreshState = rememberPullRefreshState(
         refreshing = uiState.isRefreshing,
@@ -181,7 +184,8 @@ private fun NotificationScreenContent(
                     onDismissError = onDismissError,
                     onLoadMore = onLoadMore,
                     onMarkAsRead = onMarkAsRead,
-                    onMarkAllRead = onMarkAllRead
+                    onMarkAllRead = onMarkAllRead,
+                    onNavigateToLesson = onNavigateToLesson
                 )
             }
         }
@@ -206,7 +210,8 @@ private fun NotificationList(
     onDismissError: () -> Unit,
     onLoadMore: () -> Unit,
     onMarkAsRead: (String) -> Unit,
-    onMarkAllRead: () -> Unit
+    onMarkAllRead: () -> Unit,
+    onNavigateToLesson: (String) -> Unit = {}
 ) {
     LazyColumn(
         modifier = Modifier
@@ -240,7 +245,17 @@ private fun NotificationList(
         itemsIndexed(notifications, key = { _, item -> item.id }) { index, item ->
             NotificationCard(
                 notification = item,
-                onClick = { onMarkAsRead(item.id) }
+                onClick = { 
+                    // Mark as read
+                    onMarkAsRead(item.id)
+                    // Navigate to lesson if writing_graded notification
+                    if (item.type == "writing_graded") {
+                        val lessonId = item.metadata?.get("lesson_id")
+                        lessonId?.let { 
+                            onNavigateToLesson(it)
+                        }
+                    }
+                }
             )
             if (index == notifications.lastIndex && hasMore && !isLoadingMore) {
                 LaunchedEffect(notifications.size) {

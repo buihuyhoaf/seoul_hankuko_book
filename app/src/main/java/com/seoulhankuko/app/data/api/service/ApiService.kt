@@ -148,6 +148,14 @@ interface ApiService {
         @Body body: PracticeTextAnswerRequest
     ): Response<Map<String, Any>>
 
+    @POST("v1/lessons/{lesson_id}/practice-questions/{question_id}/submit")
+    suspend fun submitPracticeQuestionSentenceOrder(
+        @Path("lesson_id") lessonId: String,
+        @Path("question_id") questionId: String,
+        @Header("Authorization") token: String,
+        @Body body: PracticeSentenceOrderRequest
+    ): Response<Map<String, Any>>
+
     @Multipart
     @POST("v1/pronunciation")
     suspend fun evaluatePronunciation(

@@ -10,7 +10,8 @@ data class NotificationResponse(
     @SerializedName("is_read")
     val isRead: Boolean,
     @SerializedName("created_at")
-    val createdAt: String
+    val createdAt: String,
+    val metadata: Map<String, String>? = null
 )
 
 data class NotificationUnreadCountResponse(

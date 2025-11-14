@@ -216,6 +216,14 @@ private fun LessonContent(
         buildTimelineItems(lessonInfo)
     }
     
+    // Kiểm tra xem lesson có writing exercise không
+    val hasWritingExercise = remember(lessonInfo) {
+        lessonInfo.exercises.any { exercise ->
+            val type = exercise.type.lowercase()
+            type == "writing" || type == "writing_practice"
+        }
+    }
+    
     LazyColumn(
         modifier = modifier.background(LessonColors.BackgroundWhite),
         contentPadding = PaddingValues(bottom = 32.dp)
@@ -228,7 +236,8 @@ private fun LessonContent(
             )
         }
 
-        if (writingResultsLoading || writingResults.isNotEmpty() || !writingResultsError.isNullOrBlank()) {
+        // Chỉ hiển thị WritingResultsCard khi lesson có writing exercise
+        if (hasWritingExercise && (writingResultsLoading || writingResults.isNotEmpty() || !writingResultsError.isNullOrBlank())) {
             item {
                 WritingResultsCard(
                     results = writingResults,

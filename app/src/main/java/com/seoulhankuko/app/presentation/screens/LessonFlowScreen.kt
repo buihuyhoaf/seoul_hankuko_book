@@ -404,6 +404,8 @@ fun QuizPagerFlow(
     var showStreakScreen by remember { mutableStateOf(false) }
     var streakEventToShow by remember { mutableStateOf<StreakCelebrationEvent?>(null) }
     var matchingCompleted by remember { mutableStateOf(false) }
+    var sentenceOrderCompleted by remember { mutableStateOf(false) }
+    var sentenceOrderSubmitTrigger by remember { mutableStateOf(0) }
     var lessonStartTimestamp by remember { mutableStateOf(System.currentTimeMillis()) }
     var totalTimeMillis by remember { mutableStateOf(0L) }
     var expAccumulated by remember { mutableStateOf(0f) }
@@ -600,6 +602,7 @@ fun QuizPagerFlow(
         val currentQuestionResponse = currentChallenge?.let { questionResponseMap[it.challenge.id] }
         val isMatchingQuestion = currentChallenge?.challenge?.type == QuestionType.MATCHING && currentQuestionResponse != null
         val isPronunciationQuestion = currentChallenge?.challenge?.type == QuestionType.PRONUNCIATION && currentQuestionResponse != null
+        val isSentenceOrderQuestion = currentChallenge?.challenge?.type == QuestionType.SENTENCE_ORDER && currentQuestionResponse != null
 
         fun isSelectionCorrect(selection: String?): Boolean {
             if (selection.isNullOrEmpty() || currentChallenge == null) return false
@@ -820,6 +823,31 @@ fun QuizPagerFlow(
                     perQuestionExp = expPerQuestionValue
                 )
 
+                // Instruction text based on question type
+                val currentChallenge = challengeItems.getOrNull(pagerState.currentPage)
+                val instructionText = when (currentChallenge?.challenge?.type) {
+                    QuestionType.MULTIPLE_CHOICE -> "Hãy chọn đáp án đúng"
+                    QuestionType.BLANK -> "Hãy chọn đáp án đúng"
+                    QuestionType.MATCHING -> "Hãy ghép cặp đúng"
+                    QuestionType.SENTENCE_ORDER -> "Sắp xếp bằng cách kéo từ vào vị trí đúng"
+                    QuestionType.PRONUNCIATION -> "Hãy phát âm đúng"
+                    QuestionType.AUDIO_COMPREHENSION -> "Hãy nghe và trả lời"
+                    QuestionType.IMAGE_SELECTION -> "Hãy chọn hình ảnh đúng"
+                    else -> ""
+                }
+                
+                if (instructionText.isNotEmpty()) {
+                    Text(
+                        text = instructionText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = LessonFlowColors.TextSecondary,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 8.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
+
                 // Pager with questions
                 if (challengeItems.isEmpty()) {
                     Box(
@@ -848,6 +876,7 @@ fun QuizPagerFlow(
                         val isBlankQuestion = challenge.challenge.type == QuestionType.BLANK && questionResponse != null
                         val isMatchingQuestion = challenge.challenge.type == QuestionType.MATCHING && questionResponse != null
                         val isPronunciationQuestion = challenge.challenge.type == QuestionType.PRONUNCIATION && questionResponse != null
+                        val isSentenceOrderQuestion = challenge.challenge.type == QuestionType.SENTENCE_ORDER && questionResponse != null
                         val isCurrentPage = page == pagerState.currentPage
                         val pageAnswerStatus = if (isCurrentPage) currentAnswerStatus else AnswerStatus.NONE
                         val pageSelectedOption = if (isCurrentPage) selectedOption else null
@@ -1036,6 +1065,36 @@ fun QuizPagerFlow(
                                     )
                                 }
                             }
+                        } else if (isSentenceOrderQuestion) {
+                            SentenceOrderQuestionCard(
+                                challenge = challenge,
+                                question = questionResponse,
+                                questionIndex = page,
+                                answerStatus = pageAnswerStatus,
+                                onAnswerSubmitted = { isCorrect, sequence ->
+                                    if (!isCurrentPage) return@SentenceOrderQuestionCard
+                                    submitAnswer(isCorrect)
+                                    
+                                    // Submit sequence to backend (cả khi đúng và sai)
+                                    viewModel.submitPracticeCorrectAnswer(
+                                        lessonId = lessonId,
+                                        questionId = challenge.challenge.id,
+                                        sentenceOrder = sequence
+                                    )
+                                },
+                                onPlayAudio = {
+                                    val questionText = challenge.challenge.question
+                                    if (questionText.isNotBlank()) {
+                                        ttsManager.speak(questionText, speed = 0.8f)
+                                    }
+                                },
+                                onCompletedChanged = { completed ->
+                                    if (isCurrentPage) {
+                                        sentenceOrderCompleted = completed
+                                    }
+                                },
+                                triggerSubmit = if (isCurrentPage) sentenceOrderSubmitTrigger else 0
+                            )
                         } else {
                             QuizQuestionCard(
                                 challenge = challenge,
@@ -1075,6 +1134,7 @@ fun QuizPagerFlow(
         val buttonEnabled = when {
             isMatchingQuestion -> matchingCompleted
             isPronunciationQuestion -> currentAnswerStatus == AnswerStatus.CORRECT
+            isSentenceOrderQuestion -> sentenceOrderCompleted || currentAnswerStatus != AnswerStatus.NONE
             currentAnswerStatus == AnswerStatus.NONE -> selectedOption != null
             else -> true
         }
@@ -1092,6 +1152,7 @@ fun QuizPagerFlow(
         val shouldShowActionButton = when {
             isMatchingQuestion -> true
             isPronunciationQuestion -> true
+            isSentenceOrderQuestion -> sentenceOrderCompleted || currentAnswerStatus != AnswerStatus.NONE
             currentAnswerStatus != AnswerStatus.NONE -> true
             selectedOption != null -> true
             else -> false
@@ -1101,8 +1162,13 @@ fun QuizPagerFlow(
             Button(
                 onClick = {
                     if (currentAnswerStatus == AnswerStatus.NONE) {
-                        val isCorrect = isSelectionCorrect(selectedOption)
-                        submitAnswer(isCorrect)
+                        if (isSentenceOrderQuestion && sentenceOrderCompleted) {
+                            // Trigger submit cho sentence order
+                            sentenceOrderSubmitTrigger++
+                        } else {
+                            val isCorrect = isSelectionCorrect(selectedOption)
+                            submitAnswer(isCorrect)
+                        }
                     } else {
                         if (currentPage == challengeItems.lastIndex) {
                             if (xpRequirementMet) {
@@ -1116,6 +1182,8 @@ fun QuizPagerFlow(
                             currentAnswerStatus = AnswerStatus.NONE
                             selectedOption = null
                             matchingCompleted = false
+                            sentenceOrderCompleted = false
+                            sentenceOrderSubmitTrigger = 0
                             if (ttsManager.isAvailable()) {
                                 ttsManager.stop()
                             }
@@ -1201,28 +1269,10 @@ fun ExpProgressIndicator(
         Text(
             text = "${safeEarned.coerceAtMost(targetExp)} / $targetExp XP",
             style = MaterialTheme.typography.labelMedium,
-            color = LessonFlowColors.TextSecondary,
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center
-        )
-
-        Text(
-            text = "$answeredCount / $safeTotalQuestions câu đã đạt XP",
-            style = MaterialTheme.typography.labelSmall,
-            color = LessonFlowColors.TextSecondary,
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center
-        )
-
-        if (perQuestionExp > 0f) {
-            Text(
-                text = "~${perQuestionExp.roundToInt()} XP mỗi câu đúng",
-                style = MaterialTheme.typography.labelSmall,
                 color = LessonFlowColors.TextSecondary,
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center
             )
-        }
     }
 }
 
