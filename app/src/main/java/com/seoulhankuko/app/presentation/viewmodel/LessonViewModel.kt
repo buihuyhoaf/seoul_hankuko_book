@@ -9,7 +9,10 @@ import com.seoulhankuko.app.data.audio.WavUtils
 import com.seoulhankuko.app.data.local.UserPreferencesManager
 import com.seoulhankuko.app.data.repository.AuthRepository
 import com.seoulhankuko.app.data.repository.LessonRepository
+import com.seoulhankuko.app.data.repository.MissionRepository
 import com.seoulhankuko.app.data.repository.AdditionalLessonChallenges
+import com.seoulhankuko.app.domain.manager.ExpBonusManager
+import com.seoulhankuko.app.domain.model.ActivityType
 import com.seoulhankuko.app.domain.model.AnswerStatus
 import com.seoulhankuko.app.domain.model.ChallengeWithOptions
 import com.seoulhankuko.app.domain.model.LessonWithChallenges
@@ -38,7 +41,9 @@ class LessonViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val userPreferencesManager: UserPreferencesManager,
     val ttsManager: TTSManager,
-    private val pronunciationRecorder: PronunciationRecorder
+    private val pronunciationRecorder: PronunciationRecorder,
+    private val missionRepository: MissionRepository,
+    private val expBonusManager: ExpBonusManager
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow<LessonUiState>(LessonUiState.Loading)
@@ -675,6 +680,10 @@ class LessonViewModel @Inject constructor(
                             currentState.copy(progressUpdated = true)
                         } else currentState
                     }
+                    
+                    // Track activity for missions
+                    trackActivityForMission(ActivityType.LESSON, token)
+                    
                     resetExpTracking()
                     viewModelScope.launch {
                         authRepository.refreshCurrentUserData()
@@ -933,12 +942,52 @@ class LessonViewModel @Inject constructor(
     
     private fun buildLessonProgressPayload(): LessonProgressUpdateRequest {
         val snapshot = _lessonExpProgress.value
+        
+        // Apply bonus multiplier if active
+        val multiplier = if (expBonusManager.isActive()) 2 else 1
+        
         return LessonProgressUpdateRequest(
-            questionExp = snapshot.questionExp.roundToInt().coerceAtLeast(0),
-            listeningExp = snapshot.listeningExp.roundToInt().coerceAtLeast(0),
-            speakingExp = snapshot.speakingExp.roundToInt().coerceAtLeast(0),
-            writingExp = snapshot.writingExp.roundToInt().coerceAtLeast(0)
+            questionExp = (snapshot.questionExp.roundToInt().coerceAtLeast(0) * multiplier),
+            listeningExp = (snapshot.listeningExp.roundToInt().coerceAtLeast(0) * multiplier),
+            speakingExp = (snapshot.speakingExp.roundToInt().coerceAtLeast(0) * multiplier),
+            writingExp = (snapshot.writingExp.roundToInt().coerceAtLeast(0) * multiplier)
         )
+    }
+    
+    /**
+     * Track activity for mission progress
+     */
+    private fun trackActivityForMission(activityType: ActivityType, token: String?) {
+        viewModelScope.launch {
+            try {
+                val result = missionRepository.trackActivity(activityType.apiValue, token)
+                result.onSuccess { response ->
+                    if (response.missionCompleted && response.expiresAt != null) {
+                        // Activate bonus
+                        expBonusManager.setExpiresAt(response.expiresAt)
+                        Timber.d("Mission completed: ${response.missionId}, Bonus activated until ${response.expiresAt}")
+                    }
+                }.onFailure { exception ->
+                    Timber.e(exception, "Failed to track activity for mission")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Exception while tracking activity")
+            }
+        }
+    }
+    
+    /**
+     * Track speaking activity (for pronunciation exercises)
+     */
+    fun trackSpeakingActivity(token: String?) {
+        trackActivityForMission(ActivityType.SPEAKING, token)
+    }
+    
+    /**
+     * Track listening activity
+     */
+    fun trackListeningActivity(token: String?) {
+        trackActivityForMission(ActivityType.LISTENING, token)
     }
     
     companion object {

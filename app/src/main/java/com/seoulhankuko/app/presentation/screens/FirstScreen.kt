@@ -33,7 +33,6 @@ fun FirstScreen(
     onNavigateToLogin: () -> Unit,
     onNavigateToRegister: () -> Unit,
     onNavigateToLearn: (courseId: Int) -> Unit,
-    onNavigateToEntryTest: () -> Unit = {}, // New callback for entry test
     onNavigateToGuestMode: () -> Unit = {}, // New callback for guest mode
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -157,7 +156,7 @@ fun FirstScreen(
                                 )
                             ) {
                                 Text(
-                                    "Continue Learning",
+                                    stringResource(id = R.string.continue_learning),
                                     style = MaterialTheme.typography.titleMedium
                                 )
                             }
@@ -170,7 +169,7 @@ fun FirstScreen(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
-                                    "Sign Out",
+                                    stringResource(id = R.string.sign_out),
                                     style = MaterialTheme.typography.titleMedium
                                 )
                             }
@@ -187,7 +186,7 @@ fun FirstScreen(
                                 )
                             ) {
                                 Text(
-                                    "Continue Learning (Guest)",
+                                    stringResource(id = R.string.continue_learning_guest),
                                     style = MaterialTheme.typography.titleMedium
                                 )
                             }
@@ -200,7 +199,7 @@ fun FirstScreen(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
-                                    "Sign In to Save Progress",
+                                    stringResource(id = R.string.sign_in_to_save_progress),
                                     style = MaterialTheme.typography.titleMedium
                                 )
                             }

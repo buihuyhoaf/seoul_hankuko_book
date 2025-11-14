@@ -1,25 +1,38 @@
 package com.seoulhankuko.app.presentation.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
@@ -29,8 +42,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -312,43 +328,128 @@ private fun NotificationCard(
     notification: NotificationItemUi,
     onClick: () -> Unit
 ) {
-    val backgroundColor =
-        if (notification.isRead) Color.White else HomeColors.DuolingoLightGreen.copy(alpha = 0.3f)
-    Card(
+    val interactionSource = remember { MutableInteractionSource() }
+    
+    // Pulse animation for unread indicator
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.9f,
+        targetValue = 1.1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse_scale"
+    )
+    
+    // Card scale for unread notifications
+    val cardScale = if (!notification.isRead) 1.02f else 1f
+    
+    ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+            .scale(cardScale)
+            .clickable(
+                interactionSource = interactionSource,
+                onClick = onClick
+            ),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = if (notification.isRead) 2.dp else 4.dp
+        )
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
+        AnimatedContent(
+            targetState = notification.isRead,
+            transitionSpec = {
+                fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
+            },
+            label = "notification_state"
+        ) { isRead ->
+            val backgroundColor = if (isRead) {
+                Color.White
+            } else {
+                Color(0xFFF5F5F5) // Light gray background for unread
+            }
+            
+            // Only apply pulse when unread
+            val actualPulseScale = if (!isRead) pulseScale else 1f
+            
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(backgroundColor)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = notification.title,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = HomeColors.DuolingoDarkGreen
-                )
+                // Title and Time row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        // Unread indicator dot (far left) with pulse animation
+                        if (!isRead) {
+                            Box(
+                                modifier = Modifier
+                                    .size(12.dp)
+                                    .clip(CircleShape)
+                                    .background(HomeColors.DuolingoGreen)
+                                    .scale(actualPulseScale)
+                            )
+                        }
+                        
+                        Text(
+                            text = notification.title,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = if (isRead) FontWeight.SemiBold else FontWeight.Bold,
+                                fontSize = 16.sp,
+                                lineHeight = 22.sp
+                            ),
+                            color = if (isRead) {
+                                Color(0xFF374151) // Gray-700 for read
+                            } else {
+                                Color(0xFF111827) // Gray-900 for unread (darker, more contrast)
+                            },
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                    }
+                    
+                    Text(
+                        text = notification.displayTime,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Normal
+                        ),
+                        color = if (isRead) {
+                            Color(0xFF9CA3AF) // Gray-400 for read
+                        } else {
+                            Color(0xFF6B7280) // Gray-600 for unread (darker for contrast)
+                        }
+                    )
+                }
+                
+                // Message
                 Text(
                     text = notification.message,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Normal
+                    ),
+                    color = if (isRead) {
+                        Color(0xFF6B7280) // Gray-600 for read
+                    } else {
+                        Color(0xFF4B5563) // Gray-700 for unread (darker for contrast)
+                    },
                     maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(start = if (isRead) 0.dp else 24.dp)
                 )
             }
-            Text(
-                text = notification.displayTime,
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                color = HomeColors.DuolingoGray
-            )
         }
     }
 }

@@ -13,8 +13,14 @@ import com.seoulhankuko.app.data.api.model.UserInfo
 import com.seoulhankuko.app.data.api.service.ApiService
 import com.seoulhankuko.app.data.local.UserData
 import com.seoulhankuko.app.data.local.UserPreferencesManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,9 +31,9 @@ import javax.inject.Singleton
 class GoogleSignInRepository @Inject constructor(
     private val apiService: ApiService,
     private val userPreferencesManager: UserPreferencesManager,
-    private val entryTestRepository: EntryTestRepository,
     private val authRepository: AuthRepository,
-    private val accountRepository: AccountRepository
+    private val accountRepository: AccountRepository,
+    private val pushTokenRepository: PushTokenRepository
 ) {
     
     /**
@@ -100,12 +106,6 @@ class GoogleSignInRepository @Inject constructor(
                                 streakDays = fetchedUser.streakDays
                                 exp = fetchedUser.exp
                                 
-                                userPreferencesManager.saveEntryTestResult(
-                                    hasCompletedEntryTest = fetchedUser.hasCompletedEntryTest,
-                                    currentCourseId = fetchedUser.currentCourseId,
-                                    currentCourseName = null,
-                                    entryTestScore = fetchedUser.entryTestScore
-                                )
                                 Logger.GoogleSignIn.signInSuccess("User data synced from backend")
 
                                 // Save full profile using the fetched data
@@ -120,10 +120,7 @@ class GoogleSignInRepository @Inject constructor(
                                     isPremium = false,
                                     streakDays = fetchedUser.streakDays,
                                     exp = fetchedUser.exp,
-                                    createdAt = fetchedUser.createdAt,
-                                    hasCompletedEntryTest = fetchedUser.hasCompletedEntryTest,
-                                    currentCourseId = fetchedUser.currentCourseId,
-                                    entryTestScore = fetchedUser.entryTestScore
+                                    createdAt = fetchedUser.createdAt
                                 )
                             } else {
                                 fallback = true
@@ -160,16 +157,34 @@ class GoogleSignInRepository @Inject constructor(
                             refreshToken = refreshToken,
                             accessToken = accessToken
                         )
-                    
-                        // Sync offline entry test result if any
-                        try {
-                            val syncSuccess = entryTestRepository.syncOfflineEntryTestToServer()
-                            if (syncSuccess) {
-                                Logger.GoogleSignIn.signInSuccess("Offline entry test synced to server")
+                        
+                        // Register FCM token with retry logic
+                        Timber.d("📱 [GoogleSignIn] About to register FCM token for user %s", backendUserId)
+                        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+                            var retryCount = 0
+                            val maxRetries = 3
+                            var success = false
+                            
+                            while (retryCount < maxRetries && !success) {
+                                retryCount++
+                                Timber.d("🔄 [GoogleSignIn] FCM token registration attempt %d/%d for user %s", retryCount, maxRetries, backendUserId)
+                                
+                                val result = pushTokenRepository.registerCachedToken(backendUserId)
+                                result.fold(
+                                    onSuccess = {
+                                        Timber.d("✅ [GoogleSignIn] FCM token registered successfully for user %s", backendUserId)
+                                        success = true
+                                    },
+                                    onFailure = { error ->
+                                        if (retryCount < maxRetries) {
+                                            Timber.w(error, "❌ [GoogleSignIn] Failed to register FCM token (attempt %d/%d), retrying in 2s...", retryCount, maxRetries)
+                                            delay(2000) // Wait 2 seconds before retry
+                                        } else {
+                                            Timber.e(error, "❌ [GoogleSignIn] Failed to register FCM token after %d attempts. Error: %s", maxRetries, error.message)
+                                        }
+                                    }
+                                )
                             }
-                        } catch (e: Exception) {
-                            Logger.GoogleSignIn.signInError("Failed to sync offline entry test: ${e.message}")
-                            // Continue with login even if sync fails
                         }
                         
                         val userInfo = UserInfo(

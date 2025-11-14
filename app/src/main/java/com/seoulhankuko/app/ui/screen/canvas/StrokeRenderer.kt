@@ -24,13 +24,13 @@ fun StrokeRenderer(
         val canvasWidth = size.width
         val canvasHeight = size.height
 
-        // Draw completed user strokes
+        // Draw completed user strokes (white on black background, like tensorflow)
         completedStrokes.forEach { stroke ->
             drawStroke(
                 stroke = stroke,
                 canvasWidth = canvasWidth,
                 canvasHeight = canvasHeight,
-                color = Color.Blue,
+                color = Color.White,
                 strokeWidth = 6f
             )
         }
@@ -41,7 +41,7 @@ fun StrokeRenderer(
                 points = currentStroke,
                 canvasWidth = canvasWidth,
                 canvasHeight = canvasHeight,
-                color = Color.Blue,
+                color = Color.White,
                 strokeWidth = 6f
             )
         }

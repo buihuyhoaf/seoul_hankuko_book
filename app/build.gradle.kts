@@ -25,6 +25,8 @@ android {
         buildConfigField("String", "APP_NAME", "\"Seoul Hankuko Book\"")
         buildConfigField("int", "TIMEOUT_SECONDS", "30")
         buildConfigField("boolean", "ENABLE_LOGGING", "true")
+        // Supabase Model URL - Update with your actual Supabase Storage URL
+        buildConfigField("String", "SUPABASE_MODEL_URL", "\"https://uclzdocdphxgyarchdjt.supabase.co/storage/v1/object/public/questions-images/hangul_stroke_model%20(1).tflite\"")
     }
 
     buildTypes {
@@ -115,6 +117,9 @@ dependencies {
     
     // Logging
     implementation(libs.timber)
+    
+    // TensorFlow Lite for Hangul recognition
+    implementation("org.tensorflow:tensorflow-lite:2.14.0")
     
     // Firebase Cloud Messaging
     implementation(platform(libs.firebase.bom))

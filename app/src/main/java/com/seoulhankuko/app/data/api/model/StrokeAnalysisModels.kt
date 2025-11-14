@@ -25,10 +25,10 @@ data class StrokeTopPredictionResponse(
 data class StrokeAnalysisResponse(
     @SerializedName("predicted_char")
     val predictedChar: String,
-
+    
     @SerializedName("confidence")
     val confidence: Float,
-
+    
     @SerializedName("message")
     val message: String,
 

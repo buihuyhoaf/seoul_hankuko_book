@@ -27,10 +27,25 @@ class SeoulHankukoApplication : Application() {
         // Initialize Firebase (required for FCM to function correctly)
         try {
             FirebaseApp.initializeApp(this)
+            Timber.d("✅ Firebase initialized successfully")
+            
+            // Try to get FCM token immediately to verify Firebase Messaging is working
+            try {
+                com.google.firebase.messaging.FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        val token = task.result
+                        Timber.d("✅ FCM token retrieved on app start (length=%d): %s", token.length, token.take(20) + "...")
+                    } else {
+                        Timber.w(task.exception, "❌ Failed to get FCM token on app start")
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "❌ Exception getting FCM token on app start")
+            }
         } catch (e: Exception) {
             Timber.e(e, "Failed to initialize FirebaseApp")
         }
-
+        
         Logger.appStarted()
         createNotificationChannel()
     }

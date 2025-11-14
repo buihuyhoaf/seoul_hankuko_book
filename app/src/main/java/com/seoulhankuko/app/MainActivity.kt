@@ -28,7 +28,6 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.seoulhankuko.app.navigation.AppNavigation
 import com.seoulhankuko.app.presentation.ui.theme.SeoulhankukobookTheme
 import com.seoulhankuko.app.presentation.viewmodel.GoogleSignInViewModel
-import com.seoulhankuko.app.presentation.viewmodel.EntryTestFlowViewModel
 import com.seoulhankuko.app.presentation.viewmodel.LoggedAccountsViewModel
 import com.seoulhankuko.app.presentation.viewmodel.AuthViewModel
 import com.seoulhankuko.app.presentation.viewmodel.MainUiViewModel
@@ -79,7 +78,6 @@ class MainActivity : ComponentActivity() {
 fun AppNavigationWithAutoLogin(
     initialLessonId: String? = null,
     viewModel: GoogleSignInViewModel = hiltViewModel(),
-    entryTestViewModel: EntryTestFlowViewModel = hiltViewModel(),
     loggedAccountsViewModel: LoggedAccountsViewModel = hiltViewModel(),
     authViewModel: AuthViewModel = hiltViewModel(),
     mainUiViewModel: MainUiViewModel = hiltViewModel()
@@ -103,39 +101,8 @@ fun AppNavigationWithAutoLogin(
             val isLoggedIn = authViewModel.hasValidToken()
             
             if (isLoggedIn) {
-                // Logged-in user flow (Flow B & C from requirements)
-                
-                // Sync user data from backend first to get latest entry test status
-                try {
-                    val syncSuccess = entryTestViewModel.syncUserDataFromBackend()
-                    // Add small delay to ensure sync completes before checking
-                    if (syncSuccess) {
-                        delay(100) // Small delay to ensure data is saved locally
-                    }
-                    
-                    // Check if user has completed entry test (now synced with backend)
-                    val hasCompletedEntryTest = entryTestViewModel.hasCompletedEntryTest()
-                    
-                    // Reset popup dismissal flag for logged-in users who haven't completed entry test
-                    // This ensures popup will show again after app restart if user dismissed it before
-                    if (!hasCompletedEntryTest) {
-                        entryTestViewModel.resetEntryTestPopupDismissal()
-                    }
-                    
-                    // Flow B & C: Always go to courses, popup will be handled in HomeScreen
-                    initialDestination = "courses"
-                } catch (e: Exception) {
-                    // Continue with local data if sync fails
-                    val hasCompletedEntryTest = entryTestViewModel.hasCompletedEntryTest()
-                    
-                    // Reset popup dismissal flag for logged-in users who haven't completed entry test
-                    if (!hasCompletedEntryTest) {
-                        entryTestViewModel.resetEntryTestPopupDismissal()
-                    }
-                    
-                    // Always go to courses, popup will be handled in HomeScreen
-                    initialDestination = "courses"
-                }
+                // Logged-in user flow - go directly to courses
+                initialDestination = "courses"
             } else {
                 // Not logged in - check if we have saved accounts
                 if (loggedAccounts.isNotEmpty()) {

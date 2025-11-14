@@ -332,20 +332,21 @@ interface ApiService {
     @GET("v1/tasks/task/{task_id}")
     suspend fun getTask(@Path("task_id") taskId: String): Response<Task>
     
-    // Entry Test endpoints
-    @GET("v1/entry-test/")
-    suspend fun getEntryTestQuestions(
-        @Header("Authorization") token: String
-    ): Response<EntryTestResponse>
+    // Missions endpoints
+    @GET("v1/missions/today")
+    suspend fun getTodayMissions(
+        @Header("Authorization") token: String? = null
+    ): Response<TodayMissionsResponse>
     
-    @POST("v1/entry-test/submit")
-    suspend fun submitEntryTest(
-        @Header("Authorization") token: String,
-        @Body submissionRequest: EntryTestSubmissionRequest
-    ): Response<EntryTestSubmissionResponse>
+    @POST("v1/activity")
+    suspend fun trackActivity(
+        @Header("Authorization") token: String? = null,
+        @Body body: ActivityRequest
+    ): Response<ActivityResponse>
     
-    @GET("v1/entry-test/result")
-    suspend fun getEntryTestResult(
-        @Header("Authorization") token: String
-    ): Response<EntryTestResultResponse>
+    @POST("v1/exp")
+    suspend fun addExp(
+        @Header("Authorization") token: String? = null,
+        @Body body: ExpRequest
+    ): Response<ExpResponse>
 }

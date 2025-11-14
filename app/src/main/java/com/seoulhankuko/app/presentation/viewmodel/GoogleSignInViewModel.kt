@@ -44,10 +44,7 @@ class GoogleSignInViewModel @Inject constructor(
         isPremium = false,
         streakDays = 0,
         exp = 0,
-        createdAt = null,
-        hasCompletedEntryTest = false,
-        currentCourseId = null,
-        entryTestScore = null
+        createdAt = null
     )
 
     private val _userData = MutableStateFlow(initialUserData)

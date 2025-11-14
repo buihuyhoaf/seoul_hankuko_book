@@ -4,15 +4,17 @@
     
     <!-- Home Screen -->
     <string name="home_hero_title">🇰🇷\nSeoul\nHankuko\nBook</string>
-    <string name="home_subtitle">The free, fun, and effective way to learn Korean</string>
-    <string name="get_started">Get Started</string>
-    <string name="already_have_account">I already have an account</string>
-    <string name="continue_learning">Continue Learning</string>
-    <string name="sign_out">Sign Out</string>
+    <string name="home_subtitle">Cách học tiếng Hàn miễn phí, vui nhộn và hiệu quả</string>
+    <string name="get_started">Bắt đầu</string>
+    <string name="already_have_account">Tôi đã có tài khoản</string>
+    <string name="continue_learning">Tiếp tục học</string>
+    <string name="continue_learning_guest">Tiếp tục học (Khách)</string>
+    <string name="sign_out">Đăng xuất</string>
+    <string name="sign_in_to_save_progress">Đăng nhập để lưu tiến độ</string>
     
     <!-- Splash Screen -->
     <string name="splash_title">Seoul Hankuko Book</string>
-    <string name="splash_subtitle">Learn Korean with Fun!</string>
+    <string name="splash_subtitle">Học tiếng Hàn thật vui!</string>
     <string name="duolingo_logo_description">Duolingo Logo</string>
     
     <!-- Login Screen -->

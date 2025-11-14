@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.seoulhankuko.app.core.Logger
 import com.seoulhankuko.app.data.api.util.ExceptionMapper
@@ -45,6 +46,40 @@ class AuthRepository @Inject constructor(
     private var currentToken: String? = null
     
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    
+    /**
+     * Helper function to register FCM token with retry logic.
+     * Call this whenever a user successfully signs in.
+     */
+    private fun registerFcmTokenForUser(userId: String, source: String = "unknown") {
+        Timber.d("🚀 [%s] Starting FCM token registration for user %s", source, userId)
+        repositoryScope.launch {
+            var retryCount = 0
+            val maxRetries = 3
+            var success = false
+            
+            while (retryCount < maxRetries && !success) {
+                retryCount++
+                Timber.d("🔄 [%s] FCM token registration attempt %d/%d for user %s", source, retryCount, maxRetries, userId)
+                
+                val result = pushTokenRepository.registerCachedToken(userId)
+                result.fold(
+                    onSuccess = {
+                        Timber.d("✅ [%s] FCM token registered successfully for user %s", source, userId)
+                        success = true
+                    },
+                    onFailure = { error ->
+                        if (retryCount < maxRetries) {
+                            Timber.w(error, "❌ [%s] Failed to register FCM token (attempt %d/%d), retrying in 2s...", source, retryCount, maxRetries)
+                            delay(2000) // Wait 2 seconds before retry
+                        } else {
+                            Timber.e(error, "❌ [%s] Failed to register FCM token after %d attempts. Error: %s", source, maxRetries, error.message)
+                        }
+                    }
+                )
+            }
+        }
+    }
     
     init {
         // AuthRepository initialized
@@ -88,6 +123,7 @@ class AuthRepository @Inject constructor(
     }
     
     suspend fun signIn(email: String, password: String): Result<Unit> {
+        Timber.d("🔐 signIn() called for email: %s", email)
         Logger.AuthenticationUseCase.signInAttempt(email)
         
         // Check if user is currently in guest mode before signing in
@@ -116,10 +152,13 @@ class AuthRepository @Inject constructor(
                     
                     // Get user info
                     Logger.AuthenticationUseCase.fetchingUserInfo()
+                    Timber.d("📞 Calling getCurrentUser API...")
                     val userResponse = apiService.getCurrentUser(fullToken)
+                    Timber.d("📞 getCurrentUser response - Code: %d, Success: %s", userResponse.code(), userResponse.isSuccessful)
                     if (userResponse.isSuccessful) {
                         val user = userResponse.body()
                         if (user != null) {
+                            Timber.d("✅ User info retrieved - userId: %s, username: %s", user.id, user.username)
                             Logger.AuthenticationUseCase.userInfoRetrieved(user.username, user.id)
                             storeUserId(user.id)
 
@@ -134,22 +173,13 @@ class AuthRepository @Inject constructor(
                                 isPremium = false,
                                 streakDays = user.streakDays,
                                 exp = user.exp,
-                                createdAt = user.createdAt,
-                                hasCompletedEntryTest = user.hasCompletedEntryTest,
-                                currentCourseId = user.currentCourseId,
-                                entryTestScore = user.entryTestScore
+                                createdAt = user.createdAt
                             )
 
-                            userPreferencesManager.saveEntryTestResult(
-                                hasCompletedEntryTest = user.hasCompletedEntryTest,
-                                currentCourseId = user.currentCourseId,
-                                currentCourseName = null,
-                                entryTestScore = user.entryTestScore
-                            )
-
-                            pushTokenRepository.registerCachedToken(user.id).onFailure {
-                                Timber.w(it, "Failed to register FCM token after login")
-                            }
+                            // Register FCM token with retry logic
+                            Timber.d("📱 About to register FCM token for user %s", user.id)
+                            registerFcmTokenForUser(user.id, "signIn")
+                            Timber.d("📱 registerFcmTokenForUser() called (async)")
                             
                             // Save logged account information with refresh token
                             saveLoggedAccount(
@@ -403,9 +433,8 @@ class AuthRepository @Inject constructor(
                     )
                     accountRepository.setActiveAccount(freshAccount.email)
 
-                    pushTokenRepository.registerCachedToken(freshAccount.userId).onFailure {
-                        Timber.w(it, "Failed to register FCM token after auto-login")
-                    }
+                    // Register FCM token with retry logic
+                    registerFcmTokenForUser(freshAccount.userId, "attemptAutoLogin")
                     
                     _authState.value = AuthState.SignedIn(freshAccount.userId)
                     return Result.success(Unit)
@@ -514,7 +543,7 @@ class AuthRepository @Inject constructor(
                     pushTokenRepository.registerCachedToken(currentAccount.userId).onFailure {
                         Timber.w(it, "Failed to register FCM token after manual refresh")
                     }
-
+                    
                     return Result.success(rawToken)
                 }
             }
@@ -620,16 +649,7 @@ class AuthRepository @Inject constructor(
                         avatarUrl = user.picture,
                         exp = user.exp,
                         streakDays = user.streakDays,
-                        createdAt = user.createdAt,
-                        hasCompletedEntryTest = user.hasCompletedEntryTest,
-                        currentCourseId = user.currentCourseId,
-                        entryTestScore = user.entryTestScore
-                    )
-                    userPreferencesManager.saveEntryTestResult(
-                        hasCompletedEntryTest = user.hasCompletedEntryTest,
-                        currentCourseId = user.currentCourseId,
-                        currentCourseName = null,
-                        entryTestScore = user.entryTestScore
+                        createdAt = user.createdAt
                     )
                 }
             } else {

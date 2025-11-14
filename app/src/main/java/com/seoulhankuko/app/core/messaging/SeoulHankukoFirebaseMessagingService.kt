@@ -4,7 +4,12 @@ import android.Manifest
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.Drawable
 import android.os.Build
+import android.widget.RemoteViews
+import androidx.core.content.ContextCompat
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -144,13 +149,68 @@ class SeoulHankukoFirebaseMessagingService : FirebaseMessagingService() {
             PendingIntent.FLAG_UPDATE_CURRENT or pendingIntentImmutableFlag()
         )
 
+        // Create custom notification layout
+        val customView = RemoteViews(packageName, R.layout.custom_notification)
+        customView.setTextViewText(R.id.notification_title, title)
+        customView.setTextViewText(R.id.notification_body, body)
+        customView.setImageViewResource(R.id.notification_logo, R.drawable.ic_launcher_foreground)
+
+        // Create expanded layout for BigTextStyle
+        val expandedView = RemoteViews(packageName, R.layout.custom_notification_expanded)
+        expandedView.setTextViewText(R.id.notification_title, title)
+        expandedView.setTextViewText(R.id.notification_body, body)
+        expandedView.setImageViewResource(R.id.notification_logo, R.drawable.ic_launcher_foreground)
+
+        // Create large icon bitmap from drawable (vector drawable)
+        val largeIcon = try {
+            val drawable = ContextCompat.getDrawable(this, R.drawable.ic_launcher_foreground)
+            drawableToBitmap(drawable, 128, 128) // 128x128 for large icon
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to create large icon bitmap")
+            null
+        }
+
         val builder = NotificationCompat.Builder(this, DEFAULT_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle(title)
-            .setContentText(body)
+            .setSmallIcon(R.drawable.ic_launcher_foreground) // Small icon (required)
+            .setLargeIcon(largeIcon) // Large icon with app logo
+            .setContentTitle(title) // Fallback title
+            .setContentText(body) // Fallback text
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle()) // Use decorated custom view style
+            .setCustomContentView(customView) // Custom layout for collapsed state
+            .setCustomBigContentView(expandedView) // Custom layout for expanded state
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(pendingIntent)
+            .setColor(getColor(R.color.primary_green)) // Accent color
+            .setColorized(true) // Colorize notification
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            // Add subtle vibration pattern
+            .setVibrate(longArrayOf(0, 200, 150, 200))
+            // Use default notification sound
+            .setSound(android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION))
+
+        // Add action button for writing notifications
+        if (extraData?.containsKey(WritingNotificationCenter.EXTRA_TARGET_LESSON_ID) == true) {
+            val viewIntent = Intent(this, MainActivity::class.java).apply {
+                putExtra(WritingNotificationCenter.EXTRA_TARGET_LESSON_ID, 
+                    extraData[WritingNotificationCenter.EXTRA_TARGET_LESSON_ID])
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
+            val viewPendingIntent = PendingIntent.getActivity(
+                this,
+                NOTIFICATION_REQUEST_CODE + 1,
+                viewIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or pendingIntentImmutableFlag()
+            )
+            
+            builder.addAction(
+                R.drawable.ic_launcher_foreground, // Icon for action
+                "Xem bài viết", // Action text
+                viewPendingIntent
+            )
+        }
 
         NotificationManagerCompat.from(this).notify(
             NOTIFICATION_BASE_ID + (System.currentTimeMillis() % 1000).toInt(),
@@ -169,6 +229,19 @@ class SeoulHankukoFirebaseMessagingService : FirebaseMessagingService() {
         } else {
             0
         }
+    }
+
+    /**
+     * Convert Drawable to Bitmap for use as large icon in notifications
+     */
+    private fun drawableToBitmap(drawable: Drawable?, width: Int, height: Int): Bitmap? {
+        if (drawable == null) return null
+        
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.draw(canvas)
+        return bitmap
     }
 
     companion object {
