@@ -349,4 +349,16 @@ interface ApiService {
         @Header("Authorization") token: String? = null,
         @Body body: ExpRequest
     ): Response<ExpResponse>
+    
+    // Weekly Leaderboard endpoints
+    @GET("v1/leaderboard/weekly")
+    suspend fun getWeeklyLeaderboard(
+        @Header("Authorization") token: String? = null
+    ): Response<WeeklyLeaderboardResponse>
+
+    @POST("v1/leaderboard/weekly/update-xp")
+    suspend fun updateWeeklyLeaderboardXp(
+        @Header("Authorization") token: String? = null,
+        @Body body: WeeklyLeaderboardUpdateRequest
+    ): Response<WeeklyLeaderboardUpdateResponse>
 }

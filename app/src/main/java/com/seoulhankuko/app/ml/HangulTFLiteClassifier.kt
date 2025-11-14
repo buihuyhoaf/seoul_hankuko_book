@@ -453,6 +453,21 @@ class HangulTFLiteClassifier private constructor(
                 Timber.d("  Top ${index + 1}: ${pred.char} (confidence: ${pred.confidence}, index: ${pred.index})")
             }
             
+            // Check if specific characters are in predictions (for debugging)
+            val targetChars = listOf("실", "날", "닐", "노")
+            targetChars.forEach { char ->
+                val index = labels.indexOf(char)
+                if (index >= 0 && index < probabilities.size) {
+                    val confidence = probabilities[index]
+                    val rank = predictions.indexOfFirst { it.char == char } + 1
+                    if (rank > 0) {
+                        Timber.d("  '$char' found at rank $rank with confidence: $confidence (index: $index)")
+                    } else {
+                        Timber.w("  '$char' NOT in top ${NUM_PREDICTIONS} predictions! Confidence: $confidence (index: $index)")
+                    }
+                }
+            }
+            
             return predictions
         } catch (e: Exception) {
             Timber.e(e, "Error during classification")
