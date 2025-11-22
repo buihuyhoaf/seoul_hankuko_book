@@ -19,13 +19,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -35,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seoulhankuko.app.R
+import com.seoulhankuko.app.core.model.ModelDownloadProgress
 import com.seoulhankuko.app.domain.model.HangulChar
 import com.seoulhankuko.app.domain.model.HangulGroup
 import com.seoulhankuko.app.presentation.components.MainScaffold
@@ -62,6 +66,7 @@ fun HangulAlphabetScreen(
 ) {
     val hangulGroups by viewModel.hangulGroups.collectAsStateWithLifecycle()
     val userData by mainUiViewModel.userData.collectAsStateWithLifecycle()
+    val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
 
     MainScaffold(
         topBarState = TopBarState(
@@ -90,11 +95,40 @@ fun HangulAlphabetScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            // Show download progress if downloading
+            when (val progress = downloadProgress) {
+                is ModelDownloadProgress.Downloading -> {
+                    ModelDownloadProgressCard(
+                        progress = progress,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+                is ModelDownloadProgress.Loading -> {
+                    ModelLoadingCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+                is ModelDownloadProgress.Error -> {
+                    ModelErrorCard(
+                        error = progress.message,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+                else -> {}
+            }
+            
             Button(
                 onClick = onNavigateToPractice,
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                enabled = downloadProgress !is ModelDownloadProgress.Downloading
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.ic_writing_practice),
@@ -164,6 +198,148 @@ private fun HangulGroupSection(
         HangulCharacterGrid(
             characters = group.items
         )
+    }
+}
+
+/**
+ * Progress Card Component showing download progress
+ */
+@Composable
+private fun ModelDownloadProgressCard(
+    progress: ModelDownloadProgress.Downloading,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "📥 Đang tải mô hình nhận diện...",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = UnitColors.TextPrimary
+                )
+                Text(
+                    text = "${progress.progressPercent}%",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = UnitColors.SoftIndigo
+                )
+            }
+            
+            LinearProgressIndicator(
+                progress = { progress.progressPercent / 100f },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp)),
+                color = UnitColors.SoftIndigo,
+                trackColor = UnitColors.SoftIndigo.copy(alpha = 0.2f)
+            )
+            
+            Text(
+                text = formatBytes(progress.bytesDownloaded) + " / " + formatBytes(progress.totalBytes),
+                style = MaterialTheme.typography.bodySmall,
+                color = UnitColors.TextSecondary
+            )
+        }
+    }
+}
+
+/**
+ * Loading Card Component showing model is being loaded into memory
+ */
+@Composable
+private fun ModelLoadingCard(
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(24.dp),
+                color = UnitColors.SoftIndigo,
+                strokeWidth = 2.dp
+            )
+            Text(
+                text = "Đang tải mô hình vào bộ nhớ...",
+                style = MaterialTheme.typography.bodyMedium,
+                color = UnitColors.TextPrimary
+            )
+        }
+    }
+}
+
+/**
+ * Error Card Component showing download error
+ */
+@Composable
+private fun ModelErrorCard(
+    error: String,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFFFFEBEE)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "⚠️",
+                style = MaterialTheme.typography.titleLarge
+            )
+            Column {
+                Text(
+                    text = "Lỗi tải mô hình",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFFD32F2F)
+                )
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = UnitColors.TextSecondary
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Helper function to format bytes to human-readable string
+ */
+private fun formatBytes(bytes: Long): String {
+    return when {
+        bytes < 1024 -> "$bytes B"
+        bytes < 1024 * 1024 -> "${bytes / 1024} KB"
+        else -> "${bytes / (1024 * 1024)} MB"
     }
 }
 

@@ -2,6 +2,8 @@ package com.seoulhankuko.app.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.seoulhankuko.app.core.model.ModelDownloadProgress
+import com.seoulhankuko.app.core.model.ModelDownloadProgressRepository
 import com.seoulhankuko.app.data.repository.HangulRepository
 import com.seoulhankuko.app.domain.model.HangulGroup
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -12,11 +14,12 @@ import javax.inject.Inject
 
 /**
  * ViewModel for Hangul Alphabet Selection Screen
- * Exposes StateFlow<List<HangulGroup>> from repository
+ * Exposes StateFlow<List<HangulGroup>> from repository and model download progress
  */
 @HiltViewModel
 class HangulSelectionViewModel @Inject constructor(
-    private val hangulRepository: HangulRepository
+    private val hangulRepository: HangulRepository,
+    private val modelDownloadProgressRepository: ModelDownloadProgressRepository
 ) : ViewModel() {
 
     /**
@@ -30,9 +33,17 @@ class HangulSelectionViewModel @Inject constructor(
             initialValue = emptyList()
         )
 
+    /**
+     * StateFlow exposing model download progress
+     */
+    val downloadProgress: StateFlow<ModelDownloadProgress> = 
+        modelDownloadProgressRepository.downloadProgress
+
     init {
         // Load data when ViewModel is created
         loadHangulGroups()
+        // Start preloading model when ViewModel is created
+        modelDownloadProgressRepository.preloadModelWithProgress()
     }
 
     /**

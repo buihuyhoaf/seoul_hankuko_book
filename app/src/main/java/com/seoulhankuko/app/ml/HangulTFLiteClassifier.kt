@@ -68,10 +68,13 @@ class HangulTFLiteClassifier private constructor(
         /**
          * Create classifier instance by downloading model from Supabase if not cached locally
          * Falls back to assets if download fails
+         * 
+         * @param progressCallback Optional callback to track download progress: (bytesDownloaded, totalBytes) -> Unit
          */
         suspend fun createWithSupabase(
             context: Context,
-            supabaseUrl: String? = null
+            supabaseUrl: String? = null,
+            progressCallback: ((Long, Long) -> Unit)? = null
         ): HangulTFLiteClassifier = withContext(Dispatchers.IO) {
             val modelUrl = supabaseUrl ?: try {
                 // Try to get from BuildConfig if available
@@ -91,7 +94,7 @@ class HangulTFLiteClassifier private constructor(
                 // Download model if not exists or if we want to force update
                 if (!modelFile.exists() || modelFile.length() == 0L) {
                     Timber.d("Model not found locally, downloading from Supabase...")
-                    downloadModelFromSupabase(context, modelUrl, modelFile)
+                    downloadModelFromSupabase(context, modelUrl, modelFile, progressCallback)
                 } else {
                     Timber.d("Model found locally (${modelFile.length()} bytes), using cached version")
                 }
@@ -111,12 +114,15 @@ class HangulTFLiteClassifier private constructor(
         }
         
         /**
-         * Download model from Supabase Storage
+         * Download model from Supabase Storage with optional progress tracking
+         * 
+         * @param progressCallback Optional callback to track download progress: (bytesDownloaded, totalBytes) -> Unit
          */
         private suspend fun downloadModelFromSupabase(
             context: Context,
             url: String,
-            outputFile: File
+            outputFile: File,
+            progressCallback: ((Long, Long) -> Unit)? = null
         ) = withContext(Dispatchers.IO) {
             try {
                 val client = OkHttpClient.Builder()
@@ -131,21 +137,29 @@ class HangulTFLiteClassifier private constructor(
                         throw IOException("Failed to download model: ${response.code} ${response.message}")
                     }
                     
-                    response.body?.let { body ->
-                        val contentLength = body.contentLength()
-                        Timber.d("Downloading model: $contentLength bytes")
-                        
-                        // Ensure parent directory exists
-                        outputFile.parentFile?.mkdirs()
-                        
-                        body.byteStream().use { input ->
-                            outputFile.outputStream().use { output ->
-                                input.copyTo(output)
-                            }
+                    val body = response.body ?: throw IOException("Response body is null")
+                    val contentLength = body.contentLength()
+                    Timber.d("Downloading model: $contentLength bytes")
+                    
+                    // Wrap with progress tracking if callback provided
+                    val progressBody = if (progressCallback != null) {
+                        ProgressResponseBody(body) { bytesRead, total ->
+                            progressCallback(bytesRead, total)
                         }
-                        
-                        Timber.d("Model downloaded successfully: ${outputFile.length()} bytes")
-                    } ?: throw IOException("Response body is null")
+                    } else {
+                        body
+                    }
+                    
+                    // Ensure parent directory exists
+                    outputFile.parentFile?.mkdirs()
+                    
+                    progressBody.byteStream().use { input ->
+                        outputFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    
+                    Timber.d("Model downloaded successfully: ${outputFile.length()} bytes")
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to download model from Supabase")
