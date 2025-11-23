@@ -257,6 +257,12 @@ fun AppNavigation(
                 },
                 onNavigateToPractice = {
                     navController.navigate("canvas")
+                },
+                onCharacterClick = { character ->
+                    val encodedChar = URLEncoder.encode(character, StandardCharsets.UTF_8.toString())
+                    navController.navigate("practice/$encodedChar") {
+                        launchSingleTop = true
+                    }
                 }
             )
         }

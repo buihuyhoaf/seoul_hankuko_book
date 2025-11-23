@@ -9,6 +9,7 @@ import com.seoulhankuko.app.domain.model.StrokePath
 import com.seoulhankuko.app.domain.usecase.StrokeAutoCorrector
 import com.seoulhankuko.app.domain.usecase.StrokeComparator
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +25,7 @@ sealed class StrokePracticeUiState {
     object Drawing : StrokePracticeUiState()
     data class Correcting(
         val correctedPath: StrokePath,
+        val userStrokeBeforeCorrection: StrokePath,
         val progress: Float
     ) : StrokePracticeUiState()
     data class Completed(
@@ -96,26 +98,49 @@ class StrokePracticeViewModel @Inject constructor(
     }
 
     private fun normalizePoint(point: Offset): Offset {
+        // Đảm bảo không chia cho 0
+        val width = if (canvasWidth > 0f) canvasWidth else 1f
+        val height = if (canvasHeight > 0f) canvasHeight else 1f
         return Offset(
-            x = point.x / canvasWidth,
-            y = point.y / canvasHeight
+            x = point.x / width,
+            y = point.y / height
         )
     }
 
     fun startStroke(point: Offset) {
+        // Cho phép bắt đầu vẽ khi state là Ready, Completed, hoặc Drawing (để có thể vẽ lại)
+        // Point đã được normalize trong Composable, lưu trực tiếp
         if (_uiState.value is StrokePracticeUiState.Ready ||
-            _uiState.value is StrokePracticeUiState.Completed
+            _uiState.value is StrokePracticeUiState.Completed ||
+            _uiState.value is StrokePracticeUiState.Drawing
         ) {
-            val normalizedPoint = normalizePoint(point)
-            _currentUserStroke.value = mutableListOf(normalizedPoint)
+            // Đảm bảo currentUserStroke được cập nhật TRƯỚC để UI có thể hiển thị ngay
+            // Sử dụng ArrayList để đảm bảo mutable và có thể thêm điểm nhanh chóng
+            _currentUserStroke.value = arrayListOf(point)
+            // Chuyển state sau khi đã cập nhật currentUserStroke để trigger re-render
+            // StateFlow emit đồng bộ, nên giá trị sẽ có ngay cho collector
             _uiState.value = StrokePracticeUiState.Drawing
         }
     }
 
     fun appendPoint(point: Offset) {
-        if (_uiState.value is StrokePracticeUiState.Drawing) {
-            val normalizedPoint = normalizePoint(point)
-            _currentUserStroke.value = _currentUserStroke.value + normalizedPoint
+        // Point đã được normalize trong Composable, lưu trực tiếp
+        // Cho phép appendPoint hoạt động khi:
+        // 1. State là Drawing (đang vẽ)
+        // 2. Hoặc currentUserStroke đã có điểm (đã bắt đầu vẽ, ngay cả khi state chưa kịp chuyển)
+        // Điều này đảm bảo nét vẽ hiển thị ngay lập tức, không bị mất điểm khi state chuyển
+        val currentList = _currentUserStroke.value
+        if (_uiState.value is StrokePracticeUiState.Drawing || currentList.isNotEmpty()) {
+            // Tạo list mới để đảm bảo StateFlow emit giá trị mới
+            // StateFlow chỉ emit khi giá trị thay đổi (so sánh bằng ==)
+            val newList = ArrayList(currentList)
+            newList.add(point)
+            _currentUserStroke.value = newList
+            
+            // Đảm bảo state là Drawing nếu chưa phải
+            if (_uiState.value !is StrokePracticeUiState.Drawing) {
+                _uiState.value = StrokePracticeUiState.Drawing
+            }
         }
     }
 
@@ -136,50 +161,15 @@ class StrokePracticeViewModel @Inject constructor(
         val userStrokePath = StrokePath(userPoints)
         val referenceStrokePath = StrokePath(referenceStroke.points)
 
+        // Bỏ auto-correction, chỉ thêm vào completedStrokes và chuyển sang nét tiếp theo
+        _completedStrokes.value += userStrokePath
         val similarity = strokeComparator.calculateSimilarity(
             userStrokePath,
             referenceStrokePath
         )
-
-        if (strokeComparator.isSimilarEnough(userStrokePath, referenceStrokePath)) {
-            startAutoCorrection(userStrokePath, referenceStrokePath)
-        } else {
-            _completedStrokes.value = _completedStrokes.value + userStrokePath
-            moveToNextStroke(pattern, similarity)
-        }
+        moveToNextStroke(pattern, similarity)
     }
 
-    private fun startAutoCorrection(
-        userStroke: StrokePath,
-        referenceStroke: StrokePath
-    ) {
-        viewModelScope.launch {
-            val duration = 500L
-            val steps = 30
-            val stepDuration = duration / steps
-
-            for (step in 0..steps) {
-                val progress = step.toFloat() / steps.toFloat()
-                val corrected = strokeAutoCorrector.interpolate(
-                    userStroke,
-                    referenceStroke,
-                    progress
-                )
-
-                _uiState.value = StrokePracticeUiState.Correcting(
-                    correctedPath = corrected,
-                    progress = progress
-                )
-
-                kotlinx.coroutines.delay(stepDuration)
-            }
-
-            _completedStrokes.value = _completedStrokes.value + referenceStroke
-            val pattern = referencePattern!!
-            val similarity = strokeComparator.calculateSimilarity(userStroke, referenceStroke)
-            moveToNextStroke(pattern, similarity)
-        }
-    }
 
     private fun moveToNextStroke(pattern: ReferencePattern, similarity: Float) {
         currentStrokeIndex++
@@ -218,6 +208,10 @@ class StrokePracticeViewModel @Inject constructor(
         val pattern = referencePattern ?: return null
         if (currentStrokeIndex >= pattern.strokes.size) return null
         return pattern.strokes[currentStrokeIndex]
+    }
+
+    fun getCurrentStrokeIndex(): Int {
+        return currentStrokeIndex
     }
 }
 

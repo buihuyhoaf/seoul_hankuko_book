@@ -99,13 +99,56 @@ class ReferenceStrokeRepository @Inject constructor(
      * Map character to JSON filename
      */
     private fun getFilenameForCharacter(character: String): String {
-        // Simple mapping - can be extended
-        return when (character) {
-            "ㅏ" -> "a_stroke.json"
-            "가" -> "ga_stroke.json"
-            "ㄱ" -> "giyeok_stroke.json"
-            else -> "${character}_stroke.json"
-        }
+        val charToFile = mapOf(
+            // Basic Vowels
+            "ㅏ" to "a_stroke.json",
+            "ㅑ" to "ya_stroke.json",
+            "ㅓ" to "eo_stroke.json",
+            "ㅕ" to "yeo_stroke.json",
+            "ㅗ" to "o_stroke.json",
+            "ㅛ" to "yo_stroke.json",
+            "ㅜ" to "u_stroke.json",
+            "ㅠ" to "yu_stroke.json",
+            "ㅡ" to "eu_stroke.json",
+            "ㅣ" to "i_stroke.json",
+            // Compound Vowels
+            "ㅐ" to "ae_stroke.json",
+            "ㅒ" to "yae_stroke.json",
+            "ㅔ" to "e_stroke.json",
+            "ㅖ" to "ye_stroke.json",
+            "ㅘ" to "wa_stroke.json",
+            "ㅙ" to "wae_stroke.json",
+            "ㅚ" to "oe_stroke.json",
+            "ㅝ" to "wo_stroke.json",
+            "ㅞ" to "we_stroke.json",
+            "ㅟ" to "wi_stroke.json",
+            "ㅢ" to "ui_stroke.json",
+            // Basic Consonants
+            "ㄱ" to "giyeok_stroke.json",
+            "ㄴ" to "nieun_stroke.json",
+            "ㄷ" to "digeut_stroke.json",
+            "ㄹ" to "rieul_stroke.json",
+            "ㅁ" to "mieum_stroke.json",
+            "ㅂ" to "bieup_stroke.json",
+            "ㅅ" to "siot_stroke.json",
+            "ㅇ" to "ieung_stroke.json",
+            "ㅈ" to "jieut_stroke.json",
+            "ㅎ" to "hieut_stroke.json",
+            // Aspirated Consonants
+            "ㅊ" to "chieut_stroke.json",
+            "ㅋ" to "kieuk_stroke.json",
+            "ㅌ" to "tieut_stroke.json",
+            "ㅍ" to "pieup_stroke.json",
+            // Tense Consonants
+            "ㄲ" to "ssanggiyeok_stroke.json",
+            "ㄸ" to "ssangdigeut_stroke.json",
+            "ㅃ" to "ssangbieup_stroke.json",
+            "ㅆ" to "ssangsiot_stroke.json",
+            "ㅉ" to "ssangjieut_stroke.json",
+            // Syllables
+            "가" to "ga_stroke.json"
+        )
+        return charToFile[character] ?: "${character}_stroke.json"
     }
     
     /**

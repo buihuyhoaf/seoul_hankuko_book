@@ -26,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,6 +62,7 @@ fun HangulAlphabetScreen(
     onNavigateToNotification: () -> Unit = {},
     onNavigateToProfile: () -> Unit = {},
     onNavigateToPractice: () -> Unit = {},
+    onCharacterClick: (String) -> Unit = {},
     viewModel: HangulSelectionViewModel = hiltViewModel(),
     mainUiViewModel: MainUiViewModel = hiltViewModel()
 ) {
@@ -142,6 +144,7 @@ fun HangulAlphabetScreen(
 
             HangulSelectionContent(
                 groups = hangulGroups,
+                onCharacterClick = onCharacterClick,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -155,6 +158,7 @@ fun HangulAlphabetScreen(
 @Composable
 private fun HangulSelectionContent(
     groups: List<HangulGroup>,
+    onCharacterClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -167,7 +171,8 @@ private fun HangulSelectionContent(
             key = { it.title }
         ) { group ->
             HangulGroupSection(
-                group = group
+                group = group,
+                onCharacterClick = onCharacterClick
             )
         }
     }
@@ -179,7 +184,8 @@ private fun HangulSelectionContent(
  */
 @Composable
 private fun HangulGroupSection(
-    group: HangulGroup
+    group: HangulGroup,
+    onCharacterClick: (String) -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -196,7 +202,8 @@ private fun HangulGroupSection(
 
         // Character grid
         HangulCharacterGrid(
-            characters = group.items
+            characters = group.items,
+            onCharacterClick = onCharacterClick
         )
     }
 }
@@ -349,7 +356,8 @@ private fun formatBytes(bytes: Long): String {
  */
 @Composable
 private fun HangulCharacterGrid(
-    characters: List<HangulChar>
+    characters: List<HangulChar>,
+    onCharacterClick: (String) -> Unit
 ) {
     val columns = 6 // 6 characters per row
 
@@ -361,6 +369,7 @@ private fun HangulCharacterGrid(
             row.forEach { hangulChar ->
                 HangulCharacterCard(
                     hangulChar = hangulChar,
+                    onClick = { onCharacterClick(hangulChar.symbol) },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -379,12 +388,14 @@ private fun HangulCharacterGrid(
 @Composable
 private fun HangulCharacterCard(
     hangulChar: HangulChar,
+    onClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier
             .aspectRatio(1f)
             .fillMaxWidth(),
+        onClick = onClick,
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color.White

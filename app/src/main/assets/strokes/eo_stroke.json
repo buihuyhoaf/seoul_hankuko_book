@@ -1,5 +1,5 @@
 {
-  "character": "ㅏ",
+  "character": "ㅓ",
   "strokes": [
     {
       "strokeIndex": 0,
@@ -18,11 +18,11 @@
       "strokeIndex": 1,
       "points": [
         {
-          "x": 0.5,
+          "x": 0.15,
           "y": 0.5
         },
         {
-          "x": 0.85,
+          "x": 0.5,
           "y": 0.5
         }
       ]
