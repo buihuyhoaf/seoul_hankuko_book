@@ -31,12 +31,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -86,7 +90,7 @@ import com.seoulhankuko.app.presentation.viewmodel.GoogleSignInViewModel
 import com.seoulhankuko.app.presentation.viewmodel.ProfileViewModel
 import kotlinx.coroutines.delay
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun ProfileScreen(
     onLogout: () -> Unit,
@@ -106,6 +110,7 @@ fun ProfileScreen(
     val context = LocalContext.current
     val userData by viewModel.userData.collectAsStateWithLifecycle()
     val weeklyExpData by profileViewModel.weeklyExpData.collectAsStateWithLifecycle()
+    val isRefreshing by profileViewModel.isRefreshing.collectAsStateWithLifecycle()
 
     var showLogoutDialog by remember { mutableStateOf(false) }
     var isLoadingChart by remember { mutableStateOf(false) }
@@ -119,6 +124,16 @@ fun ProfileScreen(
             isLoadingChart = false
         }
     }
+    
+    val pullRefreshState = rememberPullRefreshState(
+        refreshing = isRefreshing,
+        onRefresh = {
+            if (userData.username != null) {
+                val token = userData.accessToken?.let { "Bearer $it" }
+                profileViewModel.loadWeeklyExpData(userData.username!!, 7, token, isRefresh = true)
+            }
+        }
+    )
 
     Scaffold(
         topBar = {
@@ -139,14 +154,18 @@ fun ProfileScreen(
         },
         containerColor = ProfileColors.BackgroundLight
     ) { innerPadding ->
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(ProfileColors.BackgroundLight)
-                .padding(innerPadding),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+                .padding(innerPadding)
+                .pullRefresh(pullRefreshState)
         ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
             item {
                 UserInfoCard(
                     avatarUrl = userData.avatarUrl,
@@ -196,6 +215,15 @@ fun ProfileScreen(
             item {
                 Spacer(modifier = Modifier.height(32.dp))
             }
+        }
+        
+        PullRefreshIndicator(
+            refreshing = isRefreshing,
+            state = pullRefreshState,
+            modifier = Modifier.align(Alignment.TopCenter),
+            backgroundColor = Color.White,
+            contentColor = ProfileColors.AccentGreen
+        )
         }
     }
 

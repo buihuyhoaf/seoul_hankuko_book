@@ -170,10 +170,6 @@ private fun NotificationScreenContent(
                 )
             }
 
-            uiState.items.isEmpty() -> {
-                EmptyNotificationsState()
-            }
-
             else -> {
                 NotificationList(
                     notifications = uiState.items,
@@ -185,7 +181,8 @@ private fun NotificationScreenContent(
                     onLoadMore = onLoadMore,
                     onMarkAsRead = onMarkAsRead,
                     onMarkAllRead = onMarkAllRead,
-                    onNavigateToLesson = onNavigateToLesson
+                    onNavigateToLesson = onNavigateToLesson,
+                    isEmpty = uiState.items.isEmpty()
                 )
             }
         }
@@ -211,7 +208,8 @@ private fun NotificationList(
     onLoadMore: () -> Unit,
     onMarkAsRead: (String) -> Unit,
     onMarkAllRead: () -> Unit,
-    onNavigateToLesson: (String) -> Unit = {}
+    onNavigateToLesson: (String) -> Unit = {},
+    isEmpty: Boolean = false
 ) {
     LazyColumn(
         modifier = Modifier
@@ -229,10 +227,12 @@ private fun NotificationList(
                     style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                     color = HomeColors.DuolingoDarkGreen
                 )
-                NotificationActionsRow(
-                    unreadCount = unreadCount,
-                    onMarkAllRead = onMarkAllRead
-                )
+                if (!isEmpty) {
+                    NotificationActionsRow(
+                        unreadCount = unreadCount,
+                        onMarkAllRead = onMarkAllRead
+                    )
+                }
                 if (errorMessage != null) {
                     NotificationErrorBanner(
                         message = errorMessage,
@@ -242,37 +242,43 @@ private fun NotificationList(
             }
         }
 
-        itemsIndexed(notifications, key = { _, item -> item.id }) { index, item ->
-            NotificationCard(
-                notification = item,
-                onClick = { 
-                    // Mark as read
-                    onMarkAsRead(item.id)
-                    // Navigate to lesson if writing_graded notification
-                    if (item.type == "writing_graded") {
-                        val lessonId = item.metadata?.get("lesson_id")
-                        lessonId?.let { 
-                            onNavigateToLesson(it)
+        if (isEmpty) {
+            item(key = "empty_state") {
+                EmptyNotificationsState()
+            }
+        } else {
+            itemsIndexed(notifications, key = { _, item -> item.id }) { index, item ->
+                NotificationCard(
+                    notification = item,
+                    onClick = { 
+                        // Mark as read
+                        onMarkAsRead(item.id)
+                        // Navigate to lesson if writing_graded notification
+                        if (item.type == "writing_graded") {
+                            val lessonId = item.metadata?.get("lesson_id")
+                            lessonId?.let { 
+                                onNavigateToLesson(it)
+                            }
                         }
                     }
-                }
-            )
-            if (index == notifications.lastIndex && hasMore && !isLoadingMore) {
-                LaunchedEffect(notifications.size) {
-                    onLoadMore()
+                )
+                if (index == notifications.lastIndex && hasMore && !isLoadingMore) {
+                    LaunchedEffect(notifications.size) {
+                        onLoadMore()
+                    }
                 }
             }
-        }
 
-        if (isLoadingMore) {
-            item(key = "loading_more") {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = HomeColors.DuolingoDarkGreen)
+            if (isLoadingMore) {
+                item(key = "loading_more") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = HomeColors.DuolingoDarkGreen)
+                    }
                 }
             }
         }
@@ -473,15 +479,15 @@ private fun NotificationCard(
 private fun EmptyNotificationsState() {
     Box(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-            .background(
-                color = Color.White,
-                shape = RoundedCornerShape(16.dp)
-            ),
+            .fillMaxWidth()
+            .padding(vertical = 48.dp)
+            .padding(horizontal = 24.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             Text(
                 text = "Bạn chưa có thông báo mới",
                 style = MaterialTheme.typography.titleMedium,
@@ -491,8 +497,7 @@ private fun EmptyNotificationsState() {
             Text(
                 text = "Chăm chỉ học tập để nhận được nhiều cập nhật thú vị nhé!",
                 style = MaterialTheme.typography.bodyMedium,
-                color = HomeColors.DuolingoGray,
-                modifier = Modifier.padding(top = 8.dp)
+                color = HomeColors.DuolingoGray
             )
         }
     }

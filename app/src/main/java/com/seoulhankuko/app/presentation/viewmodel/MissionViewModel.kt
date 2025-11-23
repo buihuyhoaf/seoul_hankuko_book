@@ -25,6 +25,9 @@ class MissionViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
     
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+    
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
     
@@ -39,9 +42,13 @@ class MissionViewModel @Inject constructor(
         startCountdownTimer()
     }
     
-    fun loadTodayMissions(token: String?) {
+    fun loadTodayMissions(token: String?, isRefresh: Boolean = false) {
         viewModelScope.launch {
-            _isLoading.value = true
+            if (isRefresh) {
+                _isRefreshing.value = true
+            } else {
+                _isLoading.value = true
+            }
             _error.value = null
             
             missionRepository.getTodayMissions(token)
@@ -53,6 +60,7 @@ class MissionViewModel @Inject constructor(
                 }
             
             _isLoading.value = false
+            _isRefreshing.value = false
         }
     }
     

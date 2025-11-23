@@ -11,6 +11,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,6 +40,7 @@ import com.seoulhankuko.app.presentation.utils.HomeColors
 import com.seoulhankuko.app.presentation.viewmodel.MainUiViewModel
 import com.seoulhankuko.app.presentation.viewmodel.WeeklyLeaderboardViewModel
 
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun LeaderboardScreen(
     onNavigateToHome: () -> Unit,
@@ -50,12 +55,18 @@ fun LeaderboardScreen(
     val userData by mainUiViewModel.userData.collectAsStateWithLifecycle()
     val leaderboard by weeklyLeaderboardViewModel.leaderboard.collectAsStateWithLifecycle()
     val isLoading by weeklyLeaderboardViewModel.isLoading.collectAsStateWithLifecycle()
+    val isRefreshing by weeklyLeaderboardViewModel.isRefreshing.collectAsStateWithLifecycle()
     val error by weeklyLeaderboardViewModel.error.collectAsStateWithLifecycle()
-    
+
     LaunchedEffect(Unit) {
         weeklyLeaderboardViewModel.loadLeaderboard(userData.accessToken)
     }
-    
+
+    val pullRefreshState = rememberPullRefreshState(
+        refreshing = isRefreshing,
+        onRefresh = { weeklyLeaderboardViewModel.loadLeaderboard(userData.accessToken, isRefresh = true) }
+    )
+
     MainScaffold(
         topBarState = TopBarState(
             userName = userData.name ?: userData.email ?: "Học viên",
@@ -77,44 +88,49 @@ fun LeaderboardScreen(
         onAvatarClick = onNavigateToProfile,
         containerColor = HomeColors.DuolingoLightGray
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
+                .pullRefresh(pullRefreshState)
         ) {
-            if (isLoading) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.padding(32.dp)
-                    )
-                }
-            } else if (error != null) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    )
-                ) {
-                    Text(
-                        text = "Lỗi: $error",
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.padding(16.dp)
-                    )
-                }
-            } else {
-                leaderboard?.let { data ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.padding(32.dp)
+                        )
+                    }
+                } else if (error != null) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Text(
+                            text = "Lỗi: $error",
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                } else {
+                    leaderboard?.let { data ->
                     // Find index of current user's entry
                     val currentUserIndex = remember(data.entries) {
                         data.entries.indexOfFirst { it.isCurrentUser }
                     }
-                    
+
                     // LazyListState for scrolling
                     val listState = rememberLazyListState()
-                    
+
                     // Auto-scroll to current user's entry when data is loaded
                     LaunchedEffect(data.entries) {
                         if (currentUserIndex >= 0) {
@@ -125,7 +141,7 @@ fun LeaderboardScreen(
                             )
                         }
                     }
-                    
+
                     // Week information
                     val weekInfo = remember(data.weekStart) {
                         try {
@@ -139,7 +155,7 @@ fun LeaderboardScreen(
                             Pair("", "")
                         }
                     }
-                    
+
                     // Encouragement messages
                     val encouragementMessages = listOf(
                         "Cố gắng phát huy! 💪",
@@ -151,7 +167,7 @@ fun LeaderboardScreen(
                     val randomEncouragement = remember(data.weekStart) {
                         encouragementMessages.random()
                     }
-                    
+
                     // Week range text
                     if (weekInfo.first.isNotEmpty() && weekInfo.second.isNotEmpty()) {
                         Text(
@@ -161,7 +177,7 @@ fun LeaderboardScreen(
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
                     }
-                    
+
                     // Encouragement text
                     Text(
                         text = randomEncouragement,
@@ -170,7 +186,7 @@ fun LeaderboardScreen(
                         color = HomeColors.DuolingoDarkGreen,
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
-                    
+
                     // Current user rank card
                     if (data.currentUserRank != null) {
                         CurrentUserRankCard(
@@ -180,7 +196,7 @@ fun LeaderboardScreen(
                         )
                         Spacer(modifier = Modifier.height(24.dp))
                     }
-                    
+
                     // Leaderboard list
                     Text(
                         text = "Top 20",
@@ -189,7 +205,7 @@ fun LeaderboardScreen(
                         color = Color(0xFF111827),
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
-                    
+
                     LazyColumn(
                         state = listState,
                         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -201,8 +217,17 @@ fun LeaderboardScreen(
                             )
                         }
                     }
+                    }
                 }
             }
+
+            PullRefreshIndicator(
+                refreshing = isRefreshing,
+                state = pullRefreshState,
+                modifier = Modifier.align(Alignment.TopCenter),
+                backgroundColor = Color.White,
+                contentColor = HomeColors.DuolingoDarkGreen
+            )
         }
     }
 }
@@ -248,7 +273,7 @@ fun CurrentUserRankCard(
                         color = Color(0xFF6B7280)
                     )
                 }
-                
+
                 // Rank change indicator
                 rankChange?.let { change ->
                     RankChangeIndicator(change = change)
@@ -265,7 +290,7 @@ fun RankChangeIndicator(change: Int) {
         change < 0 -> Triple("↓", Color(0xFFF44336), "$change")    // Red
         else -> Triple("→", Color(0xFF757575), "0")                // Gray
     }
-    
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -297,7 +322,7 @@ fun LeaderboardEntryCard(
         elevation = CardDefaults.cardElevation(
             defaultElevation = 2.dp // Same for all items
         ),
-        border = if (isHighlighted) 
+        border = if (isHighlighted)
             BorderStroke(3.dp, HomeColors.DuolingoGreen) // Only border for user's item
         else null
     ) {
@@ -315,9 +340,9 @@ fun LeaderboardEntryCard(
                 color = Color(0xFF111827), // Same for all items
                 modifier = Modifier.width(50.dp)
             )
-            
+
             Spacer(modifier = Modifier.width(12.dp))
-            
+
             // Streak Days
             entry.streakDays?.let { streak ->
                 Row(
@@ -337,7 +362,7 @@ fun LeaderboardEntryCard(
                     )
                 }
             } ?: Spacer(modifier = Modifier.width(60.dp))
-            
+
             // Avatar + Name (together with weight = 1) - no spacing before this
             Row(
                 modifier = Modifier.weight(1f),
@@ -358,7 +383,7 @@ fun LeaderboardEntryCard(
                         modifier = Modifier.fillMaxSize()
                     )
                 }
-                
+
                 // Name
                 Text(
                     text = entry.name,
@@ -367,9 +392,9 @@ fun LeaderboardEntryCard(
                     color = Color(0xFF374151) // Same for all items
                 )
             }
-            
+
             Spacer(modifier = Modifier.width(12.dp))
-            
+
             // XP (no weight, fixed width)
             Column(
                 horizontalAlignment = Alignment.End,

@@ -4,6 +4,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,7 +32,7 @@ import com.seoulhankuko.app.presentation.utils.HomeColors
 import com.seoulhankuko.app.presentation.viewmodel.MainUiViewModel
 import com.seoulhankuko.app.presentation.viewmodel.MissionViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun MissionScreen(
     onNavigateToHome: () -> Unit,
@@ -43,6 +47,7 @@ fun MissionScreen(
     val userData by mainUiViewModel.userData.collectAsStateWithLifecycle()
     val missions by missionViewModel.missions.collectAsStateWithLifecycle()
     val isLoading by missionViewModel.isLoading.collectAsStateWithLifecycle()
+    val isRefreshing by missionViewModel.isRefreshing.collectAsStateWithLifecycle()
     val bonusRemaining by missionViewModel.bonusRemainingTime.collectAsStateWithLifecycle()
     val isBonusActive by missionViewModel.isBonusActive.collectAsStateWithLifecycle()
     
@@ -50,6 +55,11 @@ fun MissionScreen(
     LaunchedEffect(Unit) {
         missionViewModel.loadTodayMissions(userData.accessToken)
     }
+    
+    val pullRefreshState = rememberPullRefreshState(
+        refreshing = isRefreshing,
+        onRefresh = { missionViewModel.loadTodayMissions(userData.accessToken, isRefresh = true) }
+    )
 
     MainScaffold(
         topBarState = TopBarState(
@@ -72,64 +82,77 @@ fun MissionScreen(
         onAvatarClick = onNavigateToProfile,
         containerColor = HomeColors.DuolingoLightGray
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .pullRefresh(pullRefreshState)
         ) {
-            // Bonus indicator
-            if (isBonusActive) {
-                BonusIndicatorCard(
-                    remainingSeconds = bonusRemaining,
-                    modifier = Modifier.padding(16.dp)
-                )
-            }
-            
-            // Info card about x2 exp benefit
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFE3F2FD) // Light blue background
-                ),
-                shape = RoundedCornerShape(12.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            Column(
+                modifier = Modifier.fillMaxSize()
             ) {
-                Row(
+                // Bonus indicator
+                if (isBonusActive) {
+                    BonusIndicatorCard(
+                        remainingSeconds = bonusRemaining,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+                
+                // Info card about x2 exp benefit
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFE3F2FD) // Light blue background
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
-                    Text(
-                        text = "💡",
-                        fontSize = 24.sp
-                    )
-                    Text(
-                        text = "Hoàn thành nhiệm vụ để nhận x2 EXP trong 15 phút!",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFF1565C0), // Dark blue text
-                        modifier = Modifier.weight(1f)
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "💡",
+                            fontSize = 24.sp
+                        )
+                        Text(
+                            text = "Hoàn thành nhiệm vụ để nhận x2 EXP trong 15 phút!",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF1565C0), // Dark blue text
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+                
+                // Missions list
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(missions) { mission ->
+                        MissionCard(
+                            mission = mission,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
             
-            // Missions list
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(missions) { mission ->
-                    MissionCard(
-                        mission = mission,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
+            PullRefreshIndicator(
+                refreshing = isRefreshing,
+                state = pullRefreshState,
+                modifier = Modifier.align(Alignment.TopCenter),
+                backgroundColor = Color.White,
+                contentColor = HomeColors.DuolingoDarkGreen
+            )
         }
     }
 }
