@@ -63,6 +63,7 @@ import com.seoulhankuko.app.presentation.viewmodel.LessonViewModel
 import com.seoulhankuko.app.presentation.viewmodel.WritingSubmissionMode
 import com.seoulhankuko.app.presentation.viewmodel.WritingSubmissionUiState
 import com.seoulhankuko.app.presentation.viewmodel.TeacherScoreBreakdown
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -122,17 +123,19 @@ fun WritingScreen(
         submissionSnapshot?.submissionStatus?.equals("teacher_graded", ignoreCase = true) == true ||
         submissionSnapshot?.teacherFinalScore != null
     
-    // Chỉ hiển thị "đang chờ giáo viên" khi:
-    // - Không có teacher graded result, VÀ
-    // - Có teacher submission đang chờ (status = submitted) VÀ submissionState hiện tại là TEACHER mode
-    // - Hoặc có pending teacher result VÀ (submissionState null hoặc không phải AI mode)
-    // Lưu ý: pendingTeacherResult chỉ đáng tin nếu nó không có ai_score (thật sự là teacher submission)
-    val isAwaitingTeacherReview = !isTeacherGraded && (
-        (submissionSnapshot?.mode == WritingSubmissionMode.TEACHER &&
-            submissionSnapshot.submissionStatus?.equals("submitted", ignoreCase = true) == true) ||
-        (pendingTeacherResult != null && 
-            (submissionSnapshot == null || submissionSnapshot.mode != WritingSubmissionMode.AI) &&
-            pendingTeacherResult.aiScore == null) // Chỉ coi là teacher submission nếu không có ai_score
+        // Chỉ hiển thị "đang chờ giáo viên" khi:
+        // - Không có teacher graded result, VÀ
+        // - Có teacher submission đang chờ (status = submitted) VÀ submissionState hiện tại là TEACHER mode
+        // - Hoặc có pending teacher result VÀ (submissionState null hoặc không phải AI mode)
+        // Lưu ý: pendingTeacherResult chỉ đáng tin nếu nó không có ai_score (thật sự là teacher submission)
+        // QUAN TRỌNG: Không hiển thị "đang chờ giáo viên" nếu submissionState hiện tại là AI mode
+        val isAwaitingTeacherReview = !isTeacherGraded && 
+            submissionSnapshot?.mode != WritingSubmissionMode.AI && ( // Không hiển thị nếu đang ở AI mode
+            (submissionSnapshot?.mode == WritingSubmissionMode.TEACHER &&
+                submissionSnapshot.submissionStatus?.equals("submitted", ignoreCase = true) == true) ||
+            (pendingTeacherResult != null && 
+                (submissionSnapshot == null || submissionSnapshot.mode != WritingSubmissionMode.AI) &&
+                pendingTeacherResult.aiScore == null) // Chỉ coi là teacher submission nếu không có ai_score
         )
     
     val lockedText = when {
@@ -328,6 +331,10 @@ fun WritingContent(
     modifier: Modifier = Modifier
 ) {
     var userInput by remember { mutableStateOf(submissionState?.submittedText.orEmpty()) }
+    
+    // State để điều khiển hiển thị kết quả AI (tự động ẩn sau 3 giây)
+    var showAiResult by remember { mutableStateOf(false) }
+    
     LaunchedEffect(submissionState?.submittedText) {
         if (!isTeacherGraded && !isAwaitingTeacherReview) {
             submissionState?.submittedText?.let { userInput = it }
@@ -336,6 +343,24 @@ fun WritingContent(
     LaunchedEffect(lockedText, isTeacherGraded, isAwaitingTeacherReview) {
         if (isTeacherGraded || isAwaitingTeacherReview) {
             userInput = lockedText.orEmpty()
+        }
+    }
+    
+    // Tự động hiển thị và ẩn kết quả AI sau 3 giây
+    LaunchedEffect(
+        submissionState?.mode,
+        submissionState?.aiScore,
+        submissionState?.aiFeedback
+    ) {
+        val hasAiResult = submissionState?.mode == WritingSubmissionMode.AI &&
+            (submissionState?.aiScore != null || !submissionState?.aiFeedback.isNullOrBlank())
+        
+        if (hasAiResult) {
+            showAiResult = true
+            delay(3000) // 3 giây
+            showAiResult = false
+        } else {
+            showAiResult = false
         }
     }
     val scrollState = rememberScrollState()
@@ -458,10 +483,13 @@ fun WritingContent(
                     WritingInfoBanner(text = it)
                 }
 
-                // Hiển thị kết quả AI nếu có
+                // Hiển thị kết quả AI nếu có và showAiResult = true (tự động ẩn sau 3 giây)
+                // Chỉ hiển thị khi có điểm số (không phải cảnh báo/error)
                 if (
+                    showAiResult &&
                     state.mode == WritingSubmissionMode.AI &&
-                    (state.aiScore != null || !state.aiFeedback.isNullOrBlank())
+                    state.aiScore != null &&
+                    !state.aiFeedback.isNullOrBlank()
                 ) {
                     AiEvaluationCard(
                         aiScore = state.aiScore,
@@ -492,6 +520,8 @@ fun WritingContent(
                         isError = false
                     )
                 }
+                // Không hiển thị "đang chờ giáo viên" khi mode = AI, ngay cả khi status = "submitted"
+                // (có thể do AI chấm thất bại nhưng vẫn là AI mode, không phải Teacher mode)
             }
         }
 

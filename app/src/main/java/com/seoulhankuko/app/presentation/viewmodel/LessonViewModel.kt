@@ -315,6 +315,10 @@ class LessonViewModel @Inject constructor(
             WritingSubmissionMode.TEACHER -> "submitted"
         }
 
+        // Nếu aiScore = null nhưng có aiFeedback → đây là cảnh báo/error (ví dụ: ngôn ngữ không phải tiếng Hàn)
+        // Không nên hiển thị như kết quả chấm thành công
+        val isAiError = mode == WritingSubmissionMode.AI && aiScore == null && !aiFeedback.isNullOrBlank()
+
         return WritingSubmissionUiState(
             isSubmitting = false,
             submissionStatus = resolvedStatus,
@@ -325,7 +329,8 @@ class LessonViewModel @Inject constructor(
             teacherScores = teacherScores,
             expEarned = expEarned,
             message = message,
-            errorMessage = null,
+            // Nếu là cảnh báo AI (ngôn ngữ không phải tiếng Hàn), hiển thị như error
+            errorMessage = if (isAiError) aiFeedback else null,
             mode = mode,
             submittedText = submittedText
         )

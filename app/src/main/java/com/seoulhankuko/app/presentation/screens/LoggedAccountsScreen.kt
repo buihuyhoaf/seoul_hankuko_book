@@ -58,30 +58,58 @@ fun LoggedAccountsScreen(
     var showDeleteConfirmation by remember { mutableStateOf<LoggedAccount?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var currentAutoLoginAccount by remember { mutableStateOf<LoggedAccount?>(null) }
+    var isNavigatingToLogin by remember { mutableStateOf(false) }
 
     // Animation states
     var isVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         isVisible = true
+        // Reset navigation flag when screen is first displayed
+        isNavigatingToLogin = false
+    }
+
+    // Cancel any pending auto-login when navigating to login screen
+    LaunchedEffect(isNavigatingToLogin) {
+        if (isNavigatingToLogin) {
+            // Immediately cancel any pending auto-login operations
+            currentAutoLoginAccount = null
+            isLoading = false
+            viewModel.clearAutoLoginState()
+        }
     }
 
     // Handle auto-login state changes
     LaunchedEffect(autoLoginState) {
+        // Don't handle auto-login if we're navigating away
+        if (isNavigatingToLogin) {
+            // If navigating to login, clear any pending state and return
+            isLoading = false
+            viewModel.clearAutoLoginState()
+            return@LaunchedEffect
+        }
+        
         when (autoLoginState) {
             is AutoLoginState.Loading -> {
-                isLoading = true
+                if (!isNavigatingToLogin) {
+                    isLoading = true
+                }
             }
             is AutoLoginState.Success -> {
                 isLoading = false
                 viewModel.clearAutoLoginState()
-                onSuccessfulAutoLogin()
+                // Only navigate if not already navigating to login
+                if (!isNavigatingToLogin) {
+                    onSuccessfulAutoLogin()
+                }
             }
             is AutoLoginState.Error -> {
                 isLoading = false
-                // Show error dialog for the account that failed to auto-login
-                showErrorDialog = currentAutoLoginAccount
-                currentAutoLoginAccount = null
+                // Only show error dialog if not navigating away
+                if (!isNavigatingToLogin) {
+                    showErrorDialog = currentAutoLoginAccount
+                    currentAutoLoginAccount = null
+                }
                 viewModel.clearAutoLoginState()
             }
             is AutoLoginState.Idle -> {
@@ -202,6 +230,7 @@ fun LoggedAccountsScreen(
                             LoggedAccountItem(
                                 account = account,
                                 onClick = {
+                                    isNavigatingToLogin = false
                                     currentAutoLoginAccount = account
                                     viewModel.tryAutoLogin(account)
                                 },
@@ -226,7 +255,16 @@ fun LoggedAccountsScreen(
                         )
             ) {
                 Button(
-                    onClick = onAddAccountClick,
+                    onClick = {
+                        // CRITICAL: Set flag FIRST to prevent any auto-login from completing
+                        isNavigatingToLogin = true
+                        // Clear any pending auto-login state and reset current account
+                        currentAutoLoginAccount = null
+                        isLoading = false
+                        viewModel.clearAutoLoginState()
+                        // Navigate to login screen immediately - this must happen synchronously
+                        onAddAccountClick()
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(dimensionResource(R.dimen.button_height)),

@@ -147,8 +147,13 @@ fun AppNavigation(
                     }
                 },
                 onAddAccountClick = {
+                    // Navigate to login screen without any auto-login
+                    // Clear any pending auto-login state first
                     navController.navigate("login") {
-                        popUpTo("logged-accounts") { inclusive = false }
+                        // Pop logged-accounts screen so user can go back to home if needed
+                        popUpTo("logged-accounts") { inclusive = true }
+                        // Use launchSingleTop to prevent multiple instances
+                        launchSingleTop = true
                     }
                 },
                 onBackClick = {
