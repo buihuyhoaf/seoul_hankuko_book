@@ -2,10 +2,10 @@ package com.seoulhankuko.app.presentation.screens
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -18,10 +18,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -29,9 +30,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.SubcomposeAsyncImage
+import com.seoulhankuko.app.R
 import com.seoulhankuko.app.domain.model.LoggedAccount
-import com.seoulhankuko.app.presentation.viewmodel.AuthViewModel
 import com.seoulhankuko.app.presentation.components.SouthKoreaLoadingIcon
+import com.seoulhankuko.app.presentation.ui.theme.WhiteBackground
+import com.seoulhankuko.app.presentation.utils.LoginColors
+import com.seoulhankuko.app.presentation.viewmodel.AuthViewModel
 import com.seoulhankuko.app.presentation.viewmodel.AutoLoginState
 import java.text.SimpleDateFormat
 import java.util.*
@@ -54,14 +58,14 @@ fun LoggedAccountsScreen(
     var showDeleteConfirmation by remember { mutableStateOf<LoggedAccount?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var currentAutoLoginAccount by remember { mutableStateOf<LoggedAccount?>(null) }
-    
+
     // Animation states
     var isVisible by remember { mutableStateOf(false) }
-    
+
     LaunchedEffect(Unit) {
         isVisible = true
     }
-    
+
     // Handle auto-login state changes
     LaunchedEffect(autoLoginState) {
         when (autoLoginState) {
@@ -85,22 +89,27 @@ fun LoggedAccountsScreen(
             }
         }
     }
-    
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = WhiteBackground
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp)
         ) {
-            Spacer(modifier = Modifier.height(32.dp))
-            
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(dimensionResource(R.dimen.login_screen_padding)),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Spacer(modifier = Modifier.height(dimensionResource(R.dimen.login_screen_large_spacing)))
+
             // Header with optional app logo
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(dimensionResource(R.dimen.spacing_medium)),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 // App icon/logo (you can replace with your app's icon)
@@ -108,34 +117,30 @@ fun LoggedAccountsScreen(
                     imageVector = Icons.Default.AccountCircle,
                     contentDescription = "App Logo",
                     modifier = Modifier
-                        .size(64.dp)
-                        .scale(if (isVisible) 1f else 0.8f),
-                    tint = MaterialTheme.colorScheme.primary
+                        .size(72.dp),
+                    tint = LoginColors.PrimaryButton
                 )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Title with animation
-                AnimatedVisibility(
-                    visible = isVisible,
-                    enter = fadeIn(animationSpec = tween(800, delayMillis = 200)) + 
-                            slideInVertically(
-                                initialOffsetY = { -it / 2 },
-                                animationSpec = tween(800, delayMillis = 200)
-                            )
-                ) {
-                    Text(
-                        text = "Choose an Account",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        textAlign = TextAlign.Center
-                    )
-                }
+
+                // Title
+                Text(
+                    text = stringResource(R.string.logged_accounts_title),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = LoginColors.TitleGreen,
+                    textAlign = TextAlign.Center
+                )
+
+                // Subtitle
+                Text(
+                    text = stringResource(R.string.logged_accounts_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = LoginColors.SubtitleGreen,
+                    textAlign = TextAlign.Center
+                )
             }
-            
-            Spacer(modifier = Modifier.height(32.dp))
-            
+
+            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.login_screen_large_spacing)))
+
             // Accounts list
             if (loggedAccounts.isEmpty()) {
                 // Empty state with animation
@@ -144,7 +149,9 @@ fun LoggedAccountsScreen(
                     enter = fadeIn(animationSpec = tween(800, delayMillis = 400))
                 ) {
                     Box(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(
@@ -155,20 +162,20 @@ fun LoggedAccountsScreen(
                                 imageVector = Icons.Default.AccountBox,
                                 contentDescription = null,
                                 modifier = Modifier.size(64.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = LoginColors.SubtitleGreen
                             )
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.spacing_medium)))
                             Text(
-                                text = "No accounts found",
+                                text = stringResource(R.string.logged_accounts_empty_title),
                                 style = MaterialTheme.typography.headlineSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = LoginColors.TitleGreen,
                                 textAlign = TextAlign.Center
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.spacing_small)))
                             Text(
-                                text = "Add your first account to get started",
+                                text = stringResource(R.string.logged_accounts_empty_subtitle),
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = LoginColors.SubtitleGreen,
                                 textAlign = TextAlign.Center
                             )
                         }
@@ -186,7 +193,7 @@ fun LoggedAccountsScreen(
                     ) { index, account ->
                         AnimatedVisibility(
                             visible = isVisible,
-                            enter = fadeIn(animationSpec = tween(600)) + 
+                            enter = fadeIn(animationSpec = tween(600)) +
                                     slideInVertically(
                                         initialOffsetY = { it },
                                         animationSpec = tween(600, delayMillis = (index * 100))
@@ -206,13 +213,13 @@ fun LoggedAccountsScreen(
                     }
                 }
             }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
+
+            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.login_screen_spacing)))
+
             // Add Account Button with animation
             AnimatedVisibility(
                 visible = isVisible,
-                enter = fadeIn(animationSpec = tween(800, delayMillis = 600)) + 
+                enter = fadeIn(animationSpec = tween(800, delayMillis = 600)) +
                         scaleIn(
                             initialScale = 0.9f,
                             animationSpec = tween(800, delayMillis = 600)
@@ -220,8 +227,16 @@ fun LoggedAccountsScreen(
             ) {
                 Button(
                     onClick = onAddAccountClick,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(dimensionResource(R.dimen.button_height)),
+                    shape = MaterialTheme.shapes.medium,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = LoginColors.PrimaryButton,
+                        contentColor = Color.White,
+                        disabledContainerColor = LoginColors.Disabled,
+                        disabledContentColor = LoginColors.DisabledText
+                    ),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
                 ) {
                     Icon(
@@ -231,19 +246,20 @@ fun LoggedAccountsScreen(
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = "+ Add another account",
+                        text = stringResource(R.string.logged_accounts_add_account),
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White
                     )
                 }
             }
-            
-            Spacer(modifier = Modifier.height(32.dp))
+
+            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.spacing_xlarge)))
         }
-        
+
         // Note: No back button since LoggedAccountsScreen is an entry point
         // when user has saved accounts but no valid session
-        
+
         // Loading overlay
         if (isLoading) {
             Box(
@@ -271,8 +287,9 @@ fun LoggedAccountsScreen(
                 }
             }
         }
+        }
     }
-    
+
     // Error dialog with improved styling
     showErrorDialog?.let { failedAccount ->
         AlertDialog(
@@ -374,7 +391,7 @@ fun LoggedAccountsScreen(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun LoggedAccountItem(
+fun LoggedAccountItem(
     account: LoggedAccount,
     onClick: () -> Unit,
     onLongClick: () -> Unit
@@ -454,9 +471,9 @@ private fun LoggedAccountItem(
                     }
                 )
             }
-            
+
             Spacer(modifier = Modifier.width(16.dp))
-            
+
             // Account info with enhanced typography
             Column(
                 modifier = Modifier.weight(1f)
@@ -471,7 +488,7 @@ private fun LoggedAccountItem(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                
+
                 // Show email if display name is available, otherwise show "Last active" info
                 if (account.displayName.isNotBlank()) {
                     Text(
@@ -482,14 +499,14 @@ private fun LoggedAccountItem(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                
+
                 Text(
                     text = "Last active: ${formatLastLoginTime(account.lastLogin)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                 )
             }
-            
+
             // Chevron indicator
             Icon(
                 imageVector = Icons.Default.KeyboardArrowRight,
@@ -501,10 +518,10 @@ private fun LoggedAccountItem(
     }
 }
 
-private fun formatLastLoginTime(timestamp: Long): String {
+fun formatLastLoginTime(timestamp: Long): String {
     val now = System.currentTimeMillis()
     val diff = now - timestamp
-    
+
     return when {
         diff < 60 * 1000 -> "just now"
         diff < 60 * 60 * 1000 -> "${diff / (60 * 1000)} minutes ago"

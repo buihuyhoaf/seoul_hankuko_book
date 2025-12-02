@@ -32,6 +32,13 @@
     <string name="dont_have_account">Chưa có tài khoản?</string>
     <string name="sign_up">Đăng ký</string>
     
+    <!-- Logged Accounts Screen -->
+    <string name="logged_accounts_title">Chọn tài khoản</string>
+    <string name="logged_accounts_subtitle">Chọn một tài khoản đã đăng nhập trước đó để tiếp tục</string>
+    <string name="logged_accounts_empty_title">Chưa có tài khoản nào</string>
+    <string name="logged_accounts_empty_subtitle">Thêm tài khoản đầu tiên của bạn để bắt đầu</string>
+    <string name="logged_accounts_add_account">+ Thêm tài khoản khác</string>
+    
     <!-- Google Sign In -->
     <string name="or_text">Or</string>
     
