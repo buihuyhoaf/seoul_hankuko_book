@@ -2,15 +2,8 @@ package com.seoulhankuko.app.presentation.components
 
 import android.content.Context
 import android.media.MediaPlayer
-import android.net.Uri
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
-import com.seoulhankuko.app.presentation.utils.ComponentColors
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.io.IOException
 
@@ -87,51 +80,5 @@ class AudioManager(private val context: Context) {
     
     fun cleanup() {
         stopAudio()
-    }
-}
-
-@Composable
-fun AudioButton(
-    audioSrc: String?,
-    modifier: androidx.compose.ui.Modifier = androidx.compose.ui.Modifier,
-    onPlayAudio: (String?) -> Unit = {}
-) {
-    val audioManager = rememberAudioManager()
-    var isPlaying by remember { mutableStateOf(false) }
-    
-    // Check if this audio is currently playing
-    LaunchedEffect(audioManager.getCurrentAudioUrl()) {
-        isPlaying = audioManager.getCurrentAudioUrl() == audioSrc && audioManager.isPlaying()
-    }
-    
-    // Cleanup when composable is disposed
-    DisposableEffect(Unit) {
-        onDispose {
-            audioManager.cleanup()
-        }
-    }
-    
-    if (!audioSrc.isNullOrBlank()) {
-        androidx.compose.material3.IconButton(
-            onClick = {
-                if (isPlaying) {
-                    audioManager.stopAudio()
-                    isPlaying = false
-                } else {
-                    audioManager.playAudio(audioSrc)
-                    isPlaying = true
-                }
-            },
-            modifier = modifier
-        ) {
-            androidx.compose.material3.Icon(
-                imageVector = if (isPlaying) 
-                    Icons.Default.Close 
-                else 
-                    Icons.Default.PlayArrow,
-                contentDescription = if (isPlaying) "Stop audio" else "Play audio",
-                tint = ComponentColors.AudioPlayerTint
-            )
-        }
     }
 }

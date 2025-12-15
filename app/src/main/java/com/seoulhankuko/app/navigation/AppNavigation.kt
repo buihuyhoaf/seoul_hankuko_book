@@ -24,7 +24,6 @@ import com.seoulhankuko.app.presentation.screens.HangulAlphabetScreen
 import com.seoulhankuko.app.presentation.screens.MissionScreen
 import com.seoulhankuko.app.presentation.screens.ProfileScreen
 import com.seoulhankuko.app.presentation.screens.MistakesReviewScreen
-import com.seoulhankuko.app.presentation.screens.CanvasScreen
 import com.seoulhankuko.app.ui.screen.canvas.HangulCanvasScreen
 import com.seoulhankuko.app.presentation.screens.QuestsScreen
 import com.seoulhankuko.app.presentation.screens.ShopScreen

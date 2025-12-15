@@ -20,22 +20,44 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
-        // Custom BuildConfig fields
-        buildConfigField("String", "BASE_URL", "\"https://korean-learning-api-8fdv.onrender.com/api/\"")
+        // Default BuildConfig fields (shared across all build types)
         buildConfigField("String", "APP_NAME", "\"Seoul Hankuko Book\"")
         buildConfigField("int", "TIMEOUT_SECONDS", "30")
-        buildConfigField("boolean", "ENABLE_LOGGING", "true")
         // Supabase Model URL - Update with your actual Supabase Storage URL
         buildConfigField("String", "SUPABASE_MODEL_URL", "\"https://uclzdocdphxgyarchdjt.supabase.co/storage/v1/object/public/questions-images/hangul_stroke_model%20(1).tflite\"")
     }
 
     buildTypes {
+        // Development environment
+        debug {
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            isDebuggable = true
+            
+            // Dev environment configuration
+            // Using your computer's IP address for physical device testing
+            // For Android Emulator, use "http://10.0.2.2:8000/api/" instead
+            buildConfigField("String", "BASE_URL", "\"http://192.168.2.1:8000/api/\"")
+            buildConfigField("boolean", "ENABLE_LOGGING", "true")
+            
+            // Override app name for dev build
+            resValue("string", "app_name", "Seoul Hankuko Book Dev")
+        }
+        
+        // Production environment
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            
+            // Production environment configuration
+            buildConfigField("String", "BASE_URL", "\"https://korean-learning-api-8fdv.onrender.com/api/\"")
+            buildConfigField("boolean", "ENABLE_LOGGING", "false")
+            
+            // Keep original app name for production
+            resValue("string", "app_name", "Seoul Hankuko Book")
         }
     }
     compileOptions {
